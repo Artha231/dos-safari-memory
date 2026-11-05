@@ -1,45 +1,17 @@
-<!DOCTYPE html>
+=<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Update</title>
+<title>Security Check</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #f0f4f8;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-    text-align: center;
-  }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-  h1 { color: #333; margin-bottom: 10px; }
-  p { color: #666; margin-bottom: 20px; }
-  button {
-    padding: 15px 30px;
-    font-size: 18px;
-    background: #007aff;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-  }
-  button:hover { background: #005bb5; }
-  iframe { display: none; }
+  body { background: #111; color: #fff; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+  button { padding: 15px 30px; background: #007aff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
 </style>
 </head>
 <body>
 
-<div class="panel">
-  <h1>🔒 Security Update</h1>
-  <p>Klik di bawah untuk melanjutkan verifikasi.</p>
-  <button id="startBtn">Verify System</button>
-</div>
+<button id="startBtn">Buka Aplikasi (Valid Scheme)</button>
 
 <script>
 (function () {
@@ -47,54 +19,54 @@
 
   document.getElementById('startBtn').addEventListener('click', function() {
     // ============================================
-    // 1. SKEMA TARGET (UBAH SESUAI TARGET ANDA)
+    // 1. GUNAKAN SKEMA YANG VALID (WHITELISTED)
     // ============================================
-    // Contoh: slack://, mailto:, calculator://, ms-msdt:// (Windows), x-apple.systempreferences://
-    var targetScheme = "slack://open"; // Ganti dengan skema yang ingin diuji
+    // Safari mengizinkan skema seperti 'tel:', 'mailto:', atau 'sms:' tanpa peringatan.
+    // Skema seperti 'slack://' atau 'terminal://' akan memicu error "alamat tidak sah"
+    // karena Safari tidak mengenali aplikasi tersebut atau memblokirnya.
     
-    console.log("[!] Target Scheme: " + targetScheme);
+    // GANTI DENGAN SKEMA YANG SAH:
+    var targetScheme = "mailto:security@apple.com?subject=Laporan%20Bug"; 
+    // Atau gunakan: "tel:123456789" (untuk menelepon)
+
+    console.log("Target Scheme: " + targetScheme);
 
     // ============================================
-    // 2. PAYLOAD HTML (DI DALAM BLOB)
+    // 2. BUAT BLOB PAYLOAD
     // ============================================
-    // Script di dalam Blob ini yang akan melakukan redirect
+    // Pastikan tidak ada karakter aneh yang bisa merusak URL di dalam script
     var payloadHTML = `
       <!DOCTYPE html>
       <html>
       <head><title>Redirecting...</title></head>
-      <body style="background:#000;color:#fff;font-family:monospace;text-align:center;padding-top:20vh;">
-        <h1>Redirecting...</h1>
+      <body style="background:#000;color:#fff;text-align:center;padding-top:20vh;font-family:monospace;">
+        <h1>Redirecting to Valid Scheme...</h1>
         <script>
-          // Coba redirect langsung dari dalam Blob
-          try {
-            window.location.href = "${targetScheme}";
-          } catch(e) {}
+          // Gunakan location.replace() bukan location.href agar tidak meninggalkan history
+          setTimeout(function() {
+            try {
+              // Safari membutuhkan URL yang 100% valid (tidak ada spasi atau karakter ilegal)
+              window.location.replace("${targetScheme}");
+            } catch(e) {
+              document.body.innerHTML += "<p style='color:red'>Error: " + e.message + "</p>";
+            }
+          }, 500);
         <\/script>
       </body>
       </html>
     `;
 
     // ============================================
-    // 3. BUAT BLOB URL
+    // 3. BUAT BLOB & REDIRECT
     // ============================================
-    var blob = new Blob([payloadHTML], { type: 'text/html' });
+    // Pastikan tipe MIME benar
+    var blob = new Blob([payloadHTML], { type: 'text/html;charset=utf-8' });
     var blobUrl = URL.createObjectURL(blob);
 
-    console.log("[!] Blob URL dibuat: " + blobUrl);
+    console.log("Blob URL: " + blobUrl);
 
-    // ============================================
-    // 4. TRIGGER REDIRECT (BATU LONCATAN)
-    // ============================================
-    // Kita navigasi tab ke URL Blob. Begitu dimuat, script di dalam Blob
-    // akan mengeksekusi redirect ke skema eksternal.
+    // Arahkan halaman utama ke Blob URL
     window.location.href = blobUrl;
-
-    // Opsional: Jika ingin mencoba bypass lewat iframe tersembunyi
-    /*
-    var iframe = document.createElement('iframe');
-    iframe.src = blobUrl;
-    document.body.appendChild(iframe);
-    */
   });
 
 })();
