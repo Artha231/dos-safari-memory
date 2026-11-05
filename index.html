@@ -2,20 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>UXSS Blob Test</title>
+<title>YouTube UXSS Test</title>
 <style>
-  body { font-family: monospace; background: #111; color: #0f0; padding: 20px; }
-  #log { background: #000; padding: 15px; border: 1px solid #333; height: 400px; overflow-y: auto; margin-top: 20px; }
-  iframe { display: none; }
+  body { font-family: monospace; background: #111; color: #0f0; padding: 20px; text-align: center; }
+  button { padding: 15px 30px; font-size: 18px; background: #f00; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+  button:hover { background: #c00; }
+  #log { background: #000; padding: 15px; border: 1px solid #333; height: 200px; overflow-y: auto; text-align: left; margin-top: 20px; }
 </style>
 </head>
 <body>
 
-<h1>🧪 UXSS via Blob URL Test</h1>
-<p>Menguji apakah Blob URL bisa mem-bypass SOP dan mengakses domain lain.</p>
-
-<button id="btnTest1">1. Test Blob Origin Inheritance</button>
-<button id="btnTest2">2. Test Blob with Parent Access</button>
+<h1>🎯 YouTube UXSS & Alert Test</h1>
+<p>Mencoba memaksa YouTube memunculkan Alert.</p>
+<button id="attackBtn">🚀 Buka YouTube & Inject Alert</button>
 
 <div id="log">Menunggu...</div>
 
@@ -30,109 +29,54 @@
     console.log(msg);
   }
 
-  // ============================================
-  // TEST 1: BLOB ORIGIN INHERITANCE
-  // ============================================
-  document.getElementById('btnTest1').onclick = function() {
+  document.getElementById('attackBtn').addEventListener('click', function() {
     logEl.innerHTML = '';
-    log("Membuat Blob URL...", 'info');
+    log("Membuka YouTube...", 'info');
 
-    // 1. Buat HTML payload
-    var payload = `
-      <!DOCTYPE html>
-      <html>
-      <body style="background:#000;color:#0f0;font-family:monospace;">
-        <h1>Blob Executed</h1>
-        <script>
-          // Coba akses parent (harusnya diblokir SOP)
-          try {
-            if (window.parent && window.parent.document) {
-              parent.postMessage({ status: 'parent_access_success', title: window.parent.document.title }, '*');
-            }
-          } catch(e) {
-            parent.postMessage({ status: 'parent_access_fail', error: e.name }, '*');
-          }
+    // 1. Buka YouTube di tab baru
+    var ytWin = window.open('https://www.youtube.com', '_blank');
 
-          // Coba akses cookie
-          try {
-            var cookies = document.cookie;
-            parent.postMessage({ status: 'cookie_access', cookies: cookies }, '*');
-          } catch(e) {
-            parent.postMessage({ status: 'cookie_fail', error: e.name }, '*');
-          }
+    if (!ytWin) {
+      log("❌ Popup diblokir. Izinkan popup untuk melanjutkan.", 'error');
+      return;
+    }
 
-          // Tampilkan origin Blob
-          parent.postMessage({ status: 'origin', origin: window.location.origin, href: window.location.href }, '*');
-        <\/script>
-      </body>
-      </html>
-    `;
+    // 2. Tunggu YouTube selesai loading
+    setTimeout(function() {
+      log("Mencoba akses DOM YouTube...", 'info');
 
-    // 2. Buat Blob dan URL
-    var blob = new Blob([payload], { type: 'text/html' });
-    var url = URL.createObjectURL(blob);
-    log("Blob URL dibuat: " + url, 'info');
+      try {
+        // Mencoba mengakses dokumen YouTube (Ini PASTI GAGAL karena SOP)
+        var doc = ytWin.document;
+        
+        // Jika sampai sini, berarti BUG BESAR (UXSS)
+        log("🚨 BUG CRITICAL: Akses DOM YouTube berhasil!", 'success');
+        
+        // Coba suntikkan alert
+        doc.body.innerHTML = "<h1>HACKED</h1>";
+        ytWin.alert("HACKED BY SHADOW CORE");
 
-    // 3. Buat iframe dan set src ke Blob
-    var iframe = document.createElement('iframe');
-    iframe.src = url;
-    document.body.appendChild(iframe);
-
-    // 4. Tangkap pesan dari iframe
-    window.onmessage = function(e) {
-      if (e.data.status === 'parent_access_success') {
-        log("🚨 BUG UXSS: Berhasil akses parent! Title: " + e.data.title, 'success');
-      } else if (e.data.status === 'parent_access_fail') {
-        log("✅ SOP Menahan Akses Parent: " + e.data.error, 'info');
-      } else if (e.data.status === 'cookie_access') {
-        log("🚨 BUG UXSS: Berhasil baca cookie: " + e.data.cookies, 'success');
-      } else if (e.data.status === 'cookie_fail') {
-        log("✅ Cookie diblokir: " + e.data.error, 'info');
-      } else if (e.data.status === 'origin') {
-        log("📋 Blob Origin: " + e.data.origin, 'info');
-        log("📋 Blob Href: " + e.data.href, 'info');
+      } catch (e) {
+        log("✅ Akses DOM YouTube diblokir oleh SOP: " + e.name, 'info');
+        log("   (Ini adalah perilaku yang benar/aman)", 'info');
       }
-    };
-  };
 
-  // ============================================
-  // TEST 2: BLOB DENGAN TARGET DOMAIN LAIN
-  // ============================================
-  document.getElementById('btnTest2').onclick = function() {
-    logEl.innerHTML = '';
-    log("Menguji Blob dengan target domain lain (Google)...", 'info');
-
-    // 1. Buat payload yang mencoba fetch ke domain lain
-    var payload = `
-      <!DOCTYPE html>
-      <html>
-      <body style="background:#000;color:#0f0;font-family:monospace;">
-        <script>
-          // Coba fetch Google (harusnya diblokir CORS & SOP)
-          fetch('https://accounts.google.com')
-            .then(r => r.text())
-            .then(t => parent.postMessage({ status: 'fetch_success', length: t.length }, '*'))
-            .catch(e => parent.postMessage({ status: 'fetch_fail', error: e.message }, '*'));
-        <\/script>
-      </body>
-      </html>
-    `;
-
-    var blob = new Blob([payload], { type: 'text/html' });
-    var url = URL.createObjectURL(blob);
-    
-    var iframe = document.createElement('iframe');
-    iframe.src = url;
-    document.body.appendChild(iframe);
-
-    window.onmessage = function(e) {
-      if (e.data.status === 'fetch_success') {
-        log("🚨 BUG CRITICAL: Berhasil fetch Google dari Blob! Length: " + e.data.length, 'success');
-      } else if (e.data.status === 'fetch_fail') {
-        log("✅ SOP/CORS Menahan Fetch: " + e.data.error, 'info');
+      // 3. Trik Alternatif: Manipulasi URL (Hash/Params)
+      try {
+        log("Mencoba manipulasi URL YouTube via window.location...", 'info');
+        
+        // Trik: Mengubah hash untuk memicu event hashchange di YouTube
+        // (Terkadang YouTube memiliki listener yang rentan terhadap DOM XSS via hash)
+        ytWin.location.hash = "<img src=x onerror=alert('XSS')>";
+        
+        log("URL Hash telah diubah. Cek tab YouTube, apakah ada alert?", 'warn');
+      } catch (e) {
+        log("❌ Gagal mengubah URL: " + e.name, 'error');
       }
-    };
-  };
+
+    }, 3000); // Tunggu 3 detik
+
+  });
 
 })();
 </script>
