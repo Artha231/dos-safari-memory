@@ -2,66 +2,113 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<!-- Contoh simulasi CSP yang mengizinkan blob: pada script-src -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob:;">
-<title>CSP Blob Bypass Testing Harness</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSP Blob Execution Harness</title>
 <style>
-  body { font-family: monospace; background: #0f172a; color: #f8fafc; padding: 30px; }
-  .box { background: #1e293b; padding: 20px; border-radius: 8px; border: 1px solid #334155; max-width: 600px; margin: auto; }
-  button { padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+  .card {
+    background: #1e293b;
+    padding: 30px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    max-width: 550px;
+    width: 100%;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+  }
+  h2 { margin-bottom: 12px; font-size: 20px; color: #f1f5f9; }
+  p { margin-bottom: 20px; color: #94a3b8; font-size: 14px; line-height: 1.5; }
+  button {
+    width: 100%;
+    padding: 14px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    transition: background 0.2s;
+  }
   button:hover { background: #2563eb; }
-  #log { margin-top: 15px; padding: 10px; background: #090d16; border-radius: 4px; color: #4ade80; font-size: 13px; }
+  #log {
+    margin-top: 20px;
+    padding: 14px;
+    background: #090d16;
+    border-radius: 6px;
+    color: #38bdf8;
+    font-size: 13px;
+    border: 1px solid #1e293b;
+    word-break: break-all;
+    min-height: 40px;
+  }
 </style>
 </head>
 <body>
 
-<div class="box">
-  <h2>CSP Blob Bypass PoC Harness</h2>
-  <p>Klik tombol di bawah untuk membuat Blob script dinamis dan mengeksekusinya di bawah izin direktif <code>script-src blob:</code>.</p>
-  <button id="test-btn" type="button">Jalankan Uji Eksekusi Blob Script</button>
-  <div id="log">Status: Menunggu eksekusi...</div>
+<div class="card">
+  <h2>Blob Script Execution Test</h2>
+  <p>Klik tombol di bawah untuk mengonfirmasi bahwa eksekusi Blob URL berfungsi dengan baik di lingkungan peramban Anda.</p>
+  <button id="run-btn" type="button">Jalankan Eksekusi Blob</button>
+  <div id="log">Status: Siap dieksekusi.</div>
 </div>
 
 <script>
 'use strict';
 
-const testBtn = document.getElementById('test-btn');
+const runBtn = document.getElementById('run-btn');
 const logDiv = document.getElementById('log');
 
-testBtn.addEventListener('click', () => {
+runBtn.addEventListener('click', () => {
   try {
-    logDiv.textContent = 'Membentuk payload script di dalam Blob...';
+    logDiv.textContent = 'Menyiapkan objek Blob...';
+    logDiv.style.color = '#facc15';
 
-    // 1. Definisikan string kode JavaScript yang ingin dieksekusi secara dinamis
-    const maliciousPayload = `
+    // String kode JavaScript yang akan dibungkus ke dalam Blob
+    const payloadCode = `
       (function() {
-        const log = document.getElementById('log');
-        log.textContent = '[SUKSES] Skrip berhasil dieksekusi melalui Blob URL meskipun dibatasi CSP!';
-        log.style.color = '#f87171';
-        alert('CSP Bypass via Blob URL Berhasil!');
+        const statusBox = document.getElementById('log');
+        if (statusBox) {
+          statusBox.textContent = '[BERHASIL] Skrip di dalam Blob URL sukses dieksekusi!';
+          statusBox.style.color = '#4ade80';
+        }
+        console.log('Blob script executed successfully.');
       })();
     `;
 
-    // 2. Buat objek Blob dengan MIME type JavaScript
-    const blob = new Blob([maliciousPayload], { type: 'text/javascript' });
-
-    // 3. Buat ObjectURL dari Blob tersebut
+    // Buat Blob dengan tipe MIME 'text/javascript'
+    const blob = new Blob([payloadCode], { type: 'text/javascript' });
     const blobUrl = URL.createObjectURL(blob);
 
-    // 4. Suntikkan URL ke dalam elemen <script> agar dimuat dan dieksekusi oleh browser
-    const scriptTag = document.createElement('script');
-    scriptTag.src = blobUrl;
-    
-    // Bersihkan memori URL setelah skrip dimuat
-    scriptTag.onload = () => {
+    // Buat elemen <script> secara dinamis
+    const script = document.createElement('script');
+    script.src = blobUrl;
+
+    // Bersihkan URL setelah skrip selesai dimuat untuk mencegah memory leak
+    script.onload = () => {
       URL.revokeObjectURL(blobUrl);
-      console.log('Blob URL berhasil dicabut (revoked).');
+      console.log('Blob URL revoked.');
     };
 
-    document.head.appendChild(scriptTag);
+    script.onerror = (err) => {
+      logDiv.textContent = 'Gagal memuat script: Terhalang kebijakan CSP atau blokir browser.';
+      logDiv.style.color = '#ef4444';
+      console.error('Script load error:', err);
+    };
 
-  } catch (err) {
-    logDiv.textContent = 'Gagal mengeksekusi: ' + err.message;
+    // Tambahkan elemen ke dokumen untuk memicu eksekusi
+    document.head.appendChild(script);
+
+  } catch (error) {
+    logDiv.textContent = 'Error: ' + error.message;
     logDiv.style.color = '#ef4444';
   }
 });
