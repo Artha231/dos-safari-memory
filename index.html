@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>History API Flooding Test</title>
+<title>Pop-up Blocker Bypass Test</title>
 <style>
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -21,66 +21,75 @@
     border: 1px solid #334155;
   }
   button {
-    background: #ef4444;
+    background: #3b82f6;
     color: white;
     border: none;
-    padding: 12px 24px;
+    padding: 14px 24px;
     font-size: 16px;
     font-weight: 600;
     border-radius: 8px;
     cursor: pointer;
     margin-top: 16px;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
   }
-  button:hover { background: #dc2626; }
+  button:hover { background: #2563eb; }
   #status {
     margin-top: 20px;
     font-family: monospace;
     color: #38bdf8;
-    font-size: 14px;
+    font-size: 13px;
+    background: #0f172a;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #334155;
   }
 </style>
 </head>
 <body>
 
 <div class="card">
-  <h2>History API Flooding PoC</h2>
-  <p>Klik tombol di bawah untuk membanjiri history stack menggunakan <code>history.pushState()</code> secara masif.</p>
-  <button id="flood-btn">Mulai History Flood</button>
-  <div id="status">Status: Siap diuji. (Perhatikan tombol Back browser setelah dimulai)</div>
+  <h2>Pop-up Blocker Bypass Test</h2>
+  <p>Uji perilaku browser terhadap pemanggilan <code>window.open</code> dan simulasi klik anchor otomatis.</p>
+  <button id="test-btn">Jalankan Uji Pop-up</button>
+  <div id="status">Status: Menunggu interaksi pengguna...</div>
 </div>
 
 <script>
 'use strict';
 
-const floodBtn = document.getElementById('flood-btn');
+const testBtn = document.getElementById('test-btn');
 const statusDiv = document.getElementById('status');
-let isFlooding = false;
 
-floodBtn.addEventListener('click', () => {
-  if (isFlooding) return;
-  isFlooding = true;
-  floodBtn.disabled = true;
-  floodBtn.style.opacity = '0.5';
+testBtn.addEventListener('click', () => {
+  statusDiv.textContent = 'Status: Mencoba membuka jendela baru (Synchronous Context)...';
 
-  let count = 0;
-  statusDiv.textContent = 'Status: Membanjiri history stack...';
-
-  // Memanggil pushState secara intensif dalam interval singkat
-  const interval = setInterval(() => {
-    try {
-      for (let i = 0; i < 500; i++) {
-        count++;
-        history.pushState({ floodIndex: count }, `Flood ${count}`, `#state-${count}`);
-      }
-      statusDiv.textContent = `Status: Berhasil memasukkan ${count} state ke history.`;
-    } catch (err) {
-      clearInterval(interval);
-      statusDiv.textContent = `Limit / Error tercapai: ${err.message}`;
-      isFlooding = false;
-      floodBtn.disabled = false;
-      floodBtn.style.opacity = '1';
+  // Metode 1: Langsung menggunakan window.open dalam event handler sinkron
+  try {
+    const win1 = window.open('https://example.com', '_blank');
+    if (!win1 || win1.closed || typeof win1.closed == 'undefined') {
+      statusDiv.textContent = 'Status: window.open() langsung diblokir oleh browser.';
+    } else {
+      statusDiv.textContent = 'Status: window.open() berhasil dibuka.';
     }
-  }, 50);
+  } catch (err) {
+    statusDiv.textContent = `Error window.open: ${err.message}`;
+  }
+
+  // Metode 2: Simulasi programmatic click pada anchor target="_blank"
+  setTimeout(() => {
+    try {
+      const a = document.createElement('a');
+      a.href = 'https://example.com';
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      statusDiv.textContent += ' | Programmatic anchor click dijalankan.';
+    } catch (e) {
+      statusDiv.textContent += ` | Anchor click diblokir: ${e.message}`;
+    }
+  }, 500); // Penundaan 500ms sering kali memicu blokir pop-up karena melewati transient activation window
 });
 </script>
 
