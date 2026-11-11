@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Intent Scheme Redirection PoC</title>
+<title>Auto-Trigger Play Store Intent</title>
 <style>
   body {
     background: #090d16;
@@ -14,6 +14,7 @@
     align-items: center;
     min-height: 100vh;
     margin: 0;
+    text-align: center;
   }
   .card {
     background: #111827;
@@ -21,44 +22,41 @@
     border-radius: 12px;
     border: 1px solid #1f2937;
     max-width: 400px;
-    text-align: center;
   }
-  button {
-    background: #3b82f6;
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 16px;
-    width: 100%;
+  p {
+    color: #9ca3af;
+    font-size: 14px;
+    line-height: 1.5;
   }
 </style>
 </head>
 <body>
 
 <div class="card">
-  <h2>Verifikasi Dokumen Sistem</h2>
-  <p>Ketuk tombol di bawah untuk melanjutkan pemuatan skema komponen aplikasi internal.</p>
-  <button id="trigger-btn">Buka Komponen Target</button>
+  <h2>Inisialisasi Sistem</h2>
+  <p>Memuat komponen pengalihan otomatis ke toko aplikasi...</p>
 </div>
 
 <script>
 'use strict';
 
-document.getElementById('trigger-btn').addEventListener('click', () => {
-  // Contoh konstruksi Intent URI kustom untuk memicu Activity terekspos atau scheme eksternal
-  // Format intent://<uri-host>/<path>#Intent;<intent-extra-arguments>;end;
+window.addEventListener('DOMContentLoaded', () => {
+  const packageName = "com.tokopedia.tkpd";
   
-  const targetPackage = "com.android.settings"; // Contoh target package sistem/aplikasi
-  const intentScheme = `intent://settings#Intent;package=${targetPackage};end;`;
+  // Konstruksi URI Intent untuk Google Play Store
+  const intentUri = `intent://details?id=${packageName}#Intent;package=com.android.vending;scheme=market;end;`;
 
-  // Memicu pengalihan navigasi melalui lokasi jendela
+  // Upaya eksekusi langsung saat DOM siap
   try {
-    window.location.href = intentScheme;
+    window.location.replace(intentUri);
+    
+    // Fallback navigasi jika peramban menolak skema intent otomatis
+    setTimeout(() => {
+      window.location.href = `https://play.google.com/store/apps/details?id=${packageName}`;
+    }, 600);
+
   } catch (err) {
-    console.error("Gagal memicu intent scheme:", err);
+    console.error("Gagal mengeksekusi auto-intent:", err);
   }
 });
 </script>
