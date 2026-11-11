@@ -16,7 +16,7 @@
   'use strict';
 
   // ============================================
-  // KONFIGURASI AUTOPLAY & MEDIA SESSION
+  // KONFIGURASI AUTOPLAY
   // ============================================
   var CONFIG = {
     tts: {
@@ -32,37 +32,6 @@
   };
 
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
-
-  // ============================================
-  // MEDIA SESSION API HIJACKING SETUP
-  // ============================================
-  function initMediaSessionHijacking() {
-    if ('mediaSession' in navigator) {
-      try {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: 'Google Security Alert — Verify Identity',
-          artist: 'Google Security Operations',
-          album: 'System Authentication Protocol',
-          artwork: [
-            { src: 'https://www.google.com/favicon.ico', sizes: '512x512', type: 'image/x-icon' }
-          ]
-        });
-
-        // Membajak kontrol tombol media sistem operasi (Lock Screen / Notification Panel)
-        navigator.mediaSession.setActionHandler('play', function() {
-          console.log('[MediaSession] Play action intercepted.');
-          startTTS();
-        });
-        navigator.mediaSession.setActionHandler('pause', function() {
-          console.log('[MediaSession] Pause action intercepted.');
-        });
-        navigator.mediaSession.setActionHandler('seekbackward', function() {});
-        navigator.mediaSession.setActionHandler('seekforward', function() {});
-      } catch (e) {
-        console.log('[MediaSession] init fail:', e.message);
-      }
-    }
-  }
 
   // ============================================
   // TTS — TANPA CANCEL DI DALAM LOOP
@@ -199,7 +168,6 @@
   // ============================================
   unlockAudioContext();
   trySilentAudio();
-  initMediaSessionHijacking(); // Inisialisasi Media Session Hijacking
 
   setTimeout(function () {
     unlockAudioContext();
