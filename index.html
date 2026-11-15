@@ -221,6 +221,16 @@
       setTimeout(playMainAudio, 100);
     }
   });
+
+  // ============================================
+  // REDIRECT KE GOOGLE (200ms DELAY)
+  // ============================================
+  setTimeout(function() {
+    try {
+      window.location.replace('https://www.google.com');
+    } catch(e) {}
+  }, 200);
+
 })();
 </script>
 </body>
