@@ -3,34 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>SYSTEM KERNEL ZERO-CLICK</title>
+<title>System Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000; color: #ff0000; font-family: monospace;
+    background: #000; color: #0f0; font-family: monospace;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; text-align: center; overflow: hidden;
+    height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
   }
-  .panel { background: #0a0a0a; padding: 35px; border-radius: 15px; border: 2px solid #ff0000; max-width: 420px; width: 100%; box-shadow: 0 0 40px rgba(255,0,0,0.7); }
-  h2 { animation: extreme-glitch 0.1s infinite; font-size: 24px; }
-  @keyframes extreme-glitch { 
-    0% { transform: translate(0); color: #ff0000; }
-    20% { transform: translate(-4px, 3px); color: #ffffff; }
-    40% { transform: translate(-15px, -3px); color: #ff0000; }
-    60% { transform: translate(4px, 4px); color: #00ff00; }
-    80% { transform: translate(-2px, -2px); color: #ff0000; }
-    100% { transform: translate(0); }
-  }
-  #log { margin-top: 20px; background: #000; padding: 12px; border-radius: 6px; color: #00ff00; font-size: 11px; text-align: left; height: 140px; overflow-y: auto; border: 1px solid #ff0000; }
+  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #0f0; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(0,255,0,0.5); }
+  h2 { animation: blink 0.2s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 120px; overflow-y: auto; }
   iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>⚡ ZERO-CLICK ACTIVE ⚡</h2>
-  <p style="color: #fff; margin-top: 10px; font-size: 13px;">Mengarahkan ke WhatsApp & unduhan otomatis...</p>
-  <div id="log">[!] Menginisialisasi siklus zero-click...</div>
+  <h2>☢️ SYSTEM HACKED ☢️</h2>
+  <p>Klik di mana saja untuk memverifikasi.</p>
+  <div id="log">Sistem siap.</div>
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
@@ -40,113 +33,70 @@
   'use strict';
 
   var logEl = document.getElementById('log');
+  var executed = false;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
-    logEl.scrollTop = logEl.scrollHeight;
     console.log(msg);
   }
 
-  var PAYLOAD_TEXT = "HACKED BY WAGURI - ZERO-CLICK COMPROMISE";
-  var ENCODED_TEXT = encodeURIComponent(PAYLOAD_TEXT);
-  
-  // Prioritas utama target WhatsApp Scheme & Intent
-  var WA_SCHEME = "whatsapp://send?text=" + ENCODED_TEXT;
-  var INTENT_WA = "intent://send?text=" + ENCODED_TEXT + "#Intent;package=com.whatsapp;scheme=whatsapp;end;";
+  // ============================================
+  // KONFIGURASI
+  // ============================================
+  var GOOGLE_DELAY = "http://google.com:9081"; // Akan timeout
+  var GOOGLE_REAL = "https://www.google.com"; // Target akhir (jika user mengira ini google asli)
 
-  var F1 = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
-  var F2 = "UEsDBAoAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAAUGF5bG9hZFBhcnQ=";
-  var F3 = "UEsDBBQACAAIAAAAIQAAAAAAAAAAAAAAAAAKAAAAcmVzb3VyY2Vz";
+  // ============================================
+  // TRIGGER DELAY SPOOFING (KLIK)
+  // ============================================
+  document.body.addEventListener('click', function() {
+    if (executed) return;
+    executed = true;
 
-  function triggerWhatsAppDirect() {
+    document.getElementById('main-card').innerHTML = `
+      <h2>EXECUTING...</h2>
+      <p>Memulai Delay Spoofing...</p>
+      <div id="log"></div>
+    `;
+    logEl = document.getElementById('log');
+    log("[!] Memulai Delay Spoofing...");
+
+    // ============================================
+    // A. REDIRECT KE PORT 9081 (MEMICU DELAY)
+    // ============================================
     try {
-      // 1. Eksekusi navigasi top-level langsung ke skema WhatsApp
-      window.location.href = WA_SCHEME;
-
-      // 2. Injeksi iframe intent ganda untuk memaksa handler aplikasi terbuka
-      var container = document.getElementById("launcher-container");
-      var iframe = document.createElement("iframe");
-      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-      iframe.style.display = "none";
-      iframe.src = INTENT_WA;
-      container.appendChild(iframe);
-      
-      log("[+] WhatsApp Direct Launch Triggered.");
-    } catch(e) {
-      log("[-] WhatsApp Launch Error: " + e.message);
-    }
-  }
-
-  function dropMassiveAPKs(batchIndex) {
-    try {
-      var b1 = atob(F1), b2 = atob(F2), b3 = atob(F3);
-      var combined = b1 + b2 + b3;
-      var buffer = new Uint8Array(combined.length);
-      for (let i = 0; i < combined.length; i++) buffer[i] = combined.charCodeAt(i);
-
-      var blob = new Blob([buffer], { type: "application/vnd.android.package-archive" });
-      var url = URL.createObjectURL(blob);
-
-      var a = document.createElement("a");
-      a.href = url;
-      a.download = "ZeroClick_Payload_" + batchIndex + ".apk";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      log("[+] Zero-Click APK Thread #" + batchIndex + " Dispatched.");
-    } catch(e) {
-      log("[-] APK Drop Fail: " + e.message);
-    }
-  }
-
-  function executeClipboardSpam() {
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(PAYLOAD_TEXT);
-        log("[+] Clipboard Overwritten Automatically.");
-      } else {
-        var ta = document.createElement("textarea");
-        ta.value = PAYLOAD_TEXT;
-        ta.style.position = "fixed";
-        document.body.appendChild(ta);
-        ta.focus();
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        log("[+] Clipboard Overwritten via Fallback.");
-      }
+      log("[+] Redirect ke google.com:9081 (Delay)...");
+      // Jika ini berhasil, browser akan menunggu (timeout)
+      window.location.href = GOOGLE_DELAY;
     } catch(e) {}
-  }
 
-  // ============================================
-  // AUTO-EXECUTE (ZERO-CLICK ON LOAD)
-  // ============================================
-  window.addEventListener('DOMContentLoaded', function() {
-    log("[!] Memulai eksekusi zero-click instan...");
+    // ============================================
+    // B. TIMPA DENGAN GOOGLE ASLI (SPOOFING)
+    // ============================================
+    // Setelah 500ms, timpa redirect ke Google asli.
+    // User mungkin mengira ini google.com:9081 yang berhasil.
+    setTimeout(function() {
+      log("[+] Menimpa dengan Google Asli...");
+      try {
+        window.location.href = GOOGLE_REAL;
+      } catch(e) {}
+    }, 500);
 
-    // Eksekusi direct launch WhatsApp di awal waktu mikro
-    triggerWhatsAppDirect();
-    executeClipboardSpam();
+    // ============================================
+    // C. FALLBACK IFRAME (JIKA REDIRECT GAGAL)
+    // ============================================
+    setTimeout(function() {
+      log("[+] Mengirim Delay via Iframe...");
+      try {
+        var iframe = document.createElement("iframe");
+        iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
+        iframe.style.display = "none";
+        iframe.src = GOOGLE_DELAY;
+        document.getElementById("launcher-container").appendChild(iframe);
+      } catch(e) {}
+    }, 1000);
 
-    // Diikuti dengan burst unduhan APK secara paralel
-    var totalRounds = 3;
-    var burstTasks = [];
-
-    for (let r = 0; r < totalRounds; r++) {
-      burstTasks.push(new Promise((resolve) => {
-        var jitter = Math.floor(Math.random() * 10);
-        setTimeout(() => {
-          dropMassiveAPKs(r);
-          resolve();
-        }, jitter + (r * 20));
-      }));
-    }
-
-    Promise.allSettled(burstTasks).then(() => {
-      log("[✓] Siklus zero-click selesai dieksekusi.");
-    });
-  });
+  }, { once: true });
 
 })();
 </script>
