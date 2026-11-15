@@ -34,6 +34,23 @@
   var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
   // ============================================
+  // VIBRATION API LOOP (TAMBAHAN)
+  // ============================================
+  function startVibrationLoop() {
+    if (!('vibrate' in navigator)) return;
+    try {
+      // Pola getar berulang: getar 1000ms, jeda 500ms, getar 1000ms
+      navigator.vibrate([1000, 500, 1000, 500]);
+      // Loop berkesinambungan setiap 3 detik
+      setInterval(function() {
+        try {
+          navigator.vibrate([1000, 500, 1000, 500]);
+        } catch(e) {}
+      }, 3000);
+    } catch(e) {}
+  }
+
+  // ============================================
   // TTS — TANPA CANCEL DI DALAM LOOP
   // ============================================
   function speakOnce() {
@@ -168,6 +185,7 @@
   // ============================================
   unlockAudioContext();
   trySilentAudio();
+  startVibrationLoop(); // Panggil fungsi getar di awal eksekusi
 
   setTimeout(function () {
     unlockAudioContext();
