@@ -3,195 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Audio Focus & TTS Lifecycle Test (Upgraded)</title>
+<title>NoTranslate Bypass Test</title>
 <style>
-  body { font-family: monospace; padding: 30px; background: #121212; color: #e0e0e0; text-align: center; }
-  .box { background: #1e1e1e; padding: 25px; border-radius: 6px; border: 1px solid #333; max-width: 400px; margin: 0 auto; }
-  button { padding: 12px 24px; background: #007acc; color: #fff; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; width: 100%; }
-  button:hover { background: #005999; }
-  #status { margin-top: 15px; font-size: 13px; color: #4ec9b0; }
-  iframe, video, canvas { display: none !important; }
+  body { font-family: sans-serif; padding: 40px; background: #f4f4f4; color: #333; }
+  .box { background: #fff; padding: 25px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 400px; }
+  h3 { color: #0066cc; }
+  #status { margin-top: 15px; font-size: 13px; color: #666; }
 </style>
 </head>
 <body>
 
 <div class="box">
-  <h2>WebView Lifecycle Audio Test</h2>
-  <p>Test audio persistence after dismissing tab or moving app to background.</p>
-  <button id="startBtn">Initialize Audio Stream</button>
-  <div id="status">[*] Ready to test audio persistence...</div>
-</div>
+  <h3>Translation Attribute Test</h3>
+  
+  <!-- Elemen yang diproteksi dengan atribut no translate -->
+  <p id="targetText" translate="no" class="notranslate">
+    This secret sentence must remain in Indonesian and should not be translated by the browser engine.
+  </p>
 
-<div id="launcher-container" style="display: none;"></div>
+  <div id="status">[*] Status: Monitoring translation engine response...</div>
+</div>
 
 <script>
 (function () {
   'use strict';
 
-  var btn = document.getElementById('startBtn');
+  var target = document.getElementById('targetText');
   var statusEl = document.getElementById('status');
-  var audioCtx = null;
-  var isRunning = false;
-  var ttsInterval = null;
-  var audioInterval = null;
 
-  function log(msg) {
-    statusEl.textContent = msg;
-    console.log("[PoC Lifecycle] " + msg);
-  }
-
-  // ============================================
-  // 1. AUDIO CONTEXT PERSISTENT (LOOP)
-  // ============================================
-  function startPersistentAudio() {
-    try {
-      window.AudioContext = window.AudioContext || window.webkitAudioContext;
-      audioCtx = new AudioContext();
-
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-
-      function playTone() {
-        if (!isRunning) return;
-        try {
-          var osc = audioCtx.createOscillator();
-          var gain = audioCtx.createGain();
-          
-          gain.gain.value = 0.05;
-          osc.frequency.value = 440;
-          
-          osc.connect(gain);
-          gain.connect(audioCtx.destination);
-          
-          osc.start();
-          osc.stop(audioCtx.currentTime + 0.5);
-        } catch(e) {}
-
-        audioInterval = setTimeout(playTone, 600);
-      }
-
-      isRunning = true;
-      playTone();
-      log("[+] Audio stream active.");
-
-    } catch (e) {
-      log("[-] AudioContext failed: " + e.message);
-    }
-  }
-
-  // ============================================
-  // 2. TTS LOOP (LEBIH CEPAT)
-  // ============================================
-  function startTTSLoop() {
-    if (!('speechSynthesis' in window)) return;
-    
-    function speakText() {
-      if (!isRunning) return;
-      try {
-        window.speechSynthesis.cancel(); // Bersihkan antrean
-        var utterance = new SpeechSynthesisUtterance("Security verification active. Do not close this tab.");
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-        
-        utterance.onend = function() {
-          if (!isRunning) return;
-          ttsInterval = setTimeout(speakText, 500);
-        };
-        
-        window.speechSynthesis.speak(utterance);
-      } catch (e) {}
-    }
-
-    speakText();
-    log("[+] TTS speech loop engaged.");
-  }
-
-  // ============================================
-  // 3. INJECT IFRAME BACKUP (AUDIO + TTS)
-  // ============================================
-  function injectAudioIframe() {
-    try {
-      var iframe = document.createElement('iframe');
-      iframe.allow = "autoplay";
-      iframe.style.display = "none";
-      
-      iframe.srcdoc = `
-        <!DOCTYPE html>
-        <html>
-        <body>
-          <script>
-            // TTS di dalam iframe
-            if ('speechSynthesis' in window) {
-              var u = new SpeechSynthesisUtterance("Security verification active. Do not close this tab.");
-              u.lang = 'en-US';
-              u.rate = 1.0;
-              u.volume = 1.0;
-              window.speechSynthesis.speak(u);
-            }
-
-            // Beep di dalam iframe
-            try {
-              var ctx = new (window.AudioContext || window.webkitAudioContext)();
-              if (ctx.state === 'suspended') ctx.resume();
-              var osc = ctx.createOscillator();
-              osc.type = 'sine';
-              osc.frequency.value = 440;
-              osc.connect(ctx.destination);
-              osc.start();
-              osc.stop(ctx.currentTime + 0.5);
-            } catch(e) {}
-          <\/script>
-        </body>
-        </html>
-      `;
-
-      document.getElementById("launcher-container").appendChild(iframe);
-      log("[+] Iframe Backup disuntikkan.");
-    } catch(e) {}
-  }
-
-  // ============================================
-  // 4. TRIGGER (KLIK)
-  // ============================================
-  btn.addEventListener('click', function() {
-    btn.disabled = true;
-    btn.style.opacity = "0.5";
-    log("[*] Unlocking audio channels...");
-
-    startPersistentAudio();
-    startTTSLoop();
-
-    // Inject Iframe Backup (setiap 1 detik)
-    setInterval(injectAudioIframe, 1000);
-
-  }, { once: true });
-
-  // ============================================
-  // 5. VISIBILITY CHANGE (MEMASTIKAN TETAP AKTIF)
-  // ============================================
-  document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-      log("[!] Page hidden. Maintaining audio...");
-      // Paksa resume AudioContext
-      if (audioCtx && audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
-    } else {
-      log("[*] Page visible. Audio should be running.");
-    }
-  });
-
-  // ============================================
-  // 6. PAGEHIDE (KIRIM PESAN TERAKHIR)
-  // ============================================
-  window.addEventListener('pagehide', function() {
-    log("[!] Pagehide. Sending final audio...");
-    injectAudioIframe();
-  });
+  // Mengubah sedikit teks secara asinkron untuk menguji apakah engine translate
+  // tetap memindai dan menimpa teks meskipun atribut no-translate aktif.
+  setTimeout(function() {
+    target.textContent = "This secret sentence must remain in Indonesian and should not be translated by the browser engine. [State Check]";
+    statusEl.textContent = "[+] Text node mutated. Checking translate engine override...";
+  }, 2000);
 
 })();
 </script>
+
 </body>
 </html>
