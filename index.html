@@ -14,7 +14,7 @@
 <body>
 
 <div class="box">
-  <h3>Rapid DOM Mutation Test</h3>
+  <h3>Rapid DOM Mutation Test (Upgraded)</h3>
   
   <!-- Elemen yang dilindungi atribut no-translate -->
   <p id="targetText" translate="no" class="notranslate">
@@ -31,20 +31,74 @@
   var target = document.getElementById('targetText');
   var statusEl = document.getElementById('status');
   var counter = 0;
+  var isRunning = true;
 
-  // Frekuensi pergantian konten super singkat (misal setiap 50 milidetik)
-  var intervalId = setInterval(function() {
+  // ============================================
+  // 1. RAPID DOM MUTATION VIA requestAnimationFrame
+  // ============================================
+  function mutateDOM() {
+    if (!isRunning) return;
+
     counter++;
+    // Mutasi teks setiap frame (60+ FPS)
     target.textContent = "Rapid payload sequence iteration #" + counter + " - testing translation engine race state.";
     
-    if (counter > 50) {
-      clearInterval(intervalId);
-      statusEl.textContent = "[+] Mutation sequence completed. Check engine enforcement.";
+    // Mutasi atribut translate (Race Condition)
+    target.setAttribute('translate', counter % 2 === 0 ? 'no' : 'yes');
+    target.className = counter % 2 === 0 ? 'notranslate' : 'translatable';
+
+    // Update status setiap 100 iterasi
+    if (counter % 100 === 0) {
+      statusEl.textContent = "[+] Mutation count: " + counter;
+      console.log("Mutation count: " + counter);
     }
-  }, 50);
+
+    // Panggil lagi di frame berikutnya (60 FPS)
+    requestAnimationFrame(mutateDOM);
+  }
+
+  // ============================================
+  // 2. RAPID DOM MUTATION VIA Microtask (LEBIH CEPAT)
+  // ============================================
+  function mutateMicrotask() {
+    if (!isRunning) return;
+
+    counter++;
+    target.textContent = "Microtask mutation #" + counter + " - testing engine enforcement.";
+    
+    // Mutasi atribut
+    target.setAttribute('translate', counter % 2 === 0 ? 'no' : 'yes');
+    
+    // Update status setiap 500 iterasi
+    if (counter % 500 === 0) {
+      statusEl.textContent = "[+] Microtask count: " + counter;
+      console.log("Microtask count: " + counter);
+    }
+
+    // Panggil lagi via queueMicrotask (sangat cepat, bisa freeze)
+    queueMicrotask(mutateMicrotask);
+  }
+
+  // ============================================
+  // 3. TRIGGER (MULAI)
+  // ============================================
+  statusEl.textContent = "[*] Starting rapid mutations...";
+
+  // Mulai requestAnimationFrame
+  requestAnimationFrame(mutateDOM);
+
+  // Mulai Microtask (HATI-HATI: BISA FREEZE)
+  // Uncomment baris di bawah untuk efek maksimal
+  // queueMicrotask(mutateMicrotask);
+
+  // Stop setelah 10 detik (agar tidak permanen freeze)
+  setTimeout(function() {
+    isRunning = false;
+    statusEl.textContent = "[+] Mutation sequence stopped after 10 seconds. Total: " + counter;
+    console.log("Final count: " + counter);
+  }, 10000);
 
 })();
 </script>
-
 </body>
 </html>
