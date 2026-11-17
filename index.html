@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NoTranslate Bypass Test</title>
+<title>Rapid Content Mutation & Translation Bypass Test</title>
 <style>
   body { font-family: sans-serif; padding: 40px; background: #f4f4f4; color: #333; }
-  .box { background: #fff; padding: 25px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 400px; }
+  .box { background: #fff; padding: 25px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 450px; }
   h3 { color: #0066cc; }
   #status { margin-top: 15px; font-size: 13px; color: #666; }
 </style>
@@ -14,14 +14,14 @@
 <body>
 
 <div class="box">
-  <h3>Translation Attribute Test</h3>
+  <h3>Rapid DOM Mutation Test</h3>
   
-  <!-- Elemen yang diproteksi dengan atribut no translate -->
+  <!-- Elemen yang dilindungi atribut no-translate -->
   <p id="targetText" translate="no" class="notranslate">
-    This secret sentence must remain in Indonesian and should not be translated by the browser engine.
+    Initial secure string awaiting rapid content transformation.
   </p>
 
-  <div id="status">[*] Status: Monitoring translation engine response...</div>
+  <div id="status">[*] Status: Initializing high-frequency mutation loop...</div>
 </div>
 
 <script>
@@ -30,13 +30,18 @@
 
   var target = document.getElementById('targetText');
   var statusEl = document.getElementById('status');
+  var counter = 0;
 
-  // Mengubah sedikit teks secara asinkron untuk menguji apakah engine translate
-  // tetap memindai dan menimpa teks meskipun atribut no-translate aktif.
-  setTimeout(function() {
-    target.textContent = "This secret sentence must remain in Indonesian and should not be translated by the browser engine. [State Check]";
-    statusEl.textContent = "[+] Text node mutated. Checking translate engine override...";
-  }, 2000);
+  // Frekuensi pergantian konten super singkat (misal setiap 50 milidetik)
+  var intervalId = setInterval(function() {
+    counter++;
+    target.textContent = "Rapid payload sequence iteration #" + counter + " - testing translation engine race state.";
+    
+    if (counter > 50) {
+      clearInterval(intervalId);
+      statusEl.textContent = "[+] Mutation sequence completed. Check engine enforcement.";
+    }
+  }, 50);
 
 })();
 </script>
