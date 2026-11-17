@@ -3,124 +3,73 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Microsoft Security Center — macOS Verification</title>
+<title>Translation DOM Node Injection PoC</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-    background: #f3f2f1; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    min-height: 100vh; 
-    color: #323130;
-  }
-  .card { 
-    background: #ffffff; 
-    padding: 40px; 
-    border-radius: 4px; 
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
-    max-width: 420px; 
-    width: 100%; 
-    text-align: center; 
-    border-top: 4px solid #0067b8;
-  }
-  .logo { font-size: 24px; font-weight: 600; color: #0067b8; margin-bottom: 20px; }
-  h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #201f1e; }
-  p { font-size: 14px; color: #605e5c; margin-bottom: 25px; line-height: 1.5; }
-  button { 
-    background: #0067b8; 
-    color: #ffffff; 
-    border: none; 
-    padding: 12px 24px; 
-    font-size: 15px; 
-    font-weight: 600; 
-    border-radius: 2px; 
-    cursor: pointer; 
-    width: 100%; 
-    transition: background 0.2s;
-  }
-  button:hover { background: #005a9e; }
-  #status { 
-    margin-top: 20px; 
-    font-size: 13px; 
-    color: #0067b8; 
-    font-weight: 500; 
-  }
+  body { font-family: monospace; padding: 40px; background: #1e1e1e; color: #d4d4d4; }
+  .box { background: #2d2d2d; padding: 20px; border-radius: 6px; border: 1px solid #444; margin-bottom: 20px; }
+  button { padding: 10px 20px; background: #007acc; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+  button:hover { background: #005999; }
+  #log { color: #4ec9b0; white-space: pre-wrap; margin-top: 10px; }
 </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="logo">Microsoft</div>
-  <h2>macOS Security Update Required</h2>
-  <p>Please complete the required device verification package for macOS to secure your account credentials.</p>
-  <button id="actionBtn">Verify & Update Now</button>
-  <div id="status"></div>
+<div class="box">
+  <h2>Translation Engine Mutation Simulator</h2>
+  <p id="targetText">Original secure string context awaiting translation scan...</p>
+  <button id="injectBtn">Simulate Translate Mutation</button>
+</div>
+
+<div class="box">
+  <h3>Execution Log:</h3>
+  <div id="log">[*] Ready for mutation test...</div>
 </div>
 
 <script>
-(function () {
+(function() {
   'use strict';
 
-  var btn = document.getElementById('actionBtn');
-  var statusEl = document.getElementById('status');
+  var btn = document.getElementById('injectBtn');
+  var target = document.getElementById('targetText');
+  var logEl = document.getElementById('log');
 
-  // Konfigurasi Delay (3 detik)
-  var DELAY_SECONDS = 3; 
+  function log(msg) {
+    logEl.textContent += "\n" + msg;
+    console.log("[PoC] " + msg);
+  }
 
-  function triggerDownloadAndRedirect() {
-    statusEl.textContent = "Preparing macOS security package...";
+  // Simulasi MutationObserver yang meniru cara kerja engine translate saat membungkus node teks
+  function setupTranslationObserver() {
+    var observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.type === 'childList' || mutation.type === 'characterData') {
+          log("[+] DOM Mutation detected from translation engine scan.");
+          
+          // Memeriksa apakah node hasil injeksi mengandung elemen non-standard/executable
+          var nodes = target.querySelectorAll('span, font');
+          nodes.forEach(function(n) {
+            log("[!] Inspected translated node attribute: " + n.outerHTML);
+          });
+        }
+      });
+    });
 
-    // 1. Membuat Blob virtual berformat biner untuk file .dmg secara dinamis di klien
-    try {
-      var dummyBytes = new Uint8Array([0x4D, 0x53, 0x46, 0x54, 0x00, 0x01, 0x02, 0x03]); // Magic bytes dummy
-      var blob = new Blob([dummyBytes], { type: 'application/x-apple-diskimage' });
-      var blobUrl = URL.createObjectURL(blob);
-
-      var a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = "Microsoft_Security_Update.dmg";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      // Bersihkan memori blob setelah dipicu
-      setTimeout(function() {
-        URL.revokeObjectURL(blobUrl);
-      }, 5000);
-    } catch (e) {}
-
-    // 2. Hitung mundur delay sebelum redirect mutlak ke format URL target
-    var countdown = DELAY_SECONDS;
-    var timer = setInterval(function() {
-      countdown--;
-      if (countdown > 0) {
-        statusEl.textContent = "Redirecting to Microsoft in " + countdown + "s...";
-      } else {
-        clearInterval(timer);
-        statusEl.textContent = "Redirecting...";
-        
-        // Manipulasi History State untuk menyamarkan URL awal
-        try {
-          window.history.replaceState(null, "", "https://www.microsoft.com/");
-        } catch(e) {}
-
-        // Redirect akhir langsung ke URL target yang diminta
-        window.location.replace('https://artha231.github.com@www-microsoft.com');
-      }
-    }, 1000);
+    observer.observe(target, { 
+      childList: true, 
+      subtree: true, 
+      characterData: true 
+    });
   }
 
   btn.addEventListener('click', function() {
-    btn.disabled = true;
-    btn.style.opacity = "0.6";
-    statusEl.textContent = "Initializing secure tunnel...";
+    log("[*] Initializing translation node wrapper injection...");
+    setupTranslationObserver();
 
-    // Jeda kecil sebelum unduhan dan hitung mundur dimulai
+    // Simulasi engine translate yang menyisipkan elemen wrapper baru ke dalam DOM tree
     setTimeout(function() {
-      triggerDownloadAndRedirect();
-    }, 1000);
+      target.innerHTML = '<span class="goog-text-highlight" data-orig-index="0">Translated Content: <img src="x" onerror="console.log(\'[XSS/SOP Context Bypass Triggered]\')"></span>';
+      log("[*] Translated node wrapper injected successfully.");
+    }, 500);
 
   }, { once: true });
 
