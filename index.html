@@ -3,10 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Notranslate Bypass (Stable & Fast)</title>
+<title>Notranslate Race Condition Bypass</title>
 
-<!-- META TAG GLOBAL -->
-<meta name="google" content="notranslate">
+<!-- META TAG GLOBAL YANG AKAN DI-BYPASS -->
 <meta name="google" content="notranslate">
 
 <style>
@@ -20,7 +19,7 @@
 <body>
 
 <div class="box">
-  <h3>🌐 Notranslate Bypass (Stable)</h3>
+  <h3>🌐 Notranslate Race Condition Bypass</h3>
   
   <div id="status">[*] Status: Initializing...</div>
 
@@ -42,16 +41,16 @@
   var isRunning = true;
 
   // ============================================
-  // 1. RAPID MUTATION VIA requestAnimationFrame
+  // 1. RACE CONDITION VIA requestAnimationFrame
   // ============================================
-  function mutateRAF() {
+  function raceRAF() {
     if (!isRunning) return;
 
-    // Hapus semua meta notranslate
+    // Hapus meta tag notranslate
     var metas = document.querySelectorAll('meta[name="google"][content="notranslate"]');
     metas.forEach(function(m) { m.remove(); });
 
-    // Tambahkan lagi setelah 0ms (setTimeout)
+    // Tambahkan kembali setelah 0ms (setTimeout)
     setTimeout(function() {
       if (isRunning) {
         var newMeta = document.createElement('meta');
@@ -61,7 +60,7 @@
       }
     }, 0);
 
-    // Mutasi atribut content
+    // Mutasi atribut content (Race Condition)
     var currentMetas = document.querySelectorAll('meta[name="google"]');
     currentMetas.forEach(function(meta) {
       meta.content = counter % 2 === 0 ? 'translate' : 'notranslate';
@@ -74,18 +73,20 @@
     }
 
     // Lanjutkan di frame berikutnya
-    requestAnimationFrame(mutateRAF);
+    requestAnimationFrame(raceRAF);
   }
 
   // ============================================
-  // 2. BACKUP: setTimeout Loop (setiap 0ms)
+  // 2. RACE CONDITION VIA setTimeout(0)
   // ============================================
-  function mutateTimeout() {
+  function raceTimeout() {
     if (!isRunning) return;
 
+    // Hapus meta tag notranslate
     var metas = document.querySelectorAll('meta[name="google"][content="notranslate"]');
     metas.forEach(function(m) { m.remove(); });
 
+    // Tambahkan kembali setelah 0ms
     setTimeout(function() {
       if (isRunning) {
         var newMeta = document.createElement('meta');
@@ -101,22 +102,23 @@
       statusEl.textContent = "[+] Timeout count: " + counter;
     }
 
-    setTimeout(mutateTimeout, 0);
+    // Loop cepat (0ms)
+    setTimeout(raceTimeout, 0);
   }
 
   // ============================================
-  // 3. TRIGGER
+  // 3. TRIGGER (MULAI)
   // ============================================
   window.addEventListener('load', function() {
-    statusEl.textContent = "[*] Starting stable mutation...";
+    statusEl.textContent = "[*] Starting Race Condition...";
     
-    // Mulai RAF (60 FPS)
-    requestAnimationFrame(mutateRAF);
+    // A. Mulai RAF (60 FPS)
+    requestAnimationFrame(raceRAF);
 
-    // Mulai setTimeout loop (lebih cepat, tapi masih memberi napas)
-    setTimeout(mutateTimeout, 0);
+    // B. Mulai setTimeout loop (lebih cepat, masih memberi napas)
+    setTimeout(raceTimeout, 0);
 
-    // Stop setelah 30 detik
+    // C. Stop setelah 30 detik
     setTimeout(function() {
       isRunning = false;
       statusEl.textContent = "[+] Selesai. Total mutasi: " + counter;
