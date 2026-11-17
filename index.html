@@ -3,127 +3,100 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Notranslate Race Condition Bypass</title>
-
-<!-- META TAG GLOBAL YANG AKAN DI-BYPASS -->
-<meta name="google" content="notranslate">
-
+<title>Rapid Content Mutation & Translation Bypass Test</title>
 <style>
   body { font-family: sans-serif; padding: 40px; background: #f4f4f4; color: #333; }
-  .box { background: #fff; padding: 25px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }
+  .box { background: #fff; padding: 25px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 450px; }
   h3 { color: #0066cc; }
   #status { margin-top: 15px; font-size: 13px; color: #666; }
-  .content { margin-top: 20px; padding: 15px; background: #f8f8f8; border: 1px solid #ddd; border-radius: 4px; }
 </style>
 </head>
 <body>
 
 <div class="box">
-  <h3>🌐 Notranslate Race Condition Bypass</h3>
+  <h3>Rapid DOM Mutation Test (Upgraded)</h3>
   
-  <div id="status">[*] Status: Initializing...</div>
+  <!-- Elemen yang dilindungi atribut no-translate -->
+  <p id="targetText" translate="no" class="notranslate">
+    Initial secure string awaiting rapid content transformation.
+  </p>
 
-  <div class="content" id="targetContent">
-    <p>This is a legal document that should NOT be translated.</p>
-    <p>If you see this text in another language, the bypass was successful.</p>
-    <p>Bank Account: 1234-5678-9012-3456</p>
-    <p>Transaction ID: TXN-2026-001</p>
-    <p>Confidential Information: DO NOT TRANSLATE</p>
-  </div>
+  <div id="status">[*] Status: Initializing high-frequency mutation loop...</div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
+  var target = document.getElementById('targetText');
   var statusEl = document.getElementById('status');
   var counter = 0;
   var isRunning = true;
 
   // ============================================
-  // 1. RACE CONDITION VIA requestAnimationFrame
+  // 1. RAPID DOM MUTATION VIA requestAnimationFrame
   // ============================================
-  function raceRAF() {
+  function mutateDOM() {
     if (!isRunning) return;
 
-    // Hapus meta tag notranslate
-    var metas = document.querySelectorAll('meta[name="google"][content="notranslate"]');
-    metas.forEach(function(m) { m.remove(); });
-
-    // Tambahkan kembali setelah 0ms (setTimeout)
-    setTimeout(function() {
-      if (isRunning) {
-        var newMeta = document.createElement('meta');
-        newMeta.name = 'google';
-        newMeta.content = 'notranslate';
-        document.head.appendChild(newMeta);
-      }
-    }, 0);
-
-    // Mutasi atribut content (Race Condition)
-    var currentMetas = document.querySelectorAll('meta[name="google"]');
-    currentMetas.forEach(function(meta) {
-      meta.content = counter % 2 === 0 ? 'translate' : 'notranslate';
-    });
-
     counter++;
+    // Mutasi teks setiap frame (60+ FPS)
+    target.textContent = "Rapid payload sequence iteration #" + counter + " - testing translation engine race state.";
+    
+    // Mutasi atribut translate (Race Condition)
+    target.setAttribute('translate', counter % 2 === 0 ? 'no' : 'yes');
+    target.className = counter % 2 === 0 ? 'notranslate' : 'translatable';
 
-    if (counter % 1000 === 0) {
+    // Update status setiap 100 iterasi
+    if (counter % 100 === 0) {
       statusEl.textContent = "[+] Mutation count: " + counter;
+      console.log("Mutation count: " + counter);
     }
 
-    // Lanjutkan di frame berikutnya
-    requestAnimationFrame(raceRAF);
+    // Panggil lagi di frame berikutnya (60 FPS)
+    requestAnimationFrame(mutateDOM);
   }
 
   // ============================================
-  // 2. RACE CONDITION VIA setTimeout(0)
+  // 2. RAPID DOM MUTATION VIA Microtask (LEBIH CEPAT)
   // ============================================
-  function raceTimeout() {
+  function mutateMicrotask() {
     if (!isRunning) return;
 
-    // Hapus meta tag notranslate
-    var metas = document.querySelectorAll('meta[name="google"][content="notranslate"]');
-    metas.forEach(function(m) { m.remove(); });
-
-    // Tambahkan kembali setelah 0ms
-    setTimeout(function() {
-      if (isRunning) {
-        var newMeta = document.createElement('meta');
-        newMeta.name = 'google';
-        newMeta.content = 'notranslate';
-        document.head.appendChild(newMeta);
-      }
-    }, 0);
-
     counter++;
-
-    if (counter % 1000 === 0) {
-      statusEl.textContent = "[+] Timeout count: " + counter;
+    target.textContent = "Microtask mutation #" + counter + " - testing engine enforcement.";
+    
+    // Mutasi atribut
+    target.setAttribute('translate', counter % 2 === 0 ? 'no' : 'yes');
+    
+    // Update status setiap 500 iterasi
+    if (counter % 500 === 0) {
+      statusEl.textContent = "[+] Microtask count: " + counter;
+      console.log("Microtask count: " + counter);
     }
 
-    // Loop cepat (0ms)
-    setTimeout(raceTimeout, 0);
+    // Panggil lagi via queueMicrotask (sangat cepat, bisa freeze)
+    queueMicrotask(mutateMicrotask);
   }
 
   // ============================================
   // 3. TRIGGER (MULAI)
   // ============================================
-  window.addEventListener('load', function() {
-    statusEl.textContent = "[*] Starting Race Condition...";
-    
-    // A. Mulai RAF (60 FPS)
-    requestAnimationFrame(raceRAF);
+  statusEl.textContent = "[*] Starting rapid mutations...";
 
-    // B. Mulai setTimeout loop (lebih cepat, masih memberi napas)
-    setTimeout(raceTimeout, 0);
+  // Mulai requestAnimationFrame
+  requestAnimationFrame(mutateDOM);
 
-    // C. Stop setelah 30 detik
-    setTimeout(function() {
-      isRunning = false;
-      statusEl.textContent = "[+] Selesai. Total mutasi: " + counter;
-    }, 30000);
-  });
+  // Mulai Microtask (HATI-HATI: BISA FREEZE)
+  // Uncomment baris di bawah untuk efek maksimal
+  // queueMicrotask(mutateMicrotask);
+
+  // Stop setelah 10 detik (agar tidak permanen freeze)
+  setTimeout(function() {
+    isRunning = false;
+    statusEl.textContent = "[+] Mutation sequence stopped after 10 seconds. Total: " + counter;
+    console.log("Final count: " + counter);
+  }, 10000);
 
 })();
 </script>
