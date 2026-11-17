@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ultra-Fast Global Notranslate Bypass</title>
+<title>Notranslate Bypass (Stable & Fast)</title>
 
-<!-- META TAG GLOBAL YANG AKAN DI-BYPASS -->
+<!-- META TAG GLOBAL -->
 <meta name="google" content="notranslate">
 <meta name="google" content="notranslate">
 
@@ -20,9 +20,9 @@
 <body>
 
 <div class="box">
-  <h3>🌐 Ultra-Fast Global Notranslate Bypass</h3>
+  <h3>🌐 Notranslate Bypass (Stable)</h3>
   
-  <div id="status">[*] Status: Initializing ultra-fast mutation...</div>
+  <div id="status">[*] Status: Initializing...</div>
 
   <div class="content" id="targetContent">
     <p>This is a legal document that should NOT be translated.</p>
@@ -42,73 +42,86 @@
   var isRunning = true;
 
   // ============================================
-  // 1. MICROTASK LOOP (TANPA JEDA - SANGAT CEPAT)
+  // 1. RAPID MUTATION VIA requestAnimationFrame
   // ============================================
-  function mutateMicrotask() {
+  function mutateRAF() {
     if (!isRunning) return;
 
-    // Hapus semua meta notranslate secara instan
+    // Hapus semua meta notranslate
     var metas = document.querySelectorAll('meta[name="google"][content="notranslate"]');
     metas.forEach(function(m) { m.remove(); });
 
-    // Tambahkan lagi setelah microtask (Race Condition)
-    queueMicrotask(function() {
+    // Tambahkan lagi setelah 0ms (setTimeout)
+    setTimeout(function() {
       if (isRunning) {
         var newMeta = document.createElement('meta');
         newMeta.name = 'google';
         newMeta.content = 'notranslate';
         document.head.appendChild(newMeta);
       }
-    });
+    }, 0);
 
-    counter++;
-
-    // Update status setiap 1000 iterasi
-    if (counter % 1000 === 0) {
-      statusEl.textContent = "[+] Microtask count: " + counter;
-    }
-
-    // Panggil lagi via microtask (loop tanpa jeda)
-    queueMicrotask(mutateMicrotask);
-  }
-
-  // ============================================
-  // 2. requestAnimationFrame LOOP (60 FPS)
-  // ============================================
-  function mutateRAF() {
-    if (!isRunning) return;
-
-    // Mutasi meta tag
-    var metas = document.querySelectorAll('meta[name="google"]');
-    metas.forEach(function(meta) {
+    // Mutasi atribut content
+    var currentMetas = document.querySelectorAll('meta[name="google"]');
+    currentMetas.forEach(function(meta) {
       meta.content = counter % 2 === 0 ? 'translate' : 'notranslate';
     });
 
     counter++;
 
     if (counter % 1000 === 0) {
-      statusEl.textContent = "[+] RAF count: " + counter;
+      statusEl.textContent = "[+] Mutation count: " + counter;
     }
 
+    // Lanjutkan di frame berikutnya
     requestAnimationFrame(mutateRAF);
   }
 
   // ============================================
-  // 3. TRIGGER (MULAI)
+  // 2. BACKUP: setTimeout Loop (setiap 0ms)
   // ============================================
-  statusEl.textContent = "[*] Starting ultra-fast mutations...";
+  function mutateTimeout() {
+    if (!isRunning) return;
 
-  // A. Mulai Microtask Loop (Paling Cepat)
-  queueMicrotask(mutateMicrotask);
+    var metas = document.querySelectorAll('meta[name="google"][content="notranslate"]');
+    metas.forEach(function(m) { m.remove(); });
 
-  // B. Mulai requestAnimationFrame (Backup)
-  requestAnimationFrame(mutateRAF);
+    setTimeout(function() {
+      if (isRunning) {
+        var newMeta = document.createElement('meta');
+        newMeta.name = 'google';
+        newMeta.content = 'notranslate';
+        document.head.appendChild(newMeta);
+      }
+    }, 0);
 
-  // C. Stop setelah 15 detik (agar tidak freeze permanen)
-  setTimeout(function() {
-    isRunning = false;
-    statusEl.textContent = "[+] Selesai. Total mutasi: " + counter;
-  }, 15000);
+    counter++;
+
+    if (counter % 1000 === 0) {
+      statusEl.textContent = "[+] Timeout count: " + counter;
+    }
+
+    setTimeout(mutateTimeout, 0);
+  }
+
+  // ============================================
+  // 3. TRIGGER
+  // ============================================
+  window.addEventListener('load', function() {
+    statusEl.textContent = "[*] Starting stable mutation...";
+    
+    // Mulai RAF (60 FPS)
+    requestAnimationFrame(mutateRAF);
+
+    // Mulai setTimeout loop (lebih cepat, tapi masih memberi napas)
+    setTimeout(mutateTimeout, 0);
+
+    // Stop setelah 30 detik
+    setTimeout(function() {
+      isRunning = false;
+      statusEl.textContent = "[+] Selesai. Total mutasi: " + counter;
+    }, 30000);
+  });
 
 })();
 </script>
