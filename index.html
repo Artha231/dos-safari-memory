@@ -1,104 +1,50 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rapid Content Mutation & Translation Bypass Test</title>
-<style>
-  body { font-family: sans-serif; padding: 40px; background: #f4f4f4; color: #333; }
-  .box { background: #fff; padding: 25px; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 450px; }
-  h3 { color: #0066cc; }
-  #status { margin-top: 15px; font-size: 13px; color: #666; }
-</style>
+    <meta charset="UTF-8">
+    <title>Popup Blocker Race Condition PoC</title>
 </head>
 <body>
-
-<div class="box">
-  <h3>Rapid DOM Mutation Test (Upgraded)</h3>
-  
-  <!-- Elemen yang dilindungi atribut no-translate -->
-  <p id="targetText" translate="no" class="notranslate">
-    Initial secure string awaiting rapid content transformation.
-  </p>
-
-  <div id="status">[*] Status: Initializing high-frequency mutation loop...</div>
-</div>
-
-<script>
-(function () {
-  'use strict';
-
-  var target = document.getElementById('targetText');
-  var statusEl = document.getElementById('status');
-  var counter = 0;
-  var isRunning = true;
-
-  // ============================================
-  // 1. RAPID DOM MUTATION VIA requestAnimationFrame
-  // ============================================
-  function mutateDOM() {
-    if (!isRunning) return;
-
-    counter++;
-    // Mutasi teks setiap frame (60+ FPS)
-    target.textContent = "Rapid payload sequence iteration #" + counter + " - testing translation engine race state.";
+    <h2>Simulasi Popup Blocker Bypass via Async Race Condition</h2>
+    <p>Klik tombol di bawah untuk memicu interaksi awal, lalu uji apakah celah timing berhasil membuka jendela baru.</p>
     
-    // Mutasi atribut translate (Race Condition)
-    target.setAttribute('translate', counter % 2 === 0 ? 'no' : 'yes');
-    target.className = counter % 2 === 0 ? 'notranslate' : 'translatable';
+    <!-- Tombol untuk memberikan initial user gesture -->
+    <button id="triggerBtn">Mulai Tes Popup</button>
 
-    // Update status setiap 100 iterasi
-    if (counter % 100 === 0) {
-      statusEl.textContent = "[+] Mutation count: " + counter;
-      console.log("Mutation count: " + counter);
-    }
+    <script>
+        document.getElementById('triggerBtn').addEventListener('click', function() {
+            console.log("Interaksi pengguna (gesture) terdeteksi. Memulai race condition...");
 
-    // Panggil lagi di frame berikutnya (60 FPS)
-    requestAnimationFrame(mutateDOM);
-  }
+            // 1. Memanfaatkan aktivasi transien awal untuk menyiapkan referensi jendela
+            // Terkadang membuka jendela kosong langsung di dalam event handler sah,
+            // atau menunda eksekusi payload melalui microtask/macrotask flooding.
+            
+            let attemptOpen = () => {
+                try {
+                    // Mencoba membuka pop-up di tengah antrean asinkron yang padat
+                    let win = window.open('https://example.com', '_blank');
+                    if (win) {
+                        console.log("POPUP BERHASIL DIBUKA (Bypass terdeteksi)!");
+                    } else {
+                        console.log("Diblokir oleh pop-up blocker browser.");
+                    }
+                } catch (e) {
+                    console.error("Error:", e);
+                }
+            };
 
-  // ============================================
-  // 2. RAPID DOM MUTATION VIA Microtask (LEBIH CEPAT)
-  // ============================================
-  function mutateMicrotask() {
-    if (!isRunning) return;
+            // 2. Membanjiri microtask queue untuk menciptakan celah timing pada event loop
+            for (let i = 0; i < 50; i++) {
+                Promise.resolve().then(() => {
+                    // Operasi kecil untuk menahan thread
+                    let dummy = Math.sqrt(i) * Math.random();
+                });
+            }
 
-    counter++;
-    target.textContent = "Microtask mutation #" + counter + " - testing engine enforcement.";
-    
-    // Mutasi atribut
-    target.setAttribute('translate', counter % 2 === 0 ? 'no' : 'yes');
-    
-    // Update status setiap 500 iterasi
-    if (counter % 500 === 0) {
-      statusEl.textContent = "[+] Microtask count: " + counter;
-      console.log("Microtask count: " + counter);
-    }
-
-    // Panggil lagi via queueMicrotask (sangat cepat, bisa freeze)
-    queueMicrotask(mutateMicrotask);
-  }
-
-  // ============================================
-  // 3. TRIGGER (MULAI)
-  // ============================================
-  statusEl.textContent = "[*] Starting rapid mutations...";
-
-  // Mulai requestAnimationFrame
-  requestAnimationFrame(mutateDOM);
-
-  // Mulai Microtask (HATI-HATI: BISA FREEZE)
-  // Uncomment baris di bawah untuk efek maksimal
-  // queueMicrotask(mutateMicrotask);
-
-  // Stop setelah 10 detik (agar tidak permanen freeze)
-  setTimeout(function() {
-    isRunning = false;
-    statusEl.textContent = "[+] Mutation sequence stopped after 10 seconds. Total: " + counter;
-    console.log("Final count: " + counter);
-  }, 10000);
-
-})();
-</script>
+            // 3. Menjadwalkan pemanggilan window.open tepat di luar siklus sinkron murni
+            // untuk menguji apakah status aktivasi transien masih "bocor" atau salah dihitung.
+            setTimeout(attemptOpen, 10);
+        });
+    </script>
 </body>
 </html>
