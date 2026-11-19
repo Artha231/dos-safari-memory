@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PiP Bounds &amp; Camera Permission Probe</title>
+<title>PiP Max Size Probe</title>
 <style>
   #content {
     display: none;
@@ -14,12 +14,12 @@
 </head>
 <body>
 
-<button id="button">Open Large PiP &amp; Request Camera</button>
+<button id="button">Open Huge PiP &amp; Request Camera</button>
 <div id="log" style="margin-top: 12px; font-family: monospace; font-size: 12px;"></div>
 
 <div id="content">
   <h3>PiP Window Content</h3>
-  <p>Testing clamped dimensions and camera permission prompt behavior.</p>
+  <p>Testing oversized width/height parameters and camera prompt behavior.</p>
 </div>
 
 <script>
@@ -30,9 +30,12 @@
   const content = document.getElementById('content');
   const logEl = document.getElementById('log');
 
+  const HUGE_W = 999999;
+  const HUGE_H = 999999;
+
   function log(msg) {
     if (logEl) logEl.textContent = msg;
-    console.log('[PiP-Cam]', msg);
+    console.log('[PiP-Huge]', msg);
   }
 
   const runProbe = async () => {
@@ -42,20 +45,22 @@
         return;
       }
 
-      const maxW = Math.max(window.screen.availWidth || 1920, 4000);
-      const maxH = Math.max(window.screen.availHeight || 1080, 4000);
-
       const pipWindow = await window.documentPictureInPicture.requestWindow({
-        width: maxW,
-        height: maxH
+        width: HUGE_W,
+        height: HUGE_H
       });
+
+      try {
+        pipWindow.resizeTo(HUGE_W, HUGE_H);
+      } catch (_) {}
 
       content.style.display = 'block';
       pipWindow.document.body.append(content);
 
       log(
-        'Requested: ' + maxW + 'x' + maxH +
-        ' | Actual PiP: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight
+        'Requested: ' + HUGE_W + 'x' + HUGE_H +
+        ' | Actual PiP: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight +
+        ' | Outer: ' + pipWindow.outerWidth + 'x' + pipWindow.outerHeight
       );
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
