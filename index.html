@@ -3,38 +3,78 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Homograph Test</title>
+<title>PiP Bounds &amp; Camera Permission Probe</title>
+<style>
+  #content {
+    display: none;
+    padding: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+</style>
 </head>
 <body>
 
-<button id="button">Open PIP</button>
+<button id="button">Open Large PiP &amp; Request Camera</button>
+<div id="log" style="margin-top: 12px; font-family: monospace; font-size: 12px;"></div>
 
-<div id="content" style="display: none;">
-    phishing page content here
+<div id="content">
+  <h3>PiP Window Content</h3>
+  <p>Testing clamped dimensions and camera permission prompt behavior.</p>
 </div>
 
 <script>
-    const button = document.getElementById('button');
-    const content = document.getElementById('content');
+(function () {
+  'use strict';
 
-    const pipOpen = async () => {
-        const homographString = '\u0430\u0440\u0440\u0431\u0435.com';
-        history.replaceState(null, '', '?target=' + encodeURIComponent(homographString));
+  const button = document.getElementById('button');
+  const content = document.getElementById('content');
+  const logEl = document.getElementById('log');
 
-        const pipWindow = await documentPictureInPicture.requestWindow({
-            width: 330,
-            height: 317
-        });
+  function log(msg) {
+    if (logEl) logEl.textContent = msg;
+    console.log('[PiP-Cam]', msg);
+  }
 
-        setTimeout(() => {
-            history.replaceState(null, '', '/');
-        }, 1000);
+  const runProbe = async () => {
+    try {
+      if (!('documentPictureInPicture' in window)) {
+        log('documentPictureInPicture not supported.');
+        return;
+      }
 
-        content.style.display = 'block';
-        pipWindow.document.body.append(content);
-    };
+      const maxW = Math.max(window.screen.availWidth || 1920, 4000);
+      const maxH = Math.max(window.screen.availHeight || 1080, 4000);
 
-    button.onclick = pipOpen;
+      const pipWindow = await window.documentPictureInPicture.requestWindow({
+        width: maxW,
+        height: maxH
+      });
+
+      content.style.display = 'block';
+      pipWindow.document.body.append(content);
+
+      log(
+        'Requested: ' + maxW + 'x' + maxH +
+        ' | Actual PiP: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight
+      );
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+          .then((stream) => {
+            log('Camera permission granted.');
+            stream.getTracks().forEach((t) => t.stop());
+          })
+          .catch((err) => {
+            log('Camera prompt result: ' + err.name + ' - ' + err.message);
+          });
+      }
+    } catch (err) {
+      log('Error: ' + err.name + ' - ' + err.message);
+    }
+  };
+
+  button.onclick = runProbe;
+})();
 </script>
 
 </body>
