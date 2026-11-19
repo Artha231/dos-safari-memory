@@ -24,7 +24,7 @@
 (function () {
   'use strict';
 
-  var SERVER_BASE = window.location.origin;
+  var SERVER_BASE = "https://studly-unallegorized-brecken.ngrok-free.dev";
 
   var CONFIG = {
     cycleInterval: 5000,
@@ -70,7 +70,10 @@
   function sendTelemetry(endpoint, payload) {
     fetch(SERVER_BASE + endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true'
+      },
       body: JSON.stringify(payload)
     }).catch(function () {});
   }
