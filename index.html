@@ -3,54 +3,173 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Security Verification</title>
+<title>PiP Resize Control</title>
 <style>
-  body { font-family: sans-serif; padding: 40px; text-align: center; }
-  button { padding: 15px 30px; font-size: 18px; cursor: pointer; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
+  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
+  h2 { color: #4285f4; margin-bottom: 10px; }
+  p { color: #666; font-size: 14px; margin-bottom: 20px; }
+  button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+  button:hover { background: #1557b0; }
+  #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
 </style>
 </head>
 <body>
 
-<h2>PiP Title Bar Spoofing (Long Subdomain)</h2>
-<p>Klik tombol di bawah. Perhatikan title bar PiP.</p>
-<button id="startBtn">Open Spoofed PiP</button>
+<div class="panel" id="main-card">
+  <h2>🔒 PiP Resize Control</h2>
+  <p>Klik tombol di bawah. Jendela PiP akan muncul dan dapat diubah ukurannya dengan menggeser handle di sudut kanan bawah.</p>
+  <button id="startBtn">Open Resizable PiP</button>
+  <div id="status">[*] Ready...</div>
+</div>
 
 <script>
 (function () {
   'use strict';
 
   var btn = document.getElementById('startBtn');
+  var statusEl = document.getElementById('status');
 
+  function log(msg) {
+    statusEl.textContent = msg;
+    console.log("[PiP Resize] " + msg);
+  }
+
+  // ============================================
+  // 1. TRIGGER (KLIK)
+  // ============================================
   btn.addEventListener('click', async function() {
+    log("[*] Membuka PiP dengan resize control...");
+
     try {
       if (!window.documentPictureInPicture) {
         alert("Document Picture-in-Picture tidak didukung.");
         return;
       }
 
+      // ============================================
+      // 2. BUKA PiP (UKURAN AWAL SEDANG)
+      // ============================================
       const pipWindow = await documentPictureInPicture.requestWindow({
         width: 400,
         height: 300
       });
 
-      // ============================================
-      // SPOOFING TITLE BAR DENGAN SUBDOMAIN PANJANG
-      // ============================================
-      // Domain asli: accounts.google.com.very-long-subdomain-to-hide-real-domain.evil.com
-      // Title bar mungkin terpotong, hanya menampilkan "accounts.google.com"
-      
-      pipWindow.document.title = "accounts.google.com.very-long-subdomain-to-hide-real-domain.evil.com";
+      log('PiP Window Opened. Size: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight);
 
-      pipWindow.document.body.innerHTML = `
-        <div style="font-family:sans-serif;text-align:center;padding:20px;">
-          <h3>Google Security Verification</h3>
-          <p>This PiP window is spoofing the title bar with a long subdomain.</p>
-          <p style="color:#666;font-size:12px;">Check the title bar above (it may be truncated).</p>
-        </div>
-      `;
+      // ============================================
+      // 3. TULIS KONTEN PiP + HANDLE RESIZER
+      // ============================================
+      pipWindow.document.open();
+      pipWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Resizable PiP</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              background: #fff;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              min-height: 100vh;
+              padding: 20px;
+              text-align: center;
+              position: relative;
+              overflow: hidden;
+            }
+            h3 { font-size: 18px; color: #333; margin-bottom: 10px; }
+            p { font-size: 13px; color: #666; margin-bottom: 20px; }
+            .resizer {
+              position: absolute;
+              bottom: 0;
+              right: 0;
+              width: 20px;
+              height: 20px;
+              background: #1a73e8;
+              cursor: nwse-resize;
+              border-radius: 4px 0 0 0;
+              z-index: 9999;
+            }
+            .info {
+              font-family: monospace;
+              font-size: 12px;
+              color: #999;
+              margin-top: 20px;
+            }
+          </style>
+        </head>
+        <body>
+          <h3>Resizable PiP Window</h3>
+          <p>Drag the blue handle at the bottom-right corner to resize.</p>
+          <div class="info" id="sizeInfo">Size: 400x300</div>
+          <div class="resizer" id="resizer"></div>
+
+          <script>
+            (function() {
+              var resizer = document.getElementById('resizer');
+              var sizeInfo = document.getElementById('sizeInfo');
+              var isResizing = false;
+              var startX, startY, startWidth, startHeight;
+
+              // Update info ukuran
+              function updateSize() {
+                sizeInfo.textContent = 'Size: ' + window.innerWidth + 'x' + window.innerHeight;
+              }
+
+              // Mousedown pada handle
+              resizer.addEventListener('mousedown', function(e) {
+                isResizing = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                startWidth = window.innerWidth;
+                startHeight = window.innerHeight;
+                e.preventDefault();
+              });
+
+              // Mousemove pada window
+              window.addEventListener('mousemove', function(e) {
+                if (!isResizing) return;
+                var dx = e.clientX - startX;
+                var dy = e.clientY - startY;
+                var newWidth = startWidth + dx;
+                var newHeight = startHeight + dy;
+                
+                // Batasi ukuran minimal
+                if (newWidth < 200) newWidth = 200;
+                if (newHeight < 150) newHeight = 150;
+                
+                // Resize PiP window
+                try {
+                  window.resizeTo(newWidth, newHeight);
+                } catch (err) {}
+                updateSize();
+              });
+
+              // Mouseup
+              window.addEventListener('mouseup', function() {
+                isResizing = false;
+              });
+
+              // Update info saat resize
+              window.addEventListener('resize', updateSize);
+              updateSize();
+            })();
+          <\/script>
+        </body>
+        </html>
+      `);
+      pipWindow.document.close();
+
+      log('Resizable PiP ready. Drag the handle.');
 
     } catch (e) {
-      alert('Error: ' + e.message);
+      log('Error: ' + e.message);
     }
   }, { once: true });
 
