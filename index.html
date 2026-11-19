@@ -3,25 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Translate API Userinfo Spoofing</title>
+<title>Pending Navigation Hang</title>
 <style>
   body { font-family: sans-serif; padding: 40px; text-align: center; }
   iframe { width: 100%; height: 500px; border: 1px solid #ccc; margin-top: 20px; }
+  .note { color: #666; font-size: 14px; margin-top: 20px; }
 </style>
 </head>
 <body>
 
-<h2>Translate API Userinfo (@) Spoofing</h2>
-<p>Mengirim URL dengan Userinfo @ ke Google Translate API.</p>
+<h2>Pending Navigation / Slow Loading Hang Test</h2>
+<p>Iframe di bawah mencoba memuat <code>https://www.google.com:8443</code> (port tertutup).</p>
 
-<!-- URL yang dikirim ke Translate API -->
-<!-- https://translate.google.com/translate?sl=auto&tl=id&u=https://google.com@evil.com -->
+<!-- Iframe ke port tertutup -->
+<iframe id="targetFrame" src="https://www.google.com:8443"></iframe>
 
-<iframe src="https://translate.google.com/translate?sl=auto&tl=id&u=https://www.google.com@www.microsoft.com"></iframe>
+<div class="note">
+  Saat iframe menggantung (pending), address bar mungkin menampilkan <code>google.com:8443</code>.
+  Konten iframe tidak akan pernah dimuat karena port tertutup. Ini adalah dasar untuk serangan injeksi konten.
+</div>
 
-<p style="margin-top: 20px; color: #666; font-size: 14px;">
-  Jika Google Translate menerjemahkan halaman Microsoft (bukan Google), maka URL spoofing berhasil.
-</p>
+<script>
+  // Tidak ada injeksi konten di sini, hanya mendemonstrasikan pending navigation.
+  // Untuk injeksi, kita perlu akses ke dokumen iframe (tidak mungkin karena cross-origin).
+</script>
 
 </body>
 </html>
