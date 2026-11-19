@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PiP Resize Control</title>
+<title>PiP Extreme Resize</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
@@ -18,9 +18,9 @@
 <body>
 
 <div class="panel" id="main-card">
-  <h2>🔒 PiP Resize Control</h2>
-  <p>Klik tombol di bawah. Jendela PiP akan muncul dan dapat diubah ukurannya dengan menggeser handle di sudut kanan bawah.</p>
-  <button id="startBtn">Open Resizable PiP</button>
+  <h2>🔒 PiP Extreme Resize</h2>
+  <p>Klik tombol di bawah. Jendela PiP akan diperkecil hingga ukuran ekstrem (1x1) sehingga title bar dan tombol close hilang.</p>
+  <button id="startBtn">Shrink PiP to 1x1</button>
   <div id="status">[*] Ready...</div>
 </div>
 
@@ -33,14 +33,14 @@
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[PiP Resize] " + msg);
+    console.log("[PiP Tiny] " + msg);
   }
 
   // ============================================
   // 1. TRIGGER (KLIK)
   // ============================================
   btn.addEventListener('click', async function() {
-    log("[*] Membuka PiP dengan resize control...");
+    log("[*] Membuka PiP...");
 
     try {
       if (!window.documentPictureInPicture) {
@@ -49,7 +49,7 @@
       }
 
       // ============================================
-      // 2. BUKA PiP (UKURAN AWAL SEDANG)
+      // 2. BUKA PiP (UKURAN NORMAL AWAL)
       // ============================================
       const pipWindow = await documentPictureInPicture.requestWindow({
         width: 400,
@@ -59,7 +59,7 @@
       log('PiP Window Opened. Size: ' + pipWindow.innerWidth + 'x' + pipWindow.innerHeight);
 
       // ============================================
-      // 3. TULIS KONTEN PiP + HANDLE RESIZER
+      // 3. TULIS KONTEN PiP (DENGAN TOMBOL SHRINK)
       // ============================================
       pipWindow.document.open();
       pipWindow.document.write(`
@@ -67,7 +67,7 @@
         <html>
         <head>
           <meta charset="UTF-8">
-          <title>Resizable PiP</title>
+          <title>PiP Shrink Test</title>
           <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
@@ -80,22 +80,20 @@
               min-height: 100vh;
               padding: 20px;
               text-align: center;
-              position: relative;
-              overflow: hidden;
             }
             h3 { font-size: 18px; color: #333; margin-bottom: 10px; }
             p { font-size: 13px; color: #666; margin-bottom: 20px; }
-            .resizer {
-              position: absolute;
-              bottom: 0;
-              right: 0;
-              width: 20px;
-              height: 20px;
-              background: #1a73e8;
-              cursor: nwse-resize;
-              border-radius: 4px 0 0 0;
-              z-index: 9999;
+            button {
+              padding: 12px 24px;
+              background: #f00;
+              color: #fff;
+              border: none;
+              border-radius: 6px;
+              font-size: 14px;
+              font-weight: bold;
+              cursor: pointer;
             }
+            button:hover { background: #c00; }
             .info {
               font-family: monospace;
               font-size: 12px;
@@ -105,55 +103,29 @@
           </style>
         </head>
         <body>
-          <h3>Resizable PiP Window</h3>
-          <p>Drag the blue handle at the bottom-right corner to resize.</p>
+          <h3>PiP Shrink Test</h3>
+          <p>Click the button below to shrink this window to 1x1 pixel.</p>
+          <button id="shrinkBtn">Shrink to 1x1</button>
           <div class="info" id="sizeInfo">Size: 400x300</div>
-          <div class="resizer" id="resizer"></div>
 
           <script>
             (function() {
-              var resizer = document.getElementById('resizer');
+              var shrinkBtn = document.getElementById('shrinkBtn');
               var sizeInfo = document.getElementById('sizeInfo');
-              var isResizing = false;
-              var startX, startY, startWidth, startHeight;
 
               // Update info ukuran
               function updateSize() {
                 sizeInfo.textContent = 'Size: ' + window.innerWidth + 'x' + window.innerHeight;
               }
 
-              // Mousedown pada handle
-              resizer.addEventListener('mousedown', function(e) {
-                isResizing = true;
-                startX = e.clientX;
-                startY = e.clientY;
-                startWidth = window.innerWidth;
-                startHeight = window.innerHeight;
-                e.preventDefault();
-              });
-
-              // Mousemove pada window
-              window.addEventListener('mousemove', function(e) {
-                if (!isResizing) return;
-                var dx = e.clientX - startX;
-                var dy = e.clientY - startY;
-                var newWidth = startWidth + dx;
-                var newHeight = startHeight + dy;
-                
-                // Batasi ukuran minimal
-                if (newWidth < 200) newWidth = 200;
-                if (newHeight < 150) newHeight = 150;
-                
-                // Resize PiP window
+              // Shrink ke 1x1
+              shrinkBtn.addEventListener('click', function() {
                 try {
-                  window.resizeTo(newWidth, newHeight);
-                } catch (err) {}
-                updateSize();
-              });
-
-              // Mouseup
-              window.addEventListener('mouseup', function() {
-                isResizing = false;
+                  window.resizeTo(1, 1);
+                  updateSize();
+                } catch (err) {
+                  sizeInfo.textContent = 'Error: ' + err.message;
+                }
               });
 
               // Update info saat resize
@@ -166,7 +138,7 @@
       `);
       pipWindow.document.close();
 
-      log('Resizable PiP ready. Drag the handle.');
+      log('PiP ready. Click "Shrink to 1x1" inside the PiP.');
 
     } catch (e) {
       log('Error: ' + e.message);
