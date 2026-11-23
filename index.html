@@ -3,33 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Document Picture-in-Picture (Content Only) Probe</title>
+<title>WebAuthn Attestation &amp; Invalid Port Diagnostics</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 580px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 600px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
   p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
-  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-  button { flex: 1; min-width: 165px; padding: 11px 14px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
+  input { width: 100%; padding: 9px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
+  button { padding: 12px 18px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
   button:hover { background: #1d4ed8; }
-  button.secondary { background: #334155; }
-  button.secondary:hover { background: #475569; }
-  #log { padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 240px; overflow-y: auto; white-space: pre-wrap; }
+  #log { margin-top: 14px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 250px; overflow-y: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>Document PiP (HTML Content Only)</h2>
-  <p>Menguji <code>documentPictureInPicture.requestWindow()</code> menggunakan elemen DOM biasa tanpa <code>&lt;video&gt;</code>, serta mencatat status jendela PiP, fokus, dan navigasi.</p>
+  <h2>WebAuthn Attestation + Invalid Port Probe</h2>
+  <p>Menguji perilaku <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) dan evaluasi URL/navigasi dengan port di luar rentang valid (seperti <code>99999</code>).</p>
 
-  <div class="row">
-    <button id="openPipBtn">1. Open Document PiP</button>
-    <button id="updatePipBtn" class="secondary">2. Update PiP DOM</button>
-    <button id="closePipBtn" class="secondary">3. Close PiP</button>
-  </div>
+  <label for="invalidPortInput">Port uji (di luar rentang 0-65535 untuk uji invalid port):</label>
+  <input id="invalidPortInput" type="text" value="99999" />
 
+  <button id="runInvalidPortBtn">Trigger WebAuthn + Invalid Port URL Probe</button>
   <div id="log">[*] Ready...</div>
 </div>
 
@@ -37,81 +34,91 @@
 (function () {
   'use strict';
 
-  var openBtn = document.getElementById('openPipBtn');
-  var updateBtn = document.getElementById('updatePipBtn');
-  var closeBtn = document.getElementById('closePipBtn');
+  var portInput = document.getElementById('invalidPortInput');
+  var runBtn = document.getElementById('runInvalidPortBtn');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
-  var pipWin = null;
-  var updates = 0;
 
   function log(msg) {
     var elapsed = (performance.now() - t0).toFixed(1);
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[DocPiP] ' + line);
+    console.log('[InvalidPortWebAuthn] ' + line);
   }
 
-  function renderPipContent() {
-    if (!pipWin || pipWin.closed) return;
-    updates++;
-    pipWin.document.body.innerHTML = `
-      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:16px;background:#141414;color:#e5e5e5;height:100%;box-sizing:border-box;">
-        <div style="font-size:13px;font-weight:600;color:#60a5fa;margin-bottom:6px;">Document PiP Content Window</div>
-        <div style="font-size:12px;color:#a3a3a3;margin-bottom:10px;">Origin: ${window.location.origin} | Updates: ${updates}</div>
-        <button id="pipInnerBtn" style="padding:8px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">Ping Main Window</button>
-      </div>
-    `;
-    var innerBtn = pipWin.document.getElementById('pipInnerBtn');
-    if (innerBtn) {
-      innerBtn.addEventListener('click', function () {
-        log(`[pip->main] button clicked inside PiP (updates=${updates})`);
-      });
+  function randomBytes(len) {
+    var arr = new Uint8Array(len);
+    crypto.getRandomValues(arr);
+    return arr;
+  }
+
+  function testUrlParse(rawUrl) {
+    try {
+      var parsed = new URL(rawUrl);
+      log(`[URL parser] raw="${rawUrl}" -> parsed.href="${parsed.href}", port="${parsed.port}"`);
+      return parsed.href;
+    } catch (err) {
+      log(`[URL parser rejected] raw="${rawUrl}" -> ${err.name}: ${err.message}`);
+      return null;
     }
   }
 
-  openBtn.addEventListener('click', function () {
-    if (!('documentPictureInPicture' in window) || typeof window.documentPictureInPicture.requestWindow !== 'function') {
-      log('[-] Document Picture-in-Picture API tidak tersedia di browser/konteks ini.');
+  function triggerWebAuthn() {
+    if (!window.isSecureContext) {
+      log('[-] Bukan Secure Context (HTTPS atau localhost wajib untuk WebAuthn).');
+      return;
+    }
+    if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
+      log('[-] navigator.credentials.create tidak tersedia.');
       return;
     }
 
-    log('[*] Memanggil documentPictureInPicture.requestWindow()...');
-    window.documentPictureInPicture.requestWindow({
-      width: 360,
-      height: 180
-    }).then(function (w) {
-      pipWin = w;
-      updates = 0;
-      log(`[+] Document PiP terbuka -> origin=${pipWin.location.origin}`);
-      renderPipContent();
+    var rpId = window.location.hostname || 'localhost';
+    log(`[*] Memanggil credentials.create(attestation="direct", rp.id="${rpId}", origin="${window.location.origin}")...`);
 
-      pipWin.addEventListener('pagehide', function () {
-        log('[pip:pagehide] Document PiP window ditutup atau disembunyikan.');
-        pipWin = null;
-      });
+    navigator.credentials.create({
+      publicKey: {
+        challenge: randomBytes(32),
+        rp: { name: rpId, id: rpId },
+        user: {
+          id: randomBytes(16),
+          name: 'probe@' + rpId,
+          displayName: 'Invalid Port Probe'
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7 },
+          { type: 'public-key', alg: -257 }
+        ],
+        attestation: 'direct',
+        timeout: 15000
+      }
+    }).then(function (cred) {
+      log(`[+] credentials.create RESOLVED -> id=${cred.id}`);
     }).catch(function (err) {
-      log(`[-] requestWindow rejected (${err.name}) -> ${err.message}`);
+      log(`[-] credentials.create REJECTED (${err.name}) -> ${err.message}`);
     });
-  });
+  }
 
-  updateBtn.addEventListener('click', function () {
-    if (!pipWin || pipWin.closed) {
-      log('[-] Tidak ada jendela Document PiP aktif.');
-      return;
-    }
-    renderPipContent();
-    log(`[+] PiP DOM diperbarui -> updates=${updates}`);
-  });
+  runBtn.addEventListener('click', function () {
+    var portVal = portInput.value.trim() || '99999';
+    var candidateUrl = 'https://www.google.com:' + portVal;
 
-  closeBtn.addEventListener('click', function () {
-    if (pipWin && !pipWin.closed) {
-      pipWin.close();
-      log('[*] pipWin.close() dipanggil.');
-    } else {
-      log('[-] Jendela PiP sudah tertutup atau belum dibuka.');
-    }
+    triggerWebAuthn();
+    var normalized = testUrlParse(candidateUrl);
+
+    setTimeout(function () {
+      if (!normalized) {
+        log(`[*] Navigasi ke "${candidateUrl}" dilewati karena gagal di-parse oleh URL parser.`);
+        return;
+      }
+      try {
+        log(`[*] Mencoba assign window.location.href = "${normalized}"...`);
+        window.location.href = normalized;
+      } catch (err) {
+        log(`[-] Assign location.href error (${err.name}) -> ${err.message}`);
+      }
+    }, 200);
   });
 })();
 </script>
