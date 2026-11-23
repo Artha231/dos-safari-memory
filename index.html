@@ -3,55 +3,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Script &amp; Style Parsing Error Race Observer</title>
+<title>Media Presentation &amp; Policy State Race Observer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 600px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 620px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
   p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
-  label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
-  input, select { width: 100%; padding: 9px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
-  button { padding: 12px 16px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
+  video { width: 100%; max-height: 200px; border-radius: 8px; background: #09090b; border: 1px solid #3f3f46; margin-bottom: 12px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  button { flex: 1; min-width: 150px; padding: 11px 14px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
   button:hover { background: #1d4ed8; }
-  #log { margin-top: 14px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 250px; overflow-y: auto; white-space: pre-wrap; }
-  #probeHost { display: none; }
+  button.secondary { background: #334155; }
+  button.secondary:hover { background: #475569; }
+  #log { padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 240px; overflow-y: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>Script &amp; Stylesheet Error Race Observer</h2>
-  <p>Memantau <code>window.onerror</code>, event <code>error</code>/<code>load</code> pada <code>&lt;script&gt;</code> dan <code>&lt;link&gt;</code>, serta mutasi <code>charset</code> dan penghapusan/penggantian elemen saat <em>race</em>.</p>
+  <h2>Media Presentation &amp; Policy State Observer</h2>
+  <p>Mengamati transisi status <code>muted</code>, <code>paused</code>, <code>enterpictureinpicture</code> / <code>webkitpresentationmodechanged</code>, serta urutan <code>rAF</code> &amp; <code>Promise</code> microtask saat memicu mode tampilan.</p>
 
-  <label for="targetResource">Target URL (gunakan endpoint uji lokal/milik sendiri atau resource uji):</label>
-  <input id="targetResource" type="text" value="https://httpbin.org/delay/2" />
+  <video id="probeVideo" playsinline muted controls loop preload="metadata">
+    <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
+  </video>
 
-  <label for="resourceType">Jenis elemen uji:</label>
-  <select id="resourceType">
-    <option value="script">&lt;script&gt;</option>
-    <option value="stylesheet">&lt;link rel="stylesheet"&gt;</option>
-  </select>
+  <div class="controls">
+    <button id="initBtn">1. Init Muted Playback</button>
+    <button id="pipRaceBtn">2. Trigger PiP + State Race</button>
+    <button id="fsRaceBtn" class="secondary">3. Trigger Fullscreen + Race</button>
+  </div>
 
-  <label for="abortDelay">Jeda race sebelum mutasi charset / remove node (ms):</label>
-  <input id="abortDelay" type="number" value="25" min="0" max="5000" />
-
-  <button id="runRaceBtn">Run Parsing Error Race</button>
   <div id="log">[*] Ready...</div>
 </div>
-
-<div id="probeHost"></div>
 
 <script>
 (function () {
   'use strict';
 
-  var urlInput = document.getElementById('targetResource');
-  var typeSelect = document.getElementById('resourceType');
-  var delayInput = document.getElementById('abortDelay');
-  var runBtn = document.getElementById('runRaceBtn');
+  var video = document.getElementById('probeVideo');
+  var initBtn = document.getElementById('initBtn');
+  var pipRaceBtn = document.getElementById('pipRaceBtn');
+  var fsRaceBtn = document.getElementById('fsRaceBtn');
   var logEl = document.getElementById('log');
-  var hostEl = document.getElementById('probeHost');
   var t0 = performance.now();
 
   function log(msg) {
@@ -59,80 +54,99 @@
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[ErrorRace] ' + line);
+    console.log('[MediaRace] ' + line);
   }
 
-  window.onerror = function (message, source, lineno, colno, error) {
-    log(
-      `window.onerror -> msg=${JSON.stringify(message)}, src=${JSON.stringify(source)}, ` +
-      `line=${lineno}, col=${colno}, errName=${error ? error.name : 'none'}`
-    );
-    return false;
-  };
+  function snapshot(tag) {
+    var mode = typeof video.webkitPresentationMode === 'string'
+      ? video.webkitPresentationMode
+      : (document.pictureInPictureElement === video ? 'picture-in-picture' : 'inline');
+    log(`[${tag}] muted=${video.muted}, paused=${video.paused}, mode=${mode}`);
+  }
 
-  window.addEventListener('unhandledrejection', function (ev) {
-    log(`unhandledrejection -> reason=${String(ev.reason)}`);
+  ['play', 'pause', 'volumechange', 'enterpictureinpicture', 'leavepictureinpicture', 'webkitpresentationmodechanged'].forEach(function (evName) {
+    video.addEventListener(evName, function () {
+      snapshot('event:' + evName);
+    });
   });
 
-  function createProbeElement(kind, url) {
-    if (kind === 'stylesheet') {
-      var link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = url;
-      link.setAttribute('charset', 'utf-8');
-      return link;
-    }
-    var script = document.createElement('script');
-    script.src = url;
-    script.async = true;
-    script.charset = 'utf-8';
-    return script;
-  }
+  document.addEventListener('fullscreenchange', function () {
+    snapshot('event:fullscreenchange');
+  });
 
-  runBtn.addEventListener('click', function () {
-    var url = urlInput.value.trim();
-    var kind = typeSelect.value;
-    var raceMs = Math.max(0, Math.min(5000, parseInt(delayInput.value, 10) || 25));
-
-    if (!url) {
-      log('[-] URL kosong.');
-      return;
-    }
-
-    hostEl.innerHTML = '';
-    var el = createProbeElement(kind, url);
-    var charsets = ['utf-8', 'iso-8859-1', 'windows-1252', 'utf-16le'];
-    var cIdx = 0;
-
-    el.addEventListener('load', function () {
-      log(`[element:load] tag=${el.tagName}, charset=${el.getAttribute('charset') || ''}`);
-    });
-
-    el.addEventListener('error', function (ev) {
-      var targetSrc = el.src || el.href || '';
-      log(`[element:error] tag=${el.tagName}, href/src=${targetSrc}, isTrusted=${ev.isTrusted}`);
-    });
-
-    log(`[*] Memulai race -> kind=${kind}, url=${url}, raceMs=${raceMs}`);
-    hostEl.appendChild(el);
-
-    queueMicrotask(function () {
-      el.setAttribute('charset', charsets[(cIdx++) % charsets.length]);
-      log(`[microtask] mutasi charset -> ${el.getAttribute('charset')}`);
-    });
+  function runStateTransitionRace(phaseLabel) {
+    snapshot(phaseLabel + '_before');
 
     requestAnimationFrame(function () {
-      el.setAttribute('charset', charsets[(cIdx++) % charsets.length]);
-      log(`[rAF] mutasi charset -> ${el.getAttribute('charset')}`);
-    });
+      video.muted = false;
+      snapshot(phaseLabel + '_rAF_unmute');
 
-    setTimeout(function () {
-      el.setAttribute('charset', charsets[(cIdx++) % charsets.length]);
-      log(`[timeout ${raceMs}ms] mutasi charset -> ${el.getAttribute('charset')}, melepaskan node dari DOM`);
-      if (el.parentNode) {
-        el.parentNode.removeChild(el);
+      Promise.resolve().then(function () {
+        if (typeof video.play === 'function') {
+          video.play().then(function () {
+            snapshot(phaseLabel + '_microtask_play_resolved');
+          }).catch(function (err) {
+            log(`[${phaseLabel}_microtask_play_rejected] ${err.name}: ${err.message}`);
+            snapshot(phaseLabel + '_after_reject');
+          });
+        }
+      });
+    });
+  }
+
+  initBtn.addEventListener('click', function () {
+    video.muted = true;
+    video.playsInline = true;
+    log('[*] Menginisialisasi pemutaran awal (muted=true, playsinline=true)...');
+    video.play().then(function () {
+      snapshot('init_playing');
+    }).catch(function (err) {
+      log('[-] Init play error -> ' + err.name + ': ' + err.message);
+    });
+  });
+
+  pipRaceBtn.addEventListener('click', function () {
+    log('[*] Memicu transisi Picture-in-Picture dan race status...');
+    if (typeof video.requestPictureInPicture === 'function') {
+      video.requestPictureInPicture().then(function () {
+        snapshot('pip_resolved');
+      }).catch(function (err) {
+        log('[-] requestPictureInPicture error -> ' + err.name + ': ' + err.message);
+      });
+    } else if (typeof video.webkitSetPresentationMode === 'function' && typeof video.webkitSupportsPresentationMode === 'function' && video.webkitSupportsPresentationMode('picture-in-picture')) {
+      try {
+        video.webkitSetPresentationMode('picture-in-picture');
+        snapshot('webkit_pip_called');
+      } catch (err) {
+        log('[-] webkitSetPresentationMode error -> ' + err.message);
       }
-    }, raceMs);
+    } else {
+      log('[-] PiP API tidak didukung pada konteks/browser ini.');
+    }
+
+    runStateTransitionRace('pip_race');
+  });
+
+  fsRaceBtn.addEventListener('click', function () {
+    log('[*] Memicu transisi Fullscreen dan race status...');
+    if (typeof video.requestFullscreen === 'function') {
+      video.requestFullscreen().then(function () {
+        snapshot('fs_resolved');
+      }).catch(function (err) {
+        log('[-] requestFullscreen error -> ' + err.name + ': ' + err.message);
+      });
+    } else if (typeof video.webkitRequestFullscreen === 'function') {
+      try {
+        video.webkitRequestFullscreen();
+        snapshot('webkit_fs_called');
+      } catch (err) {
+        log('[-] webkitRequestFullscreen error -> ' + err.message);
+      }
+    } else {
+      log('[-] Fullscreen API tidak didukung pada konteks/browser ini.');
+    }
+
+    runStateTransitionRace('fs_race');
   });
 })();
 </script>
