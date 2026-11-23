@@ -3,43 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Redirect to google.com With Invalid Port Probe</title>
+<title>WebAuthn Attestation + google.com:99999 Probe</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 580px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 600px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
   p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
-  label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
-  input, select { width: 100%; padding: 9px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
-  .row { display: flex; gap: 10px; margin-bottom: 12px; }
-  button { flex: 1; padding: 12px 16px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; }
+  button { padding: 12px 18px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
   button:hover { background: #1d4ed8; }
-  button.secondary { background: #334155; }
-  button.secondary:hover { background: #475569; }
-  #log { padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 240px; overflow-y: auto; white-space: pre-wrap; }
+  #log { margin-top: 14px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 250px; overflow-y: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>Redirect to google.com With Invalid Port</h2>
-  <p>Menguji bagaimana browser dan URL parser menangani target <code>https://www.google.com:&lt;invalid-port&gt;</code> saat dipicu melalui <code>window.location.href</code> atau <code>window.location.assign()</code>.</p>
-
-  <label for="invalidPort">Nilai port tidak valid (mis. <code>99999</code>, <code>70000</code>, <code>-1</code>, <code>abc</code>, atau kosong):</label>
-  <input id="invalidPort" type="text" value="99999" />
-
-  <label for="navMethod">Metode redirect:</label>
-  <select id="navMethod">
-    <option value="href">window.location.href = ...</option>
-    <option value="assign">window.location.assign(...)</option>
-  </select>
-
-  <div class="row">
-    <button id="checkUrlBtn" class="secondary">1. Test URL Parse Only</button>
-    <button id="redirectBtn">2. Redirect to google.com:&lt;port&gt;</button>
-  </div>
-
+  <h2>WebAuthn Attestation + google.com:99999</h2>
+  <p>Memicu <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) dan menguji redirect/parsing ke <code>https://www.google.com:99999</code>.</p>
+  <button id="run99999Btn">Trigger WebAuthn + google.com:99999</button>
   <div id="log">[*] Ready...</div>
 </div>
 
@@ -47,10 +28,8 @@
 (function () {
   'use strict';
 
-  var portInput = document.getElementById('invalidPort');
-  var methodSelect = document.getElementById('navMethod');
-  var checkBtn = document.getElementById('checkUrlBtn');
-  var redirectBtn = document.getElementById('redirectBtn');
+  var TARGET_URL = 'https://www.google.com:99999';
+  var btn = document.getElementById('run99999Btn');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
 
@@ -59,10 +38,16 @@
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[InvalidPortRedirect] ' + line);
+    console.log('[Probe99999] ' + line);
   }
 
-  ['visibilitychange', 'pagehide'].forEach(function (evName) {
+  function randomBytes(len) {
+    var arr = new Uint8Array(len);
+    crypto.getRandomValues(arr);
+    return arr;
+  }
+
+  ['blur', 'visibilitychange', 'pagehide'].forEach(function (evName) {
     var target = (evName === 'visibilitychange') ? document : window;
     target.addEventListener(evName, function (e) {
       log(
@@ -72,48 +57,64 @@
     });
   });
 
-  function buildTarget(rawPort) {
-    return 'https://www.google.com:' + rawPort;
-  }
-
-  function inspectTargetUrl(targetUrl) {
-    try {
-      var u = new URL(targetUrl);
-      log(`[URL ok] input="${targetUrl}" -> href="${u.href}", host="${u.host}", port="${u.port}"`);
-      return u.href;
-    } catch (err) {
-      log(`[URL rejected] input="${targetUrl}" -> ${err.name}: ${err.message}`);
-      return null;
+  function triggerAttestation() {
+    if (!window.isSecureContext) {
+      log('[-] Bukan Secure Context (HTTPS atau localhost wajib untuk WebAuthn).');
+      return;
     }
-  }
+    if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
+      log('[-] navigator.credentials.create tidak tersedia.');
+      return;
+    }
 
-  checkBtn.addEventListener('click', function () {
-    var rawPort = portInput.value;
-    var targetUrl = buildTarget(rawPort);
-    inspectTargetUrl(targetUrl);
-  });
+    var rpId = window.location.hostname || 'localhost';
+    log(`[*] Memanggil credentials.create(attestation="direct", rp.id="${rpId}", origin="${window.location.origin}")...`);
 
-  redirectBtn.addEventListener('click', function () {
-    var rawPort = portInput.value;
-    var method = methodSelect.value;
-    var targetUrl = buildTarget(rawPort);
-    var normalized = inspectTargetUrl(targetUrl);
-
-    log(`[*] Memicu redirect (${method}) ke "${targetUrl}"...`);
-
-    try {
-      if (method === 'assign') {
-        window.location.assign(targetUrl);
-      } else {
-        window.location.href = targetUrl;
+    navigator.credentials.create({
+      publicKey: {
+        challenge: randomBytes(32),
+        rp: { name: rpId, id: rpId },
+        user: {
+          id: randomBytes(16),
+          name: 'probe@' + rpId,
+          displayName: 'Probe 99999'
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7 },
+          { type: 'public-key', alg: -257 }
+        ],
+        attestation: 'direct',
+        timeout: 15000
       }
-      log(`[*] Assignment/call selesai tanpa synchronous throw -> normalized=${normalized || 'null'}`);
-    } catch (err) {
-      log(`[-] Redirect throw (${err.name}) -> ${err.message}`);
+    }).then(function (cred) {
+      log(`[+] credentials.create RESOLVED -> id=${cred.id}`);
+    }).catch(function (err) {
+      log(`[-] credentials.create REJECTED (${err.name}) -> ${err.message}`);
+    });
+  }
+
+  btn.addEventListener('click', function () {
+    triggerAttestation();
+
+    try {
+      new URL(TARGET_URL);
+      log(`[URL ok] ${TARGET_URL}`);
+    } catch (e) {
+      log(`[URL rejected] ${TARGET_URL} -> ${e.name}: ${e.message}`);
     }
+
+    setTimeout(function () {
+      try {
+        var before = window.location.href;
+        window.location.href = TARGET_URL;
+        log(`[*] window.location.href = "${TARGET_URL}" (before="${before}", now="${window.location.href}")`);
+      } catch (navErr) {
+        log(`[-] Redirect error (${navErr.name}) -> ${navErr.message}`);
+      }
+    }, 150);
   });
 })();
 </script>
 
 </body>
-</html>
+</html> 
