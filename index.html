@@ -3,24 +3,50 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Port Validity &amp; Timing Comparison</title>
+<title>Port Candidates + WebAuthn Attestation Probe</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 600px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 640px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
   p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
-  button { padding: 12px 18px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
+  label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
+  select, input { width: 100%; padding: 9px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  button { flex: 1; min-width: 170px; padding: 12px 16px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
   button:hover { background: #1d4ed8; }
-  #log { margin-top: 14px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 240px; overflow-y: auto; white-space: pre-wrap; }
+  button.secondary { background: #334155; }
+  button.secondary:hover { background: #475569; }
+  #log { padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 260px; overflow-y: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>Port Range &amp; Parser Behavior Probe</h2>
-  <p>Menguji berbagai nilai port pada <code>https://google.com:&lt;port&gt;</code> untuk melihat mana yang lolos <em>URL parser</em> dan mana yang ditolak langsung.</p>
-  <button id="testPortsBtn">Test Candidate Ports</button>
+  <h2>Port Candidates + WebAuthn Attestation</h2>
+  <p>Menguji kandidat port pada <code>https://google.com:&lt;port&gt;</code> bersamaan dengan pemanggilan <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>).</p>
+
+  <label for="portSelect">Pilih port uji (valid vs invalid):</label>
+  <select id="portSelect">
+    <option value="8443">8443 (valid parse - non-default TLS port)</option>
+    <option value="8444">8444 (valid parse)</option>
+    <option value="9443">9443 (valid parse)</option>
+    <option value="65535">65535 (valid parse - max port)</option>
+    <option value="65536">65536 (invalid parse - &gt; 65535)</option>
+    <option value="99999">99999 (invalid parse - &gt; 65535)</option>
+    <option value="0">0 (valid parse - port 0)</option>
+    <option value="-1">-1 (invalid parse - negative)</option>
+    <option value="abc">abc (invalid parse - non-numeric)</option>
+  </select>
+
+  <label for="navDelayInput">Jeda (ms) sebelum assign lokasi setelah trigger WebAuthn:</label>
+  <input id="navDelayInput" type="number" value="150" min="0" max="10000" />
+
+  <div class="row">
+    <button id="runAllPortsBtn" class="secondary">1. Parse All Ports Only</button>
+    <button id="runPermPortBtn">2. Trigger WebAuthn + Selected Port</button>
+  </div>
+
   <div id="log">[*] Ready...</div>
 </div>
 
@@ -29,7 +55,10 @@
   'use strict';
 
   var candidates = ['8443', '8444', '9443', '65535', '65536', '99999', '0', '-1', 'abc'];
-  var btn = document.getElementById('testPortsBtn');
+  var portSelect = document.getElementById('portSelect');
+  var delayInput = document.getElementById('navDelayInput');
+  var runAllPortsBtn = document.getElementById('runAllPortsBtn');
+  var runPermPortBtn = document.getElementById('runPermPortBtn');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
 
@@ -38,18 +67,94 @@
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
+    console.log('[PortWebAuthn] ' + line);
   }
 
-  btn.addEventListener('click', function () {
-    candidates.forEach(function (p) {
-      var raw = 'https://google.com:' + p;
-      try {
-        var u = new URL(raw);
-        log(`[VALID PARSE] port="${p}" -> href="${u.href}" (parsed.port="${u.port}")`);
-      } catch (err) {
-        log(`[INVALID PARSE] port="${p}" -> ${err.name}: ${err.message}`);
-      }
+  function randomBytes(len) {
+    var arr = new Uint8Array(len);
+    crypto.getRandomValues(arr);
+    return arr;
+  }
+
+  ['blur', 'visibilitychange', 'pagehide'].forEach(function (evName) {
+    var target = (evName === 'visibilitychange') ? document : window;
+    target.addEventListener(evName, function (e) {
+      log(
+        `event:${evName} -> href=${window.location.href}, hidden=${document.hidden}, ` +
+        `persisted=${Boolean(e && e.persisted)}`
+      );
     });
+  });
+
+  function checkSinglePort(p) {
+    var raw = 'https://google.com:' + p;
+    try {
+      var u = new URL(raw);
+      log(`[VALID PARSE] port="${p}" -> href="${u.href}" (parsed.port="${u.port}")`);
+      return u.href;
+    } catch (err) {
+      log(`[INVALID PARSE] port="${p}" -> ${err.name}: ${err.message}`);
+      return null;
+    }
+  }
+
+  function triggerWebAuthnAttestation() {
+    if (!window.isSecureContext) {
+      log('[-] Bukan Secure Context (HTTPS atau localhost wajib untuk WebAuthn).');
+      return null;
+    }
+    if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
+      log('[-] navigator.credentials.create tidak tersedia.');
+      return null;
+    }
+
+    var rpId = window.location.hostname || 'localhost';
+    log(`[*] Triggering credentials.create(attestation="direct", rp.id="${rpId}", origin="${window.location.origin}")...`);
+
+    return navigator.credentials.create({
+      publicKey: {
+        challenge: randomBytes(32),
+        rp: { name: rpId, id: rpId },
+        user: {
+          id: randomBytes(16),
+          name: 'probe@' + rpId,
+          displayName: 'Port Probe User'
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7 },
+          { type: 'public-key', alg: -257 }
+        ],
+        attestation: 'direct',
+        timeout: 15000
+      }
+    }).then(function (cred) {
+      log(`[+] credentials.create RESOLVED -> id=${cred.id}`);
+    }).catch(function (err) {
+      log(`[-] credentials.create REJECTED (${err.name}) -> ${err.message}`);
+    });
+  }
+
+  runAllPortsBtn.addEventListener('click', function () {
+    candidates.forEach(checkSinglePort);
+  });
+
+  runPermPortBtn.addEventListener('click', function () {
+    var selectedPort = portSelect.value;
+    var delayMs = Math.max(0, Math.min(10000, parseInt(delayInput.value, 10) || 150));
+    var rawTarget = 'https://google.com:' + selectedPort;
+
+    triggerWebAuthnAttestation();
+    var parsedHref = checkSinglePort(selectedPort);
+
+    setTimeout(function () {
+      try {
+        var before = window.location.href;
+        window.location.href = rawTarget;
+        log(`[*] Assigned window.location.href = "${rawTarget}" (parsed=${parsedHref || 'null'}, before="${before}", now="${window.location.href}")`);
+      } catch (navErr) {
+        log(`[-] Redirect error (${navErr.name}) -> ${navErr.message}`);
+      }
+    }, delayMs);
   });
 })();
 </script>
