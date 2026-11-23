@@ -3,48 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Iframe Race Condition Diagnostics</title>
+<title>Script &amp; Style Parsing Error Race Observer</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 580px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 600px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
   p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
   label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
-  input { width: 100%; padding: 9px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
+  input, select { width: 100%; padding: 9px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
   button { padding: 12px 16px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
   button:hover { background: #1d4ed8; }
-  iframe { width: 100%; height: 110px; border: 1px solid #3f3f46; border-radius: 8px; background: #09090b; margin-top: 12px; }
-  #log { margin-top: 12px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 220px; overflow-y: auto; white-space: pre-wrap; }
+  #log { margin-top: 14px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 250px; overflow-y: auto; white-space: pre-wrap; }
+  #probeHost { display: none; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>Iframe Attribute &amp; Load Race Observer</h2>
-  <p>Memantau balapan antara mutasi atribut <code>srcdoc</code>/<code>src</code>/<code>sandbox</code>, <code>queueMicrotask</code>, <code>requestAnimationFrame</code>, dan <code>load</code> pada <code>&lt;iframe&gt;</code>.</p>
+  <h2>Script &amp; Stylesheet Error Race Observer</h2>
+  <p>Memantau <code>window.onerror</code>, event <code>error</code>/<code>load</code> pada <code>&lt;script&gt;</code> dan <code>&lt;link&gt;</code>, serta mutasi <code>charset</code> dan penghapusan/penggantian elemen saat <em>race</em>.</p>
 
-  <label for="raceUrl">Target URL untuk uji race load/assign:</label>
-  <input id="raceUrl" type="text" value="https://example.com" />
+  <label for="targetResource">Target URL (gunakan endpoint uji lokal/milik sendiri atau resource uji):</label>
+  <input id="targetResource" type="text" value="https://httpbin.org/delay/2" />
 
-  <label for="raceIterations">Jumlah iterasi mutasi cepat saat race:</label>
-  <input id="raceIterations" type="number" value="15" min="1" max="200" />
+  <label for="resourceType">Jenis elemen uji:</label>
+  <select id="resourceType">
+    <option value="script">&lt;script&gt;</option>
+    <option value="stylesheet">&lt;link rel="stylesheet"&gt;</option>
+  </select>
 
-  <button id="raceBtn">Run Iframe Race</button>
+  <label for="abortDelay">Jeda race sebelum mutasi charset / remove node (ms):</label>
+  <input id="abortDelay" type="number" value="25" min="0" max="5000" />
 
-  <iframe id="raceFrame" title="Iframe Race Probe"></iframe>
+  <button id="runRaceBtn">Run Parsing Error Race</button>
   <div id="log">[*] Ready...</div>
 </div>
+
+<div id="probeHost"></div>
 
 <script>
 (function () {
   'use strict';
 
-  var raceUrlInput = document.getElementById('raceUrl');
-  var iterInput = document.getElementById('raceIterations');
-  var raceBtn = document.getElementById('raceBtn');
-  var frame = document.getElementById('raceFrame');
+  var urlInput = document.getElementById('targetResource');
+  var typeSelect = document.getElementById('resourceType');
+  var delayInput = document.getElementById('abortDelay');
+  var runBtn = document.getElementById('runRaceBtn');
   var logEl = document.getElementById('log');
+  var hostEl = document.getElementById('probeHost');
   var t0 = performance.now();
 
   function log(msg) {
@@ -52,56 +59,80 @@
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[IframeRace] ' + line);
+    console.log('[ErrorRace] ' + line);
   }
 
-  function inspectFrame(tag) {
-    try {
-      var doc = frame.contentDocument;
-      var loc = frame.contentWindow ? frame.contentWindow.location.href : 'n/a';
-      log(`[${tag}] accessible -> loc=${loc}, readyState=${doc ? doc.readyState : 'none'}`);
-    } catch (err) {
-      log(`[${tag}] blocked (${err.name}) -> ${err.message}`);
-    }
-  }
+  window.onerror = function (message, source, lineno, colno, error) {
+    log(
+      `window.onerror -> msg=${JSON.stringify(message)}, src=${JSON.stringify(source)}, ` +
+      `line=${lineno}, col=${colno}, errName=${error ? error.name : 'none'}`
+    );
+    return false;
+  };
 
-  frame.addEventListener('load', function () {
-    log(`event:load -> sandbox="${frame.getAttribute('sandbox') || ''}", hasSrcdoc=${frame.hasAttribute('srcdoc')}`);
-    inspectFrame('onLoad');
+  window.addEventListener('unhandledrejection', function (ev) {
+    log(`unhandledrejection -> reason=${String(ev.reason)}`);
   });
 
-  raceBtn.addEventListener('click', function () {
-    var targetUrl = raceUrlInput.value.trim() || 'https://example.com';
-    var count = Math.max(1, Math.min(200, parseInt(iterInput.value, 10) || 15));
+  function createProbeElement(kind, url) {
+    if (kind === 'stylesheet') {
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = url;
+      link.setAttribute('charset', 'utf-8');
+      return link;
+    }
+    var script = document.createElement('script');
+    script.src = url;
+    script.async = true;
+    script.charset = 'utf-8';
+    return script;
+  }
 
-    log(`[*] Memulai iframe race -> url=${targetUrl}, iterations=${count}`);
+  runBtn.addEventListener('click', function () {
+    var url = urlInput.value.trim();
+    var kind = typeSelect.value;
+    var raceMs = Math.max(0, Math.min(5000, parseInt(delayInput.value, 10) || 25));
 
-    for (var i = 1; i <= count; i++) {
-      (function (idx) {
-        queueMicrotask(function () {
-          frame.setAttribute('srcdoc', `<p style="font-family:monospace;color:#93c5fd;margin:8px;">Race tick #${idx}</p>`);
-          if (idx === count) {
-            log(`[microtask] selesai mutasi srcdoc #${idx}`);
-          }
-        });
-      })(i);
+    if (!url) {
+      log('[-] URL kosong.');
+      return;
     }
 
-    requestAnimationFrame(function () {
-      log('[rAF_1] mutate sandbox & assign src');
-      frame.setAttribute('sandbox', 'allow-scripts');
-      frame.removeAttribute('srcdoc');
-      frame.src = targetUrl;
-      inspectFrame('after_src_assign');
+    hostEl.innerHTML = '';
+    var el = createProbeElement(kind, url);
+    var charsets = ['utf-8', 'iso-8859-1', 'windows-1252', 'utf-16le'];
+    var cIdx = 0;
 
-      requestAnimationFrame(function () {
-        inspectFrame('rAF_2');
-      });
+    el.addEventListener('load', function () {
+      log(`[element:load] tag=${el.tagName}, charset=${el.getAttribute('charset') || ''}`);
+    });
+
+    el.addEventListener('error', function (ev) {
+      var targetSrc = el.src || el.href || '';
+      log(`[element:error] tag=${el.tagName}, href/src=${targetSrc}, isTrusted=${ev.isTrusted}`);
+    });
+
+    log(`[*] Memulai race -> kind=${kind}, url=${url}, raceMs=${raceMs}`);
+    hostEl.appendChild(el);
+
+    queueMicrotask(function () {
+      el.setAttribute('charset', charsets[(cIdx++) % charsets.length]);
+      log(`[microtask] mutasi charset -> ${el.getAttribute('charset')}`);
+    });
+
+    requestAnimationFrame(function () {
+      el.setAttribute('charset', charsets[(cIdx++) % charsets.length]);
+      log(`[rAF] mutasi charset -> ${el.getAttribute('charset')}`);
     });
 
     setTimeout(function () {
-      inspectFrame('timeout_300ms');
-    }, 300);
+      el.setAttribute('charset', charsets[(cIdx++) % charsets.length]);
+      log(`[timeout ${raceMs}ms] mutasi charset -> ${el.getAttribute('charset')}, melepaskan node dari DOM`);
+      if (el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    }, raceMs);
   });
 })();
 </script>
