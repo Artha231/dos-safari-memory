@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>WebAuthn Attestation + Cross-Origin Popup Probe</title>
+  <title>Photo Picker + Cross-Origin Popup Probe</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
   <style>
@@ -35,6 +35,9 @@
       margin-bottom: 18px;
       line-height: 1.5;
     }
+    #photoInput {
+      display: none;
+    }
     #log {
       background: #0b0b0b;
       border: 1px solid #2b2b2b;
@@ -51,8 +54,9 @@
 </head>
 <body>
   <div class="box">
-    <h1>Click anywhere to trigger WebAuthn Attestation over cross-origin popup!</h1>
-    <p>Menguji <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) bersamaan dengan <code>window.open("https://www.google.com", "PoC", "_blank")</code> dan mencatat *timing* / status *promise*.</p>
+    <h1>Click anywhere to open Photo Picker + cross-origin popup!</h1>
+    <p>Membuka pemilih foto (<code>&lt;input type="file" accept="image/*" multiple&gt;</code>) bersamaan dengan <code>window.open("https://www.google.com", "PoC", "_blank")</code> dan mencatat metadata foto serta siklus hidup halaman.</p>
+    <input id="photoInput" type="file" accept="image/*" multiple />
     <div id="log">[*] Waiting for click gesture...</div>
   </div>
 
@@ -60,6 +64,7 @@
   (function () {
     'use strict';
 
+    var photoInput = document.getElementById('photoInput');
     var logEl = document.getElementById('log');
     var t0 = performance.now();
     var triggered = false;
@@ -69,13 +74,7 @@
       var line = `[+${elapsed}ms] ${msg}`;
       logEl.textContent += '\n' + line;
       logEl.scrollTop = logEl.scrollHeight;
-      console.log('[WebAuthnPopupProbe] ' + line);
-    }
-
-    function randomBytes(len) {
-      var arr = new Uint8Array(len);
-      crypto.getRandomValues(arr);
-      return arr;
+      console.log('[PhotoPopupProbe] ' + line);
     }
 
     ['blur', 'focus', 'visibilitychange', 'pagehide'].forEach(function (evName) {
@@ -88,52 +87,47 @@
       });
     });
 
-    async function runAttestationProbe() {
-      if (!window.isSecureContext) {
-        log('[-] Bukan Secure Context (HTTPS atau localhost wajib untuk WebAuthn).');
-        return;
-      }
-      if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
-        log('[-] navigator.credentials.create tidak tersedia di browser/konteks ini.');
+    photoInput.addEventListener('change', function () {
+      var files = Array.from(photoInput.files || []);
+      if (!files.length) {
+        log('[*] Photo picker closed without selected files.');
         return;
       }
 
-      var rpId = window.location.hostname || 'localhost';
-      log(`[*] Invoking credentials.create(attestation="direct", rp.id="${rpId}", origin="${window.location.origin}")...`);
-
-      try {
-        var cred = await navigator.credentials.create({
-          publicKey: {
-            challenge: randomBytes(32),
-            rp: { name: rpId, id: rpId },
-            user: {
-              id: randomBytes(16),
-              name: 'probe@' + rpId,
-              displayName: 'Attestation Popup Probe'
-            },
-            pubKeyCredParams: [
-              { type: 'public-key', alg: -7 },
-              { type: 'public-key', alg: -257 }
-            ],
-            attestation: 'direct',
-            timeout: 15000
-          }
-        });
-
-        var attLen = cred && cred.response && cred.response.attestationObject
-          ? cred.response.attestationObject.byteLength
-          : 0;
-        log(`[+] RESOLVED -> id=${cred.id}, attestationObject=${attLen} bytes`);
-      } catch (err) {
-        log(`[-] REJECTED (${err.name}) -> ${err.message}`);
-      }
-    }
+      files.forEach(function (file, idx) {
+        var objUrl = URL.createObjectURL(file);
+        var img = new Image();
+        img.onload = function () {
+          log(
+            `[+] Foto #${idx + 1}: name="${file.name}", type="${file.type || 'unknown'}", ` +
+            `size=${file.size}B, dim=${img.naturalWidth}x${img.naturalHeight}`
+          );
+          URL.revokeObjectURL(objUrl);
+        };
+        img.onerror = function () {
+          log(
+            `[+] Foto #${idx + 1}: name="${file.name}", type="${file.type || 'unknown'}", size=${file.size}B`
+          );
+          URL.revokeObjectURL(objUrl);
+        };
+        img.src = objUrl;
+      });
+    });
 
     document.addEventListener('click', function () {
       if (triggered) return;
       triggered = true;
 
-      runAttestationProbe();
+      log('[*] Opening image file picker...');
+      if (typeof photoInput.showPicker === 'function') {
+        try {
+          photoInput.showPicker();
+        } catch (err) {
+          photoInput.click();
+        }
+      } else {
+        photoInput.click();
+      }
 
       var popup = window.open('https://www.google.com', 'PoC', '_blank');
       log(popup ? '[+] window.open("https://www.google.com", "PoC", "_blank") opened.' : '[-] window.open blocked or null.');
