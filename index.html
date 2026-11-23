@@ -3,15 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fullscreen / PiP &amp; WebAuthn Z-Order Diagnostics</title>
+<title>Document Picture-in-Picture (Content Only) Probe</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 620px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 580px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
   p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
-  video { width: 100%; max-height: 180px; border-radius: 8px; background: #09090b; border: 1px solid #3f3f46; margin-bottom: 12px; }
-  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
   button { flex: 1; min-width: 165px; padding: 11px 14px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
   button:hover { background: #1d4ed8; }
   button.secondary { background: #334155; }
@@ -22,17 +21,13 @@
 <body>
 
 <div class="panel">
-  <h2>Fullscreen / PiP &amp; WebAuthn Timing Observer</h2>
-  <p>Mengamati urutan transisi <code>fullscreen</code> / <code>picture-in-picture</code> dan pemanggilan <code>navigator.credentials.create()</code> beserta status tampilan aktif pada origin saat ini.</p>
+  <h2>Document PiP (HTML Content Only)</h2>
+  <p>Menguji <code>documentPictureInPicture.requestWindow()</code> menggunakan elemen DOM biasa tanpa <code>&lt;video&gt;</code>, serta mencatat status jendela PiP, fokus, dan navigasi.</p>
 
-  <video id="diagVideo" playsinline muted controls loop preload="metadata">
-    <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
-  </video>
-
-  <div class="controls">
-    <button id="fsWebAuthnBtn">1. Fullscreen + WebAuthn</button>
-    <button id="pipWebAuthnBtn" class="secondary">2. PiP + WebAuthn</button>
-    <button id="stateSnapBtn" class="secondary">3. Log Surface State</button>
+  <div class="row">
+    <button id="openPipBtn">1. Open Document PiP</button>
+    <button id="updatePipBtn" class="secondary">2. Update PiP DOM</button>
+    <button id="closePipBtn" class="secondary">3. Close PiP</button>
   </div>
 
   <div id="log">[*] Ready...</div>
@@ -42,133 +37,81 @@
 (function () {
   'use strict';
 
-  var video = document.getElementById('diagVideo');
-  var fsBtn = document.getElementById('fsWebAuthnBtn');
-  var pipBtn = document.getElementById('pipWebAuthnBtn');
-  var snapBtn = document.getElementById('stateSnapBtn');
+  var openBtn = document.getElementById('openPipBtn');
+  var updateBtn = document.getElementById('updatePipBtn');
+  var closeBtn = document.getElementById('closePipBtn');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
+  var pipWin = null;
+  var updates = 0;
 
   function log(msg) {
     var elapsed = (performance.now() - t0).toFixed(1);
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[OverlayDiag] ' + line);
+    console.log('[DocPiP] ' + line);
   }
 
-  function randomBytes(len) {
-    var arr = new Uint8Array(len);
-    crypto.getRandomValues(arr);
-    return arr;
-  }
-
-  function logSurfaceState(tag) {
-    var fsEl = document.fullscreenElement || document.webkitFullscreenElement || null;
-    var pipEl = document.pictureInPictureElement || null;
-    var wkMode = typeof video.webkitPresentationMode === 'string' ? video.webkitPresentationMode : 'n/a';
-    log(
-      `[${tag}] origin=${window.location.origin}, fsEl=${fsEl ? fsEl.tagName : 'none'}, ` +
-      `pipEl=${pipEl ? pipEl.tagName : 'none'}, webkitMode=${wkMode}, hidden=${document.hidden}`
-    );
-  }
-
-  document.addEventListener('fullscreenchange', function () {
-    logSurfaceState('event:fullscreenchange');
-  });
-
-  video.addEventListener('enterpictureinpicture', function () {
-    logSurfaceState('event:enterpictureinpicture');
-  });
-
-  video.addEventListener('leavepictureinpicture', function () {
-    logSurfaceState('event:leavepictureinpicture');
-  });
-
-  video.addEventListener('webkitpresentationmodechanged', function () {
-    logSurfaceState('event:webkitpresentationmodechanged');
-  });
-
-  function invokeWebAuthn(tag) {
-    if (!window.isSecureContext) {
-      log(`[-] [${tag}] Bukan Secure Context.`);
-      return;
+  function renderPipContent() {
+    if (!pipWin || pipWin.closed) return;
+    updates++;
+    pipWin.document.body.innerHTML = `
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;padding:16px;background:#141414;color:#e5e5e5;height:100%;box-sizing:border-box;">
+        <div style="font-size:13px;font-weight:600;color:#60a5fa;margin-bottom:6px;">Document PiP Content Window</div>
+        <div style="font-size:12px;color:#a3a3a3;margin-bottom:10px;">Origin: ${window.location.origin} | Updates: ${updates}</div>
+        <button id="pipInnerBtn" style="padding:8px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">Ping Main Window</button>
+      </div>
+    `;
+    var innerBtn = pipWin.document.getElementById('pipInnerBtn');
+    if (innerBtn) {
+      innerBtn.addEventListener('click', function () {
+        log(`[pip->main] button clicked inside PiP (updates=${updates})`);
+      });
     }
-    if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
-      log(`[-] [${tag}] WebAuthn credentials.create tidak tersedia.`);
+  }
+
+  openBtn.addEventListener('click', function () {
+    if (!('documentPictureInPicture' in window) || typeof window.documentPictureInPicture.requestWindow !== 'function') {
+      log('[-] Document Picture-in-Picture API tidak tersedia di browser/konteks ini.');
       return;
     }
 
-    var rpId = window.location.hostname || 'localhost';
-    logSurfaceState(tag + '_before_create');
-    log(`[*] [${tag}] Memanggil credentials.create (rp.id="${rpId}")...`);
+    log('[*] Memanggil documentPictureInPicture.requestWindow()...');
+    window.documentPictureInPicture.requestWindow({
+      width: 360,
+      height: 180
+    }).then(function (w) {
+      pipWin = w;
+      updates = 0;
+      log(`[+] Document PiP terbuka -> origin=${pipWin.location.origin}`);
+      renderPipContent();
 
-    navigator.credentials.create({
-      publicKey: {
-        challenge: randomBytes(32),
-        rp: { name: rpId, id: rpId },
-        user: {
-          id: randomBytes(16),
-          name: 'diag@' + rpId,
-          displayName: 'Diagnostic User'
-        },
-        pubKeyCredParams: [
-          { type: 'public-key', alg: -7 },
-          { type: 'public-key', alg: -257 }
-        ],
-        attestation: 'direct',
-        timeout: 15000
-      }
-    }).then(function (cred) {
-      log(`[+] [${tag}] Resolved -> id=${cred.id}`);
-      logSurfaceState(tag + '_after_resolve');
+      pipWin.addEventListener('pagehide', function () {
+        log('[pip:pagehide] Document PiP window ditutup atau disembunyikan.');
+        pipWin = null;
+      });
     }).catch(function (err) {
-      log(`[-] [${tag}] Rejected (${err.name}) -> ${err.message}`);
-      logSurfaceState(tag + '_after_reject');
+      log(`[-] requestWindow rejected (${err.name}) -> ${err.message}`);
     });
-  }
-
-  fsBtn.addEventListener('click', function () {
-    var target = document.documentElement;
-    var req = target.requestFullscreen
-      ? target.requestFullscreen()
-      : (target.webkitRequestFullscreen ? Promise.resolve(target.webkitRequestFullscreen()) : null);
-
-    if (req && typeof req.then === 'function') {
-      req.then(function () {
-        logSurfaceState('fs_promise_resolved');
-        invokeWebAuthn('fs');
-      }).catch(function (err) {
-        log(`[-] requestFullscreen rejected (${err.name}) -> ${err.message}`);
-        invokeWebAuthn('fs_fallback');
-      });
-    } else {
-      invokeWebAuthn('fs_sync');
-    }
   });
 
-  pipBtn.addEventListener('click', function () {
-    video.play().catch(function () {});
-    if (typeof video.requestPictureInPicture === 'function') {
-      video.requestPictureInPicture().then(function () {
-        logSurfaceState('pip_promise_resolved');
-        invokeWebAuthn('pip');
-      }).catch(function (err) {
-        log(`[-] requestPictureInPicture rejected (${err.name}) -> ${err.message}`);
-        invokeWebAuthn('pip_fallback');
-      });
-    } else if (typeof video.webkitSetPresentationMode === 'function' && typeof video.webkitSupportsPresentationMode === 'function' && video.webkitSupportsPresentationMode('picture-in-picture')) {
-      video.webkitSetPresentationMode('picture-in-picture');
-      logSurfaceState('webkit_pip_set');
-      invokeWebAuthn('webkit_pip');
-    } else {
-      log('[-] PiP API tidak tersedia pada elemen/browser ini.');
-      invokeWebAuthn('pip_unsupported');
+  updateBtn.addEventListener('click', function () {
+    if (!pipWin || pipWin.closed) {
+      log('[-] Tidak ada jendela Document PiP aktif.');
+      return;
     }
+    renderPipContent();
+    log(`[+] PiP DOM diperbarui -> updates=${updates}`);
   });
 
-  snapBtn.addEventListener('click', function () {
-    logSurfaceState('manual_snapshot');
+  closeBtn.addEventListener('click', function () {
+    if (pipWin && !pipWin.closed) {
+      pipWin.close();
+      log('[*] pipWin.close() dipanggil.');
+    } else {
+      log('[-] Jendela PiP sudah tertutup atau belum dibuka.');
+    }
   });
 })();
 </script>
