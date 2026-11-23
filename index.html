@@ -3,42 +3,91 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebAuthn Attestation + google.com:99999 Probe</title>
+<title>Side-by-Side: google.com:8443 vs google.com:99999</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 600px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 960px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
   p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
-  button { padding: 12px 18px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: center; }
+  .toolbar label { font-size: 12px; color: #cbd5e1; }
+  .toolbar input { width: 110px; padding: 8px 10px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
+  button { padding: 11px 16px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
   button:hover { background: #1d4ed8; }
-  #log { margin-top: 14px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 250px; overflow-y: auto; white-space: pre-wrap; }
+  button.secondary { background: #334155; }
+  button.secondary:hover { background: #475569; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .col { background: #141414; border: 1px solid #2d2d2d; border-radius: 10px; padding: 14px; }
+  .col h3 { font-size: 13px; color: #93c5fd; margin-bottom: 10px; font-family: monospace; }
+  .col-actions { display: flex; gap: 8px; margin-bottom: 10px; }
+  .log { padding: 10px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; height: 260px; overflow-y: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>WebAuthn Attestation + google.com:99999</h2>
-  <p>Memicu <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) dan menguji redirect/parsing ke <code>https://www.google.com:99999</code>.</p>
-  <button id="run99999Btn">Trigger WebAuthn + google.com:99999</button>
-  <div id="log">[*] Ready...</div>
+  <h2>Side-by-Side Comparison: google.com:8443 vs google.com:99999</h2>
+  <p>Membandingkan hasil <code>new URL()</code>, pemanggilan <code>credentials.create()</code> (<code>attestation: "direct"</code>), penugasan navigasi, dan <em>event</em> siklus hidup secara berdampingan untuk port <code>8443</code> vs port <code>99999</code>.</p>
+
+  <div class="toolbar">
+    <label for="navDelayInput">Jeda navigasi (ms):</label>
+    <input id="navDelayInput" type="number" value="150" min="0" max="10000" />
+    <button id="runBothBtn">Run Both Side-by-Side</button>
+    <button id="clearLogsBtn" class="secondary">Clear Logs</button>
+  </div>
+
+  <div class="grid">
+    <div class="col">
+      <h3>Left: https://www.google.com:8443 (Valid Port)</h3>
+      <div class="col-actions">
+        <button id="run8443Btn">Run :8443 Probe</button>
+      </div>
+      <div class="log" id="log8443">[*] Ready (:8443)...</div>
+    </div>
+
+    <div class="col">
+      <h3>Right: https://www.google.com:99999 (Invalid Port)</h3>
+      <div class="col-actions">
+        <button id="run99999Btn" class="secondary">Run :99999 Probe</button>
+      </div>
+      <div class="log" id="log99999">[*] Ready (:99999)...</div>
+    </div>
+  </div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  var TARGET_URL = 'https://www.google.com:99999';
-  var btn = document.getElementById('run99999Btn');
-  var logEl = document.getElementById('log');
-  var t0 = performance.now();
+  var URL_8443 = 'https://www.google.com:8443';
+  var URL_99999 = 'https://www.google.com:99999';
 
-  function log(msg) {
+  var delayInput = document.getElementById('navDelayInput');
+  var runBothBtn = document.getElementById('runBothBtn');
+  var clearLogsBtn = document.getElementById('clearLogsBtn');
+  var run8443Btn = document.getElementById('run8443Btn');
+  var run99999Btn = document.getElementById('run99999Btn');
+  var log8443El = document.getElementById('log8443');
+  var log99999El = document.getElementById('log99999');
+  var t0 = performance.now();
+  var activeTarget = null;
+
+  function appendLog(el, prefix, msg) {
     var elapsed = (performance.now() - t0).toFixed(1);
     var line = `[+${elapsed}ms] ${msg}`;
-    logEl.textContent += '\n' + line;
-    logEl.scrollTop = logEl.scrollHeight;
-    console.log('[Probe99999] ' + line);
+    el.textContent += '\n' + line;
+    el.scrollTop = el.scrollHeight;
+    console.log(`[SideBySide ${prefix}] ${line}`);
+  }
+
+  function logActive(msg) {
+    if (activeTarget === '8443') {
+      appendLog(log8443El, '8443', msg);
+    } else if (activeTarget === '99999') {
+      appendLog(log99999El, '99999', msg);
+    }
   }
 
   function randomBytes(len) {
@@ -50,25 +99,25 @@
   ['blur', 'visibilitychange', 'pagehide'].forEach(function (evName) {
     var target = (evName === 'visibilitychange') ? document : window;
     target.addEventListener(evName, function (e) {
-      log(
+      logActive(
         `event:${evName} -> href=${window.location.href}, hidden=${document.hidden}, ` +
         `persisted=${Boolean(e && e.persisted)}`
       );
     });
   });
 
-  function triggerAttestation() {
+  function invokeWebAuthn(el, prefix) {
     if (!window.isSecureContext) {
-      log('[-] Bukan Secure Context (HTTPS atau localhost wajib untuk WebAuthn).');
+      appendLog(el, prefix, '[-] Bukan Secure Context.');
       return;
     }
     if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
-      log('[-] navigator.credentials.create tidak tersedia.');
+      appendLog(el, prefix, '[-] credentials.create tidak tersedia.');
       return;
     }
 
     var rpId = window.location.hostname || 'localhost';
-    log(`[*] Memanggil credentials.create(attestation="direct", rp.id="${rpId}", origin="${window.location.origin}")...`);
+    appendLog(el, prefix, `[*] credentials.create(attestation="direct", rp.id="${rpId}")...`);
 
     navigator.credentials.create({
       publicKey: {
@@ -76,8 +125,8 @@
         rp: { name: rpId, id: rpId },
         user: {
           id: randomBytes(16),
-          name: 'probe@' + rpId,
-          displayName: 'Probe 99999'
+          name: 'compare-' + prefix + '@' + rpId,
+          displayName: 'Compare ' + prefix
         },
         pubKeyCredParams: [
           { type: 'public-key', alg: -7 },
@@ -87,34 +136,65 @@
         timeout: 15000
       }
     }).then(function (cred) {
-      log(`[+] credentials.create RESOLVED -> id=${cred.id}`);
+      appendLog(el, prefix, `[+] RESOLVED -> id=${cred.id}`);
     }).catch(function (err) {
-      log(`[-] credentials.create REJECTED (${err.name}) -> ${err.message}`);
+      appendLog(el, prefix, `[-] REJECTED (${err.name}) -> ${err.message}`);
     });
   }
 
-  btn.addEventListener('click', function () {
-    triggerAttestation();
+  function runSingleProbe(targetUrl, el, prefix, delayMs, performAssign) {
+    activeTarget = prefix;
+    appendLog(el, prefix, `[*] Start probe -> target=${targetUrl}, delay=${delayMs}ms`);
 
     try {
-      new URL(TARGET_URL);
-      log(`[URL ok] ${TARGET_URL}`);
-    } catch (e) {
-      log(`[URL rejected] ${TARGET_URL} -> ${e.name}: ${e.message}`);
+      var parsed = new URL(targetUrl);
+      appendLog(el, prefix, `[URL ok] href="${parsed.href}", port="${parsed.port}"`);
+    } catch (parseErr) {
+      appendLog(el, prefix, `[URL rejected] ${parseErr.name}: ${parseErr.message}`);
     }
 
+    invokeWebAuthn(el, prefix);
+
     setTimeout(function () {
+      if (!performAssign) {
+        appendLog(el, prefix, `[*] Parse & WebAuthn comparison completed (no location assign).`);
+        return;
+      }
       try {
         var before = window.location.href;
-        window.location.href = TARGET_URL;
-        log(`[*] window.location.href = "${TARGET_URL}" (before="${before}", now="${window.location.href}")`);
+        window.location.href = targetUrl;
+        appendLog(el, prefix, `[*] Assigned location.href -> before="${before}", now="${window.location.href}"`);
       } catch (navErr) {
-        log(`[-] Redirect error (${navErr.name}) -> ${navErr.message}`);
+        appendLog(el, prefix, `[-] Assign error (${navErr.name}) -> ${navErr.message}`);
       }
-    }, 150);
+    }, delayMs);
+  }
+
+  run8443Btn.addEventListener('click', function () {
+    var delayMs = Math.max(0, Math.min(10000, parseInt(delayInput.value, 10) || 150));
+    runSingleProbe(URL_8443, log8443El, '8443', delayMs, true);
+  });
+
+  run99999Btn.addEventListener('click', function () {
+    var delayMs = Math.max(0, Math.min(10000, parseInt(delayInput.value, 10) || 150));
+    runSingleProbe(URL_99999, log99999El, '99999', delayMs, true);
+  });
+
+  // Mode berdampingan aman: menjalankan kedua evaluasi/WebAuthn tanpa langsung me-navigasi paksa halaman di tengah jalan
+  runBothBtn.addEventListener('click', function () {
+    var delayMs = Math.max(0, Math.min(10000, parseInt(delayInput.value, 10) || 150));
+    runSingleProbe(URL_8443, log8443El, '8443', delayMs, false);
+    setTimeout(function () {
+      runSingleProbe(URL_99999, log99999El, '99999', delayMs, false);
+    }, 60);
+  });
+
+  clearLogsBtn.addEventListener('click', function () {
+    log8443El.textContent = '[*] Cleared (:8443)...';
+    log99999El.textContent = '[*] Cleared (:99999)...';
   });
 })();
 </script>
 
 </body>
-</html> 
+</html>
