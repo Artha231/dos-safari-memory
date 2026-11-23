@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Port 8443 Trigger &amp; Navigation Diagnostics</title>
+<title>WebAuthn Attestation Trigger</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
@@ -18,69 +18,90 @@
 </head>
 <body>
 
-<div class="panel" id="main-card">
-  <h2>Port 8443 Trigger &amp; Pending Nav Probe</h2>
-  <p>Menguji <em>trigger</em> klik yang mengarahkan langsung ke <code>https://www.google.com:8443</code> serta mencatat perilaku siklus hidup dan <em>timing</em> penanganan port <code>8443</code>.</p>
-  <button id="trigger8443Btn">Trigger Redirect -> google.com:8443</button>
-  <div id="log">[*] Ready (port handler target: 8443)...</div>
+<div class="panel">
+  <h2>WebAuthn Attestation Trigger</h2>
+  <p>Klik tombol di bawah untuk memicu <code>navigator.credentials.create()</code> dengan <code>attestation: "direct"</code> pada konteks aktif saat ini.</p>
+  <button id="attestTriggerBtn">Trigger WebAuthn Attestation</button>
+  <div id="log">[*] Ready...</div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  var TARGET_PORT = 8443;
-  var TARGET_URL = 'https://www.google.com:' + TARGET_PORT;
-
-  var btn = document.getElementById('trigger8443Btn');
+  var btn = document.getElementById('attestTriggerBtn');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
-  var triggeredAt = null;
 
   function log(msg) {
     var elapsed = (performance.now() - t0).toFixed(1);
-    var sinceTrigger = triggeredAt !== null
-      ? ` | dt_trigger=${(performance.now() - triggeredAt).toFixed(1)}ms`
-      : '';
-    var line = `[+${elapsed}ms${sinceTrigger}] ${msg}`;
+    var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[Port8443Probe] ' + line);
+    console.log('[WebAuthnTrigger] ' + line);
   }
 
-  function handlePort8443Navigation(url) {
-    log(`port8443_handler -> assigning window.location.href = "${url}"`);
-    window.location.href = url;
+  function randomBytes(len) {
+    var arr = new Uint8Array(len);
+    crypto.getRandomValues(arr);
+    return arr;
   }
 
-  document.addEventListener('visibilitychange', function () {
-    log(`visibilitychange -> hidden=${document.hidden}, state=${document.visibilityState}`);
-  });
+  function triggerWebAuthnAttestation() {
+    if (!window.isSecureContext) {
+      log('[-] Konteks bukan Secure Context (HTTPS atau localhost wajib untuk WebAuthn).');
+      return;
+    }
+    if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
+      log('[-] WebAuthn credentials.create() tidak tersedia di browser/konteks ini.');
+      return;
+    }
 
-  window.addEventListener('pagehide', function (e) {
-    log(`pagehide -> persisted=${e.persisted}, port=${TARGET_PORT}`);
-  });
+    var rpId = window.location.hostname || 'localhost';
+    var publicKeyOptions = {
+      challenge: randomBytes(32),
+      rp: {
+        name: window.location.hostname || 'Local Probe',
+        id: rpId
+      },
+      user: {
+        id: randomBytes(16),
+        name: 'probe@' + rpId,
+        displayName: 'Probe User'
+      },
+      pubKeyCredParams: [
+        { type: 'public-key', alg: -7 },
+        { type: 'public-key', alg: -257 }
+      ],
+      authenticatorSelection: {
+        residentKey: 'preferred',
+        userVerification: 'preferred'
+      },
+      attestation: 'direct',
+      timeout: 20000
+    };
+
+    log(`[*] Triggering credentials.create (attestation="direct", rp.id="${rpId}", origin="${window.location.origin}")...`);
+
+    return navigator.credentials.create({ publicKey: publicKeyOptions })
+      .then(function (cred) {
+        var attBytes = cred && cred.response && cred.response.attestationObject
+          ? cred.response.attestationObject.byteLength
+          : 0;
+        log(`[+] Resolved -> id=${cred.id}, attestationObject=${attBytes} bytes`);
+      })
+      .catch(function (err) {
+        log(`[-] Rejected/Error -> ${err.name}: ${err.message}`);
+      });
+  }
 
   btn.addEventListener('click', function () {
     btn.disabled = true;
-    triggeredAt = performance.now();
-    log(`[*] Trigger klik diterima -> target=${TARGET_URL}, port=${TARGET_PORT}`);
-
-    // Checkpoint diagnostik sebelum/sesaat navigasi ke port 8443 diproses
+    triggerWebAuthnAttestation();
     setTimeout(function () {
-      log('[checkpoint +1000ms] masih di dokumen asal (navigasi port 8443 belum mengganti dokumen)');
-    }, 1000);
-
-    setTimeout(function () {
-      log('[checkpoint +5000ms] masih di dokumen asal setelah 5s pada port 8443');
-    }, 5000);
-
-    try {
-      handlePort8443Navigation(TARGET_URL);
-    } catch (err) {
-      log(`[-] Gagal memicu navigasi port ${TARGET_PORT} -> ${err.name}: ${err.message}`);
-    }
-  }, { once: true });
+      btn.disabled = false;
+    }, 1500);
+  });
 })();
 </script>
 
