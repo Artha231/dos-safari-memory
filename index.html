@@ -1,26 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Save Image Trigger + Cross-Origin Popup Probe</title>
+  <title>Document PiP Only + Cross-Origin Popup Probe</title>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       background: #121212;
       color: #e5e5e5;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+      padding: 28px;
       min-height: 100vh;
     }
     .box {
-      max-width: 680px;
-      margin: 40px auto;
+      max-width: 700px;
+      margin: 36px auto;
       background: #1e1e1e;
       border: 1px solid #333;
       border-radius: 12px;
       padding: 24px;
-      box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.45);
     }
     h1 {
       font-size: 20px;
@@ -40,10 +40,10 @@
       border: 1px solid #2b2b2b;
       border-radius: 8px;
       padding: 12px;
-      font-family: monospace;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 11px;
       color: #93c5fd;
-      max-height: 260px;
+      max-height: 280px;
       overflow-y: auto;
       white-space: pre-wrap;
     }
@@ -51,8 +51,8 @@
 </head>
 <body>
   <div class="box">
-    <h1>Click anywhere to trigger Save Image + cross-origin popup!</h1>
-    <p>Memicu penyimpanan gambar lokal via <code>Canvas</code> + <code>Blob</code> + <code>&lt;a download&gt;</code> bersamaan dengan <code>window.open("https://www.google.com", "PoC", "_blank")</code>.</p>
+    <h1>Click anywhere to trigger Document PiP + cross-origin popup!</h1>
+    <p>Menguji <code>documentPictureInPicture.requestWindow()</code> (tanpa <code>&lt;video&gt;</code>) bersamaan dengan <code>window.open("https://www.google.com", "PoC", "_blank")</code> dan mencatat <em>timing</em> serta siklus hidup jendela.</p>
     <div id="log">[*] Waiting for click gesture...</div>
   </div>
 
@@ -69,7 +69,7 @@
       var line = `[+${elapsed}ms] ${msg}`;
       logEl.textContent += '\n' + line;
       logEl.scrollTop = logEl.scrollHeight;
-      console.log('[SaveImagePopupProbe] ' + line);
+      console.log('[DocPiPPopupProbe] ' + line);
     }
 
     ['blur', 'focus', 'visibilitychange', 'pagehide'].forEach(function (evName) {
@@ -82,48 +82,34 @@
       });
     });
 
-    function createSamplePngBlob() {
-      return new Promise(function (resolve) {
-        var canvas = document.createElement('canvas');
-        canvas.width = 256;
-        canvas.height = 256;
-        var ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#1e293b';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#60a5fa';
-        ctx.font = 'bold 20px sans-serif';
-        ctx.fillText('Save Probe PNG', 48, 130);
-        canvas.toBlob(function (blob) {
-          resolve(blob);
-        }, 'image/png');
-      });
-    }
-
-    async function triggerImageSave() {
-      var blob = await createSamplePngBlob();
-      if (!blob) {
-        log('[-] Failed to generate image Blob.');
+    async function triggerDocumentPiP() {
+      if (!('documentPictureInPicture' in window) || typeof window.documentPictureInPicture.requestWindow !== 'function') {
+        log('[-] documentPictureInPicture.requestWindow() tidak tersedia pada browser/konteks ini.');
         return;
       }
-      var blobUrl = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = 'probe-image.png';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      log(`[*] Triggered download -> filename="probe-image.png", size=${blob.size}B`);
 
-      setTimeout(function () {
-        URL.revokeObjectURL(blobUrl);
-      }, 2000);
+      log('[*] Calling documentPictureInPicture.requestWindow({ width: 320, height: 180 })...');
+      try {
+        var pipWin = await window.documentPictureInPicture.requestWindow({
+          width: 320,
+          height: 180
+        });
+        pipWin.document.body.style.cssText = 'margin:0;background:#0b0b0b;color:#93c5fd;font-family:monospace;padding:12px;';
+        pipWin.document.body.innerHTML = '<div>Document PiP Window</div><div>origin: ' + window.location.origin + '</div>';
+        pipWin.addEventListener('pagehide', function () {
+          log('[i] Document PiP window closed (pagehide).');
+        });
+        log(`[+] Document PiP opened -> size=${pipWin.innerWidth}x${pipWin.innerHeight}`);
+      } catch (err) {
+        log(`[-] Document PiP rejected (${err.name}) -> ${err.message}`);
+      }
     }
 
     document.addEventListener('click', function () {
       if (triggered) return;
       triggered = true;
 
-      triggerImageSave();
+      triggerDocumentPiP();
 
       var popup = window.open('https://www.google.com', 'PoC', '_blank');
       log(popup ? '[+] window.open("https://www.google.com", "PoC", "_blank") opened.' : '[-] window.open blocked or null.');
