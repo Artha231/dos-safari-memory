@@ -3,132 +3,84 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebAuthn Attestation &amp; History State Probe</title>
+<title>Port 8443 Trigger &amp; Navigation Diagnostics</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 600px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 560px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
-  p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
-  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-  button { flex: 1; min-width: 160px; padding: 11px 14px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  p { color: #a3a3a3; font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
+  button { padding: 14px 22px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
   button:hover { background: #1d4ed8; }
-  button.secondary { background: #334155; }
-  button.secondary:hover { background: #475569; }
-  #log { padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 250px; overflow-y: auto; white-space: pre-wrap; }
+  button:disabled { background: #374151; cursor: not-allowed; }
+  #log { margin-top: 16px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 240px; overflow-y: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
-<div class="panel">
-  <h2>WebAuthn Attestation &amp; History State Observer</h2>
-  <p>Menguji <code>navigator.credentials.create()</code> dengan <code>attestation: "direct"</code>, <code>history.state</code>, dan urutan navigasi pada origin aktif.</p>
-
-  <div class="row">
-    <button id="stateBtn">1. Set history.state</button>
-    <button id="attestBtn">2. Trigger WebAuthn Attestation</button>
-    <button id="navBtn" class="secondary">3. Trigger Nav After Attest</button>
-  </div>
-
-  <div id="log">[*] Ready...</div>
+<div class="panel" id="main-card">
+  <h2>Port 8443 Trigger &amp; Pending Nav Probe</h2>
+  <p>Menguji <em>trigger</em> klik yang mengarahkan langsung ke <code>https://www.google.com:8443</code> serta mencatat perilaku siklus hidup dan <em>timing</em> penanganan port <code>8443</code>.</p>
+  <button id="trigger8443Btn">Trigger Redirect -> google.com:8443</button>
+  <div id="log">[*] Ready (port handler target: 8443)...</div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  var stateBtn = document.getElementById('stateBtn');
-  var attestBtn = document.getElementById('attestBtn');
-  var navBtn = document.getElementById('navBtn');
+  var TARGET_PORT = 8443;
+  var TARGET_URL = 'https://www.google.com:' + TARGET_PORT;
+
+  var btn = document.getElementById('trigger8443Btn');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
+  var triggeredAt = null;
 
   function log(msg) {
     var elapsed = (performance.now() - t0).toFixed(1);
-    var line = `[+${elapsed}ms] ${msg}`;
+    var sinceTrigger = triggeredAt !== null
+      ? ` | dt_trigger=${(performance.now() - triggeredAt).toFixed(1)}ms`
+      : '';
+    var line = `[+${elapsed}ms${sinceTrigger}] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[WebAuthnProbe] ' + line);
+    console.log('[Port8443Probe] ' + line);
   }
 
-  function randomBytes(len) {
-    var arr = new Uint8Array(len);
-    crypto.getRandomValues(arr);
-    return arr;
+  function handlePort8443Navigation(url) {
+    log(`port8443_handler -> assigning window.location.href = "${url}"`);
+    window.location.href = url;
   }
-
-  window.addEventListener('popstate', function (ev) {
-    log(`popstate -> state=${JSON.stringify(ev.state)}, href=${window.location.href}`);
-  });
 
   document.addEventListener('visibilitychange', function () {
     log(`visibilitychange -> hidden=${document.hidden}, state=${document.visibilityState}`);
   });
 
   window.addEventListener('pagehide', function (e) {
-    log(`pagehide -> persisted=${e.persisted}`);
+    log(`pagehide -> persisted=${e.persisted}, port=${TARGET_PORT}`);
   });
 
-  stateBtn.addEventListener('click', function () {
-    var stateObj = {
-      label: '..................google.com',
-      origin: window.location.origin,
-      ts: Date.now()
-    };
-    history.replaceState(stateObj, '', window.location.pathname + window.location.search);
-    log(`history.state set -> ${JSON.stringify(history.state)}`);
-  });
+  btn.addEventListener('click', function () {
+    btn.disabled = true;
+    triggeredAt = performance.now();
+    log(`[*] Trigger klik diterima -> target=${TARGET_URL}, port=${TARGET_PORT}`);
 
-  attestBtn.addEventListener('click', function () {
-    if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
-      log('[-] navigator.credentials.create tidak tersedia.');
-      return;
-    }
-
-    var hostname = window.location.hostname || 'localhost';
-    var publicKeyOptions = {
-      challenge: randomBytes(32),
-      rp: {
-        name: '..................google.com',
-        id: hostname
-      },
-      user: {
-        id: randomBytes(16),
-        name: 'probe-user@example.com',
-        displayName: 'Probe User'
-      },
-      pubKeyCredParams: [
-        { type: 'public-key', alg: -7 },   // ES256
-        { type: 'public-key', alg: -257 }  // RS256
-      ],
-      authenticatorSelection: {
-        residentKey: 'preferred',
-        userVerification: 'preferred'
-      },
-      attestation: 'direct',
-      timeout: 15000
-    };
-
-    log(`[*] Memanggil credentials.create(attestation="direct", rp.id="${hostname}", origin="${window.location.origin}")...`);
-
-    navigator.credentials.create({ publicKey: publicKeyOptions })
-      .then(function (cred) {
-        var attObjLen = cred && cred.response && cred.response.attestationObject
-          ? cred.response.attestationObject.byteLength
-          : 0;
-        log(`[+] Attestation credential created -> id=${cred.id}, attestationObjectBytes=${attObjLen}`);
-      })
-      .catch(function (err) {
-        log(`[-] credentials.create error -> ${err.name}: ${err.message}`);
-      });
-  });
-
-  navBtn.addEventListener('click', function () {
-    log('[*] Memicu navigasi ke https://www.google.com:8443 setelah jeda 200ms...');
+    // Checkpoint diagnostik sebelum/sesaat navigasi ke port 8443 diproses
     setTimeout(function () {
-      window.location.href = 'https://www.google.com:8443';
-    }, 200);
-  });
+      log('[checkpoint +1000ms] masih di dokumen asal (navigasi port 8443 belum mengganti dokumen)');
+    }, 1000);
+
+    setTimeout(function () {
+      log('[checkpoint +5000ms] masih di dokumen asal setelah 5s pada port 8443');
+    }, 5000);
+
+    try {
+      handlePort8443Navigation(TARGET_URL);
+    } catch (err) {
+      log(`[-] Gagal memicu navigasi port ${TARGET_PORT} -> ${err.name}: ${err.message}`);
+    }
+  }, { once: true });
 })();
 </script>
 
