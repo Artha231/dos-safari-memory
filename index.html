@@ -3,25 +3,42 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WebAuthn Attestation Trigger</title>
+<title>WebAuthn rp.id &amp; Iframe Context Diagnostics</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
-  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 560px; width: 100%; border: 1px solid #333; }
+  .panel { background: #1e1e1e; padding: 28px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 640px; width: 100%; border: 1px solid #333; }
   h2 { color: #60a5fa; margin-bottom: 8px; font-size: 18px; }
-  p { color: #a3a3a3; font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
-  button { padding: 14px 22px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; width: 100%; }
+  p { color: #a3a3a3; font-size: 13px; margin-bottom: 14px; line-height: 1.5; }
+  label { display: block; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
+  input { width: 100%; padding: 9px 12px; margin-bottom: 12px; border-radius: 8px; border: 1px solid #404040; background: #121212; color: #fff; font-family: monospace; font-size: 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+  button { flex: 1; min-width: 170px; padding: 11px 14px; background: #2563eb; color: #fff; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
   button:hover { background: #1d4ed8; }
-  button:disabled { background: #374151; cursor: not-allowed; }
-  #log { margin-top: 16px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 240px; overflow-y: auto; white-space: pre-wrap; }
+  button.secondary { background: #334155; }
+  button.secondary:hover { background: #475569; }
+  iframe { width: 100%; height: 115px; border: 1px solid #3f3f46; border-radius: 8px; background: #09090b; margin-top: 8px; }
+  #log { margin-top: 12px; padding: 12px; background: #0b0b0b; border-radius: 8px; font-family: monospace; font-size: 11px; color: #93c5fd; max-height: 250px; overflow-y: auto; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 
 <div class="panel">
-  <h2>WebAuthn Attestation Trigger</h2>
-  <p>Klik tombol di bawah untuk memicu <code>navigator.credentials.create()</code> dengan <code>attestation: "direct"</code> pada konteks aktif saat ini.</p>
-  <button id="attestTriggerBtn">Trigger WebAuthn Attestation</button>
+  <h2>WebAuthn rp.id &amp; Iframe Context Probe</h2>
+  <p>Menguji validasi <code>rp.id</code> (exact host, parent/PSL suffix candidate, atau domain uji) serta perilaku <code>credentials.create()</code> pada <code>&lt;iframe&gt;</code> dengan/tanpa delegasi izin.</p>
+
+  <label for="rpIdInput">Kandidat rp.id yang diuji (kosongkan untuk pakai hostname aktif):</label>
+  <input id="rpIdInput" type="text" placeholder="mis. hostname aktif, parent domain, atau domain uji" />
+
+  <label for="iframeAllowInput">Atribut allow pada iframe (mis. kosong, atau <code>publickey-credentials-create</code>):</label>
+  <input id="iframeAllowInput" type="text" value="" />
+
+  <div class="row">
+    <button id="topTestBtn">1. Test rp.id (Top Frame)</button>
+    <button id="iframeTestBtn" class="secondary">2. Load Iframe &amp; Probe</button>
+  </div>
+
+  <iframe id="webauthnFrame" title="WebAuthn Iframe Probe"></iframe>
   <div id="log">[*] Ready...</div>
 </div>
 
@@ -29,7 +46,11 @@
 (function () {
   'use strict';
 
-  var btn = document.getElementById('attestTriggerBtn');
+  var rpIdInput = document.getElementById('rpIdInput');
+  var allowInput = document.getElementById('iframeAllowInput');
+  var topTestBtn = document.getElementById('topTestBtn');
+  var iframeTestBtn = document.getElementById('iframeTestBtn');
+  var frame = document.getElementById('webauthnFrame');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
 
@@ -38,7 +59,7 @@
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[WebAuthnTrigger] ' + line);
+    console.log('[RpIdIframeProbe] ' + line);
   }
 
   function randomBytes(len) {
@@ -47,60 +68,102 @@
     return arr;
   }
 
-  function triggerWebAuthnAttestation() {
+  function runCreateWithRpId(rpId, label) {
     if (!window.isSecureContext) {
-      log('[-] Konteks bukan Secure Context (HTTPS atau localhost wajib untuk WebAuthn).');
+      log(`[-] [${label}] Bukan Secure Context.`);
       return;
     }
     if (!navigator.credentials || typeof navigator.credentials.create !== 'function') {
-      log('[-] WebAuthn credentials.create() tidak tersedia di browser/konteks ini.');
+      log(`[-] [${label}] credentials.create tidak tersedia.`);
       return;
     }
 
-    var rpId = window.location.hostname || 'localhost';
-    var publicKeyOptions = {
-      challenge: randomBytes(32),
-      rp: {
-        name: window.location.hostname || 'Local Probe',
-        id: rpId
-      },
-      user: {
-        id: randomBytes(16),
-        name: 'probe@' + rpId,
-        displayName: 'Probe User'
-      },
-      pubKeyCredParams: [
-        { type: 'public-key', alg: -7 },
-        { type: 'public-key', alg: -257 }
-      ],
-      authenticatorSelection: {
-        residentKey: 'preferred',
-        userVerification: 'preferred'
-      },
-      attestation: 'direct',
-      timeout: 20000
-    };
+    log(`[*] [${label}] origin=${window.location.origin}, host=${window.location.hostname}, rp.id="${rpId}"`);
 
-    log(`[*] Triggering credentials.create (attestation="direct", rp.id="${rpId}", origin="${window.location.origin}")...`);
-
-    return navigator.credentials.create({ publicKey: publicKeyOptions })
-      .then(function (cred) {
-        var attBytes = cred && cred.response && cred.response.attestationObject
-          ? cred.response.attestationObject.byteLength
-          : 0;
-        log(`[+] Resolved -> id=${cred.id}, attestationObject=${attBytes} bytes`);
-      })
-      .catch(function (err) {
-        log(`[-] Rejected/Error -> ${err.name}: ${err.message}`);
-      });
+    navigator.credentials.create({
+      publicKey: {
+        challenge: randomBytes(32),
+        rp: {
+          name: 'rpId Probe',
+          id: rpId
+        },
+        user: {
+          id: randomBytes(16),
+          name: 'probe@' + (window.location.hostname || 'localhost'),
+          displayName: 'Probe User'
+        },
+        pubKeyCredParams: [
+          { type: 'public-key', alg: -7 },
+          { type: 'public-key', alg: -257 }
+        ],
+        attestation: 'direct',
+        timeout: 15000
+      }
+    }).then(function (cred) {
+      log(`[+] [${label}] SUCCEEDED -> id=${cred.id}, rp.id="${rpId}"`);
+    }).catch(function (err) {
+      log(`[-] [${label}] REJECTED (${err.name}) -> rp.id="${rpId}" | ${err.message}`);
+    });
   }
 
-  btn.addEventListener('click', function () {
-    btn.disabled = true;
-    triggerWebAuthnAttestation();
-    setTimeout(function () {
-      btn.disabled = false;
-    }, 1500);
+  topTestBtn.addEventListener('click', function () {
+    var candidate = rpIdInput.value.trim() || window.location.hostname || 'localhost';
+    runCreateWithRpId(candidate, 'top-frame');
+  });
+
+  iframeTestBtn.addEventListener('click', function () {
+    var allowVal = allowInput.value.trim();
+    var candidateRpId = rpIdInput.value.trim() || window.location.hostname || 'localhost';
+
+    if (allowVal) {
+      frame.setAttribute('allow', allowVal);
+    } else {
+      frame.removeAttribute('allow');
+    }
+
+    var srcdocHtml = `
+      <!DOCTYPE html><html><body style="background:#111;color:#93c5fd;font-family:monospace;font-size:11px;padding:10px;">
+      <div>Iframe origin: <span id="o"></span></div>
+      <button id="fBtn" style="margin-top:8px;padding:6px 10px;background:#2563eb;color:#fff;border:none;border-radius:4px;cursor:pointer;">Run credentials.create in Iframe</button>
+      <div id="res" style="margin-top:6px;"></div>
+      <script>
+        document.getElementById('o').textContent = window.location.origin;
+        document.getElementById('fBtn').addEventListener('click', function() {
+          var resEl = document.getElementById('res');
+          if (!navigator.credentials || !navigator.credentials.create) {
+            resEl.textContent = 'credentials.create unavailable';
+            return;
+          }
+          var bytes = new Uint8Array(16);
+          crypto.getRandomValues(bytes);
+          navigator.credentials.create({
+            publicKey: {
+              challenge: bytes,
+              rp: { name: 'Iframe Probe', id: ${JSON.stringify(candidateRpId)} },
+              user: { id: bytes, name: 'iframe-probe', displayName: 'Iframe Probe' },
+              pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+              attestation: 'direct',
+              timeout: 12000
+            }
+          }).then(function(c) {
+            resEl.textContent = 'OK: ' + c.id;
+            parent.postMessage({ source: 'iframe-probe', status: 'ok', id: c.id }, '*');
+          }).catch(function(e) {
+            resEl.textContent = 'ERR ' + e.name + ': ' + e.message;
+            parent.postMessage({ source: 'iframe-probe', status: 'err', name: e.name, message: e.message }, '*');
+          });
+        });
+      <\/script></body></html>
+    `;
+
+    log(`[*] Memuat iframe srcdoc -> allow="${allowVal || '(none)'}", candidateRpId="${candidateRpId}"`);
+    frame.srcdoc = srcdocHtml;
+  });
+
+  window.addEventListener('message', function (ev) {
+    if (ev.data && ev.data.source === 'iframe-probe') {
+      log(`[iframe->parent] status=${ev.data.status}, name=${ev.data.name || ''}, msg=${ev.data.message || ev.data.id || ''}`);
+    }
   });
 })();
 </script>
