@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Camera Lifecycle Race Lab</title>
+<title>Camera Permission Race Lab</title>
 
 <style>
 * {
@@ -14,7 +14,8 @@
 }
 
 body {
-  font-family: Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Arial, sans-serif;
   background: #090d16;
   color: #f8fafc;
   min-height: 100vh;
@@ -31,59 +32,71 @@ body {
   max-width: 540px;
   width: 100%;
   border: 1px solid #1f2937;
+  box-shadow: 0 20px 25px -5px #0008;
   text-align: center;
 }
 
-h2 { margin-bottom: 12px; }
+h2 {
+  margin-bottom: 10px;
+  font-size: 22px;
+}
 
 p {
+  margin-bottom: 24px;
   color: #9ca3af;
   font-size: 14px;
   line-height: 1.6;
-  margin-bottom: 24px;
 }
 
 button {
   width: 100%;
   padding: 16px;
-  border: 0;
+  cursor: pointer;
+  border: none;
   border-radius: 10px;
   background: #3b82f6;
   color: white;
-  font-weight: bold;
-  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
 }
 
-button:disabled { opacity: .5; }
+button:hover {
+  background: #2563eb;
+}
 
-#status, #logs {
-  margin-top: 18px;
-  padding: 14px;
-  border-radius: 8px;
-  font-size: 13px;
+button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
 }
 
 #status {
+  margin-top: 20px;
+  padding: 14px;
+  border-radius: 8px;
   background: #0c2638;
   color: #38bdf8;
+  font-size: 13px;
 }
 
 #logs {
+  margin-top: 18px;
+  padding: 14px;
   height: 210px;
   overflow-y: auto;
   background: #030712;
   color: #a7f3d0;
+  border-radius: 8px;
   text-align: left;
   font: 11px/1.8 monospace;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 video {
   display: none;
   width: 100%;
-  margin-top: 16px;
-  border-radius: 10px;
-  background: black;
+  margin-top: 15px;
+  border-radius: 8px;
 }
 </style>
 </head>
@@ -92,22 +105,26 @@ video {
 
 <div class="panel">
 
-  <h2>Camera Lifecycle Race Lab</h2>
+  <h2>Camera Permission Race Lab</h2>
 
   <p>
-    Controlled experiment for observing camera permission
-    requests and browser lifecycle events.
+    Controlled experiment for observing simultaneous
+    camera permission requests and browser navigation.
   </p>
 
   <button id="start">
-    Start Camera Test
+    Start Camera Race Test
   </button>
 
-  <div id="status">System ready.</div>
+  <div id="status">
+    System ready.
+  </div>
 
   <video id="preview" autoplay playsinline muted></video>
 
-  <div id="logs">[INIT] Camera lifecycle lab initialized.</div>
+  <div id="logs">
+    [INIT] Camera permission lab initialized.
+  </div>
 
 </div>
 
@@ -124,6 +141,7 @@ let startedAt = 0;
 let cameraStream = null;
 
 function log(message) {
+
   const timestamp =
     (performance.now() - startedAt).toFixed(2);
 
@@ -133,73 +151,90 @@ function log(message) {
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-async function startTest() {
+function startTest() {
 
   startBtn.disabled = true;
+
   events = [];
   startedAt = performance.now();
 
-  log("CAMERA TEST STARTED");
+  log("CAMERA RACE TEST STARTED");
 
-  if (!navigator.mediaDevices ||
-      !navigator.mediaDevices.getUserMedia) {
-    log("ERROR: CAMERA API UNAVAILABLE");
+  if (
+    !navigator.mediaDevices ||
+    !navigator.mediaDevices.getUserMedia
+  ) {
+
+    log("CAMERA API UNAVAILABLE");
+
     statusBox.textContent =
       "Camera API unavailable. Use HTTPS or localhost.";
+
     startBtn.disabled = false;
     return;
   }
 
-  log("CAMERA PERMISSION REQUEST STARTED");
+  log("CAMERA PERMISSION REQUEST PREPARED");
 
   statusBox.textContent =
-    "Waiting for camera permission...";
+    "Camera permission request dispatched.";
 
-  try {
-    cameraStream =
-      await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false
-      });
+  // Initiate camera request.
+  const cameraRequest =
+    navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: false
+    });
 
-    preview.srcObject = cameraStream;
-    preview.style.display = "block";
+  log("CAMERA REQUEST DISPATCHED");
+
+  cameraRequest.then(stream => {
+
+    cameraStream = stream;
 
     log("CAMERA ACCESS GRANTED");
-    log("VIDEO TRACK COUNT: " +
-        cameraStream.getVideoTracks().length);
+
+    // Display preview while page remains active.
+    preview.srcObject = stream;
+    preview.style.display = "block";
+
+    log("CAMERA STREAM INITIALIZED");
+
+  }).catch(error => {
+
+    log("CAMERA REQUEST FAILED: " + error.name);
 
     statusBox.textContent =
-      "Camera access granted.";
+      "Camera request failed: " + error.name;
 
-  } catch (error) {
+  });
 
-    log("CAMERA ACCESS FAILED: " + error.name);
-    statusBox.textContent =
-      "Camera access denied or unavailable.";
+  // Navigation is intentionally initiated immediately.
+  // Browser may cancel the pending camera request.
+  log("GOOGLE NAVIGATION DISPATCHED");
 
-  } finally {
-    startBtn.disabled = false;
-  }
+  statusBox.textContent =
+    "Camera request and navigation dispatched.";
+
+  window.location.assign("https://www.google.com");
 }
 
-function stopCamera() {
+// Lifecycle monitoring.
+window.addEventListener("pagehide", () => {
+
+  log("PAGEHIDE EVENT");
 
   if (cameraStream) {
+
     cameraStream.getTracks().forEach(track => {
       track.stop();
-      log("CAMERA TRACK STOPPED");
     });
 
     cameraStream = null;
-    preview.srcObject = null;
-    preview.style.display = "none";
-  }
-}
 
-window.addEventListener("pagehide", () => {
-  log("PAGEHIDE EVENT");
-  stopCamera();
+    log("CAMERA TRACKS STOPPED");
+  }
+
 });
 
 window.addEventListener("beforeunload", () => {
@@ -207,7 +242,11 @@ window.addEventListener("beforeunload", () => {
 });
 
 document.addEventListener("visibilitychange", () => {
-  log("VISIBILITY: " + document.visibilityState);
+
+  log(
+    "VISIBILITY: " + document.visibilityState
+  );
+
 });
 
 window.addEventListener("pageshow", () => {
@@ -217,5 +256,8 @@ window.addEventListener("pageshow", () => {
 startBtn.addEventListener("click", startTest);
 
 </script>
+
+</div>
+
 </body>
 </html>
