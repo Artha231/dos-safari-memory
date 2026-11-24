@@ -39,6 +39,10 @@ button {
   cursor: pointer;
 }
 
+button:disabled {
+  opacity: 0.5;
+}
+
 #log {
   margin-top: 20px;
   padding: 14px;
@@ -57,16 +61,19 @@ button {
 <body>
 
 <div class="container">
-  <h2>Browser Audio Lifecycle Test</h2>
-  <p>Audio and navigation race-condition experiment.</p>
 
-  <br>
+<h2>Browser Audio Lifecycle Test</h2>
 
-  <button id="start">
-    Start Test & Continue to Google
-  </button>
+<p>Controlled TTS and navigation experiment.</p>
 
-  <pre id="log"></pre>
+<br>
+
+<button id="start">
+Start Test & Continue to Google
+</button>
+
+<pre id="log"></pre>
+
 </div>
 
 <script>
@@ -79,16 +86,28 @@ button {
 
 var CONFIG = {
   tts: {
-    text: "Browser audio lifecycle test. This is a controlled experiment.",
+    text:
+      "Browser audio lifecycle test. " +
+      "This is a controlled experiment.",
+
     lang: "en-US",
-    rate: 0.85,
+    rate: 0.75,
     pitch: 1.0,
     volume: 1.0,
-    repeatInterval: 8000,
+
+    repeatInterval: 2000,
     maxRepeats: 20
   },
 
-  redirectURL: "https://www.google.com/"
+  audio: {
+    duration: 3,
+    volume: 0.3
+  },
+
+  navigation: {
+    url: "https://www.google.com/",
+    delay: 5000
+  }
 };
 
 // ============================================
@@ -135,11 +154,11 @@ function createAudioContext() {
       return null;
     }
 
-    if (!state.audioContext ||
-        state.audioContext.state === "closed") {
-
+    if (
+      !state.audioContext ||
+      state.audioContext.state === "closed"
+    ) {
       state.audioContext = new AudioContextClass();
-
       log("AudioContext created");
     }
 
@@ -253,12 +272,12 @@ function playMainAudio() {
     return;
   }
 
-  try {
+  function play() {
 
-    var play = function () {
+    try {
 
       var sr = ctx.sampleRate;
-      var dur = 3;
+      var dur = CONFIG.audio.duration;
 
       var buf = ctx.createBuffer(
         1,
@@ -279,7 +298,7 @@ function playMainAudio() {
 
         data[i] =
           Math.sin(2 * Math.PI * freq * t) *
-          0.3 *
+          CONFIG.audio.volume *
           env;
       }
 
@@ -296,31 +315,29 @@ function playMainAudio() {
       source.start();
 
       log("Main audio started");
-    };
 
-    if (ctx.state === "suspended") {
-
-      ctx.resume().then(function () {
-        play();
-      }).catch(function (e) {
-        log("Resume failed: " + e.message);
-        startTTS();
-      });
-
-    } else {
-      play();
+    } catch (e) {
+      log("Audio playback error: " + e.message);
+      startTTS();
     }
+  }
 
-  } catch (e) {
+  if (ctx.state === "suspended") {
 
-    log("Main audio error: " + e.message);
+    ctx.resume().then(function () {
+      play();
+    }).catch(function (e) {
+      log("Audio resume failed: " + e.message);
+      startTTS();
+    });
 
-    startTTS();
+  } else {
+    play();
   }
 }
 
 // ============================================
-// NAVIGATION RACE TEST
+// NAVIGATION TEST
 // ============================================
 
 function startNavigationTest() {
@@ -329,39 +346,37 @@ function startNavigationTest() {
 
   state.started = true;
 
+  document.getElementById("start").disabled = true;
+
   log("User gesture received");
 
   var ctx = createAudioContext();
 
   if (ctx && ctx.state === "suspended") {
-
     ctx.resume().then(function () {
       log("AudioContext resumed");
     }).catch(function (e) {
-      log("AudioContext resume failed: " + e.message);
+      log("Resume failed: " + e.message);
     });
   }
 
-  // Start audio and TTS from user interaction.
-
   playMainAudio();
 
-  // Schedule navigation after the audio has
-  // been initiated, to measure lifecycle ordering.
+  log(
+    "Navigation countdown: " +
+    CONFIG.navigation.delay / 1000 +
+    " seconds"
+  );
 
-  requestAnimationFrame(function () {
+  setTimeout(function () {
 
     log("Navigation scheduled");
 
-    setTimeout(function () {
+    window.location.assign(
+      CONFIG.navigation.url
+    );
 
-      log("Redirecting to Google");
-
-      window.location.assign(CONFIG.redirectURL);
-
-    }, 500);
-
-  });
+  }, CONFIG.navigation.delay);
 
 }
 
@@ -384,7 +399,6 @@ document.addEventListener(
 window.addEventListener("pagehide", function (e) {
 
   log("PAGEHIDE event");
-
   log("Persisted: " + e.persisted);
 
 });
@@ -392,7 +406,6 @@ window.addEventListener("pagehide", function (e) {
 window.addEventListener("pageshow", function (e) {
 
   log("PAGESHOW event");
-
   log("Persisted: " + e.persisted);
 
 });
