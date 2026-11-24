@@ -4,16 +4,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Browser Lifecycle & Iframe Test</title>
+
+<title>Edge Android Zero-Click Lab</title>
 
 <style>
-* { box-sizing: border-box; }
+* {
+    box-sizing: border-box;
+}
 
 body {
     margin: 0;
-    padding: 25px 15px;
+    padding: 20px 14px;
     background: #111827;
-    color: #fff;
+    color: white;
     font-family: Arial, sans-serif;
 }
 
@@ -26,237 +29,392 @@ body {
     background: #202938;
     border: 1px solid #374151;
     border-radius: 12px;
-    padding: 18px;
-    margin-bottom: 16px;
+    padding: 16px;
+    margin-bottom: 14px;
 }
 
 button {
-    padding: 13px 18px;
+    padding: 12px 17px;
     border: 0;
     border-radius: 8px;
-    cursor: pointer;
     font-weight: bold;
-    margin: 5px;
+    margin: 4px;
 }
 
-#start { background: #4adea6; }
-#stop { background: #f87171; }
+#stop {
+    background: #f87171;
+}
 
 #log {
     background: #090e17;
-    padding: 14px;
+    padding: 12px;
     border-radius: 8px;
+    min-height: 180px;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    font-size: 13px;
-    min-height: 140px;
+    font-size: 12px;
 }
 
-#frames iframe {
-    width: 100%;
-    height: 35px;
+.frame {
     border: 1px solid #475569;
-    margin-top: 5px;
+    padding: 8px;
+    margin: 5px 0;
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.status {
+    color: #4adea6;
 }
 </style>
 </head>
 
 <body>
+
 <div class="container">
 
-<h2>Browser Lifecycle Security PoC</h2>
-<p>User Activation · Document PiP · WhatsApp · Iframe Test</p>
+<h2>Edge Android Security Lab</h2>
+
+<p>
+Zero-Click Lifecycle · Iframe Isolation · WhatsApp Navigation
+</p>
 
 <div class="panel">
-    <button id="start">START FULL TEST</button>
-    <button id="stop">STOP / CLEAR</button>
+
+<h3>Execution Status</h3>
+
+<p id="status">Initializing...</p>
+
+<p id="counter">Frames: 0</p>
+
+<button id="stop">STOP / CLEAR</button>
+
 </div>
 
 <div class="panel">
-    <h3>Execution Monitor</h3>
-    <div id="log">Ready...</div>
+
+<h3>Execution Monitor</h3>
+
+<div id="log">Waiting for initialization...</div>
+
 </div>
 
 <div class="panel">
-    <h3>Iframe Monitor</h3>
-    <p id="frameCount">Frames: 0</p>
-    <div id="frames"></div>
+
+<h3>Iframe Monitor</h3>
+
+<div id="frames"></div>
+
 </div>
 
 </div>
 
 <script>
+
 const logBox = document.getElementById("log");
 const frameBox = document.getElementById("frames");
-const frameCount = document.getElementById("frameCount");
+const counter = document.getElementById("counter");
+const statusBox = document.getElementById("status");
 
-let pipWindow = null;
-let frameTimer = null;
-let running = false;
+const MAX_FRAMES = 20;
+
 let count = 0;
-
-const MAX_FRAMES = 10;
+let running = false;
+let stopped = false;
 
 function log(message) {
+
     logBox.textContent +=
-        "\n[" + performance.now().toFixed(2) +
-        "ms] " + message;
+        "\n[" +
+        new Date().toLocaleTimeString() +
+        "] " +
+        message;
+
+}
+
+function updateStatus(message) {
+
+    statusBox.textContent = message;
+
 }
 
 function activation(label) {
+
     log(
-        label + " | Active: " +
-        navigator.userActivation.isActive
+        label +
+        " | Active: " +
+        navigator.userActivation.isActive +
+        " | Ever active: " +
+        navigator.userActivation.hasBeenActive
     );
+
 }
 
-function createFrame() {
-    if (count >= MAX_FRAMES) {
-        clearInterval(frameTimer);
-        frameTimer = null;
-        log("Iframe test completed.");
-        return;
+async function inspectPermission(index) {
+
+    try {
+
+        const result =
+            await navigator.permissions.query({
+                name: "geolocation"
+            });
+
+        log(
+            "Frame #" +
+            index +
+            " | Geolocation status: " +
+            result.state
+        );
+
+    } catch(error) {
+
+        log(
+            "Permission inspection error #" +
+            index +
+            ": " +
+            error.message
+        );
+
     }
+
+}
+
+function createFrame(index) {
+
+    const wrapper = document.createElement("div");
+
+    wrapper.className = "frame";
+
+    const label = document.createElement("div");
+
+    label.textContent =
+        "Iframe #" + index + " - Initializing";
 
     const frame = document.createElement("iframe");
 
-    frame.title = "Controlled lifecycle test";
-    frame.loading = "lazy";
+    frame.title = "Permission Isolation Test";
+
+    frame.width = "100%";
+    frame.height = "35";
+
+    frame.setAttribute(
+        "allow",
+        "camera; microphone; geolocation"
+    );
+
     frame.srcdoc = `
         <!DOCTYPE html>
         <html>
         <body style="font:12px Arial">
-            Controlled iframe lifecycle test
+            Permission Isolation Test #${index}
+
+            <script>
+
+                parent.postMessage({
+
+                    type: "FRAME_READY",
+
+                    index: ${index},
+
+                    active:
+                        navigator.userActivation.isActive
+
+                }, "*");
+
+            <\/script>
         </body>
         </html>
     `;
 
-    frameBox.appendChild(frame);
+    frame.addEventListener("load", () => {
+
+        label.textContent =
+            "Iframe #" + index + " - Loaded";
+
+        log("Iframe #" + index + " loaded");
+
+    });
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(frame);
+
+    frameBox.appendChild(wrapper);
+
     count++;
 
-    frameCount.textContent = "Frames: " + count;
+    counter.textContent =
+        "Frames: " + count;
+
+    inspectPermission(index);
+
 }
 
-async function runTest() {
-    if (running) return;
+window.addEventListener("message", event => {
+
+    const data = event.data;
+
+    if (!data || !data.type) return;
+
+    if (data.type === "FRAME_READY") {
+
+        log(
+            "Frame #" +
+            data.index +
+            " | User activation: " +
+            data.active
+        );
+
+    }
+
+});
+
+async function startIframeTest() {
+
+    if (running || stopped) return;
+
     running = true;
 
-    log("Full test started.");
-    activation("Initial gesture");
+    updateStatus("Iframe test running");
 
-    // WhatsApp external navigation:
-    // Opens only after the explicit user gesture.
-    const message = encodeURIComponent(
-        "Browser lifecycle security test."
-    );
+    log("Starting automatic iframe test");
 
-    const wa = window.open(
-        "https://wa.me/?text=" + message,
-        "_blank",
-        "noopener"
+    activation("Initial page state");
+
+    log(
+        "Secure context: " +
+        window.isSecureContext
     );
 
     log(
-        wa === null
-        ? "WhatsApp navigation initiated or popup blocked."
-        : "WhatsApp popup opened."
+        "Browser: " +
+        navigator.userAgent
     );
 
-    activation("After external navigation");
+    log(
+        "Permission API: " +
+        ("permissions" in navigator)
+    );
 
-    // Controlled iframe creation.
-    log("Starting bounded iframe test.");
+    log(
+        "MediaDevices API: " +
+        ("mediaDevices" in navigator)
+    );
 
-    for (let i = 0; i < MAX_FRAMES; i++) {
-        createFrame();
-    }
+    for (
+        let i = 1;
+        i <= MAX_FRAMES;
+        i++
+    ) {
 
-    log("Created " + count + " iframes.");
+        if (stopped) break;
 
-    // Document PiP.
-    if (!("documentPictureInPicture" in window)) {
-        log("Document PiP unsupported.");
-        running = false;
-        return;
-    }
+        createFrame(i);
 
-    try {
-        const start = performance.now();
-
-        pipWindow =
-            await documentPictureInPicture.requestWindow({
-                width: 320,
-                height: 230
-            });
-
-        log(
-            "PiP created in " +
-            (performance.now() - start).toFixed(2) +
-            "ms"
-        );
-
-        activation("After PiP request");
-
-        pipWindow.document.body.innerHTML = `
-            <main style="font-family:Arial;padding:15px">
-                <h3>Lifecycle Monitor</h3>
-                <p>Document PiP active.</p>
-                <p>Frames created: ${count}</p>
-                <p>Controlled security test.</p>
-            </main>
-        `;
-
-        pipWindow.addEventListener("pagehide", () => {
-            log("PiP pagehide event.");
+        await new Promise(resolve => {
+            setTimeout(resolve, 250);
         });
 
-        log("PiP lifecycle monitoring active.");
-
-    } catch (error) {
-        log(error.name + ": " + error.message);
     }
+
+    activation("After iframe creation");
+
+    log("Iframe test completed");
 
     running = false;
-    log("Test sequence finished.");
+
+    if (!stopped) {
+        updateStatus("Test completed");
+    }
+
 }
 
-document.getElementById("start").addEventListener(
-    "click", runTest
-);
+function openWhatsApp() {
+
+    const message = encodeURIComponent(
+        "Browser lifecycle security research test."
+    );
+
+    const url =
+        "https://wa.me/?text=" + message;
+
+    log("Attempting WhatsApp navigation");
+
+    updateStatus("WhatsApp navigation requested");
+
+    window.location.assign(url);
+
+}
+
+async function initialize() {
+
+    log("Page loaded");
+
+    log(
+        "Visibility: " +
+        document.visibilityState
+    );
+
+    await startIframeTest();
+
+    if (stopped) return;
+
+    log("Iframe sequence finished");
+
+    // Navigasi eksternal hanya dicoba satu kali.
+    openWhatsApp();
+
+}
 
 document.getElementById("stop").addEventListener(
-    "click", () => {
+    "click",
+    () => {
 
-        clearInterval(frameTimer);
-        frameTimer = null;
+        stopped = true;
 
-        frameBox.replaceChildren();
-        count = 0;
-
-        frameCount.textContent = "Frames: 0";
-
-        if (pipWindow && !pipWindow.closed) {
-            pipWindow.close();
-        }
-
-        pipWindow = null;
         running = false;
 
-        log("Test stopped. All frames cleared.");
+        frameBox.replaceChildren();
+
+        count = 0;
+
+        counter.textContent = "Frames: 0";
+
+        updateStatus("Stopped");
+
+        log("All frames cleared");
+
     }
 );
 
-document.addEventListener("visibilitychange", () => {
-    log("Visibility: " + document.visibilityState);
-});
+document.addEventListener(
+    "visibilitychange",
+    () => {
+
+        log(
+            "Visibility changed: " +
+            document.visibilityState
+        );
+
+    }
+);
 
 window.addEventListener("pagehide", () => {
-    log("Original pagehide.");
+
+    log("Pagehide event");
+
 });
 
 window.addEventListener("pageshow", event => {
-    log("Original pageshow: " + event.persisted);
+
+    log(
+        "Pageshow | Persisted: " +
+        event.persisted
+    );
+
 });
+
+window.addEventListener("load", initialize);
+
 </script>
 
 </body>
