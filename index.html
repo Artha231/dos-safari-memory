@@ -4,12 +4,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Document PiP + WhatsApp Intent PoC</title>
+<title>Document PiP + WhatsApp PoC</title>
 
 <style>
-* {
-    box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
     margin: 0;
@@ -42,13 +40,8 @@ button {
     font-weight: bold;
 }
 
-#start {
-    background: #4adea6;
-}
-
-#navigate {
-    background: #60a5fa;
-}
+#start { background: #4adea6; }
+#navigate { background: #60a5fa; }
 
 #log {
     background: #090e17;
@@ -68,10 +61,10 @@ button {
 <div class="container">
 
 <h2>Document PiP + WhatsApp Intent</h2>
-<p>Google /x · PiP Lifecycle · WhatsApp Navigation</p>
+<p>WhatsApp Popup · Document PiP · Google Navigation</p>
 
 <div class="panel">
-    <button id="start">1. Open Google</button>
+    <button id="start">1. Open WhatsApp</button>
     <button id="navigate">2. Start PiP + Navigate</button>
 </div>
 
@@ -88,6 +81,10 @@ const TARGET = "https://www.google.com/x";
 const MESSAGE =
     "Browser Document PiP lifecycle security test.";
 
+const WHATSAPP =
+    "https://wa.me/?text=" +
+    encodeURIComponent(MESSAGE);
+
 const logBox = document.getElementById("log");
 
 let popup = null;
@@ -100,17 +97,17 @@ function log(message) {
         "ms] " + message;
 }
 
+// STEP 1: OPEN WHATSAPP POPUP
 document.getElementById("start").onclick = () => {
 
     if (started) return;
-
     started = true;
 
-    log("Opening Google /x");
+    log("Opening WhatsApp Intent.");
 
     popup = window.open(
-        TARGET,
-        "google_test",
+        WHATSAPP,
+        "whatsapp_test",
         "width=500,height=500"
     );
 
@@ -120,9 +117,10 @@ document.getElementById("start").onclick = () => {
         return;
     }
 
-    log("Google popup opened.");
+    log("WhatsApp popup initiated.");
 };
 
+// STEP 2: DOCUMENT PIP + GOOGLE NAVIGATION
 document.getElementById("navigate").onclick = async () => {
 
     if (navigating) return;
@@ -159,55 +157,18 @@ document.getElementById("navigate").onclick = async () => {
                 color:#222;
             ">
                 <h3>Lifecycle Monitor</h3>
-
                 <p>Document PiP is active.</p>
-
                 <p style="font-size:13px">
                     Target: Google /x
                 </p>
-
-                <hr>
-
-                <button id="wa"
-                    style="
-                    background:#25D366;
-                    color:white;
-                    border:0;
-                    padding:12px;
-                    width:100%;
-                    border-radius:7px;
-                    font-weight:bold;
-                    cursor:pointer;
-                    ">
-                    Open WhatsApp
-                </button>
-
-                <p style="font-size:11px;color:#666">
-                    Opens WhatsApp with a prepared test message.
-                </p>
             </main>
         `;
-
-        pipWindow.document
-            .getElementById("wa")
-            .addEventListener("click", () => {
-
-                const whatsappURL =
-                    "https://wa.me/?text=" +
-                    encodeURIComponent(MESSAGE);
-
-                pipWindow.open(
-                    whatsappURL,
-                    "_blank",
-                    "noopener"
-                );
-            });
 
         pipWindow.addEventListener("pagehide", () => {
             log("PiP pagehide.");
         });
 
-        log("WhatsApp action prepared.");
+        log("PiP lifecycle listener registered.");
         log("Navigating opener to Google /x.");
 
         window.location.replace(TARGET);
@@ -223,6 +184,7 @@ document.getElementById("navigate").onclick = async () => {
     }
 };
 
+// LIFECYCLE MONITOR
 document.addEventListener("visibilitychange", () => {
     log("Visibility: " + document.visibilityState);
 });
@@ -236,6 +198,5 @@ window.addEventListener("pageshow", event => {
 });
 
 </script>
-
 </body>
 </html>
