@@ -4,418 +4,273 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-
-<title>Edge Android Zero-Click Lab</title>
+<title>Edge Android Permission Flood Lab</title>
 
 <style>
-* {
-    box-sizing: border-box;
+*{box-sizing:border-box}
+body{
+ margin:0;padding:18px 14px;
+ background:#111827;color:white;
+ font-family:Arial,sans-serif
 }
-
-body {
-    margin: 0;
-    padding: 20px 14px;
-    background: #111827;
-    color: white;
-    font-family: Arial, sans-serif;
+.container{max-width:680px;margin:auto}
+.panel{
+ background:#202938;border:1px solid #374151;
+ border-radius:12px;padding:16px;margin-bottom:14px
 }
-
-.container {
-    max-width: 680px;
-    margin: auto;
+button{
+ padding:12px 17px;border:0;
+ border-radius:8px;font-weight:bold;
+ margin:4px
 }
-
-.panel {
-    background: #202938;
-    border: 1px solid #374151;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 14px;
+#start{background:#4adea6}
+#stop{background:#f87171}
+#log{
+ background:#090e17;padding:12px;
+ border-radius:8px;min-height:180px;
+ white-space:pre-wrap;overflow-wrap:anywhere;
+ font-size:12px
 }
-
-button {
-    padding: 12px 17px;
-    border: 0;
-    border-radius: 8px;
-    font-weight: bold;
-    margin: 4px;
-}
-
-#stop {
-    background: #f87171;
-}
-
-#log {
-    background: #090e17;
-    padding: 12px;
-    border-radius: 8px;
-    min-height: 180px;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    font-size: 12px;
-}
-
-.frame {
-    border: 1px solid #475569;
-    padding: 8px;
-    margin: 5px 0;
-    border-radius: 6px;
-    font-size: 12px;
-}
-
-.status {
-    color: #4adea6;
+.frame{
+ padding:9px;margin:6px 0;
+ border:1px solid #475569;
+ border-radius:7px;font-size:12px
 }
 </style>
 </head>
 
 <body>
-
 <div class="container">
 
-<h2>Edge Android Security Lab</h2>
-
-<p>
-Zero-Click Lifecycle · Iframe Isolation · WhatsApp Navigation
-</p>
+<h2>Permission Flooding Simulator</h2>
+<p>Microsoft Edge Android · Iframe Isolation</p>
 
 <div class="panel">
-
-<h3>Execution Status</h3>
-
-<p id="status">Initializing...</p>
-
-<p id="counter">Frames: 0</p>
-
+<button id="start">START TEST</button>
 <button id="stop">STOP / CLEAR</button>
-
+<p id="status">Ready</p>
+<p id="counter">Frames: 0</p>
 </div>
 
 <div class="panel">
-
 <h3>Execution Monitor</h3>
-
-<div id="log">Waiting for initialization...</div>
-
+<div id="log">Ready...</div>
 </div>
 
 <div class="panel">
-
 <h3>Iframe Monitor</h3>
-
 <div id="frames"></div>
-
 </div>
 
 </div>
 
 <script>
+const logBox=document.getElementById("log");
+const frameBox=document.getElementById("frames");
+const counter=document.getElementById("counter");
+const statusBox=document.getElementById("status");
 
-const logBox = document.getElementById("log");
-const frameBox = document.getElementById("frames");
-const counter = document.getElementById("counter");
-const statusBox = document.getElementById("status");
+const MAX_FRAMES=10;
+const INTERVAL=2000;
 
-const MAX_FRAMES = 20;
+const permissions=[
+ "camera",
+ "microphone",
+ "geolocation"
+];
 
-let count = 0;
-let running = false;
-let stopped = false;
+let frames=[];
+let timers=[];
+let running=false;
+let count=0;
 
-function log(message) {
+function log(message){
+ logBox.textContent +=
+ "\n["+new Date().toLocaleTimeString()+"] "+message;
+}
 
-    logBox.textContent +=
-        "\n[" +
-        new Date().toLocaleTimeString() +
-        "] " +
-        message;
+function updateStatus(message){
+ statusBox.textContent=message;
+}
+
+async function inspectPermission(frameIndex,name){
+
+ try{
+
+  const result=await navigator.permissions.query({
+   name:name
+  });
+
+  log(
+   "Iframe #"+frameIndex+
+   " | "+name+
+   " | Status: "+result.state
+  );
+
+ }catch(error){
+
+  log(
+   "Iframe #"+frameIndex+
+   " | "+name+
+   " | Unsupported or blocked: "+error.message
+  );
+
+ }
 
 }
 
-function updateStatus(message) {
+function createFrame(index){
 
-    statusBox.textContent = message;
+ const wrapper=document.createElement("div");
+ wrapper.className="frame";
 
-}
+ const label=document.createElement("div");
+ label.textContent="Iframe #"+index+" | Initializing";
 
-function activation(label) {
+ const frame=document.createElement("iframe");
 
-    log(
-        label +
-        " | Active: " +
-        navigator.userActivation.isActive +
-        " | Ever active: " +
-        navigator.userActivation.hasBeenActive
-    );
+ frame.title="Permission isolation test "+index;
+ frame.width="100%";
+ frame.height="35";
 
-}
+ frame.setAttribute(
+  "allow",
+  "camera; microphone; geolocation"
+ );
 
-async function inspectPermission(index) {
+ frame.srcdoc=`
+ <!DOCTYPE html>
+ <html>
+ <body style="font:12px Arial">
+ Permission isolation frame #${index}
+ </body>
+ </html>
+ `;
 
-    try {
+ frame.addEventListener("load",()=>{
+  label.textContent="Iframe #"+index+" | Loaded";
+  log("Iframe #"+index+" loaded");
+ });
 
-        const result =
-            await navigator.permissions.query({
-                name: "geolocation"
-            });
+ wrapper.append(label,frame);
+ frameBox.appendChild(wrapper);
 
-        log(
-            "Frame #" +
-            index +
-            " | Geolocation status: " +
-            result.state
-        );
+ frames.push(frame);
 
-    } catch(error) {
-
-        log(
-            "Permission inspection error #" +
-            index +
-            ": " +
-            error.message
-        );
-
-    }
+ count++;
+ counter.textContent="Frames: "+count;
 
 }
 
-function createFrame(index) {
+async function runCycle(){
 
-    const wrapper = document.createElement("div");
+ if(!running)return;
 
-    wrapper.className = "frame";
+ for(let i=0;i<frames.length;i++){
 
-    const label = document.createElement("div");
+  if(!running)return;
 
-    label.textContent =
-        "Iframe #" + index + " - Initializing";
+  for(const permission of permissions){
 
-    const frame = document.createElement("iframe");
+   if(!running)return;
 
-    frame.title = "Permission Isolation Test";
+   await inspectPermission(
+    i+1,
+    permission
+   );
 
-    frame.width = "100%";
-    frame.height = "35";
+  }
 
-    frame.setAttribute(
-        "allow",
-        "camera; microphone; geolocation"
-    );
+ }
 
-    frame.srcdoc = `
-        <!DOCTYPE html>
-        <html>
-        <body style="font:12px Arial">
-            Permission Isolation Test #${index}
-
-            <script>
-
-                parent.postMessage({
-
-                    type: "FRAME_READY",
-
-                    index: ${index},
-
-                    active:
-                        navigator.userActivation.isActive
-
-                }, "*");
-
-            <\/script>
-        </body>
-        </html>
-    `;
-
-    frame.addEventListener("load", () => {
-
-        label.textContent =
-            "Iframe #" + index + " - Loaded";
-
-        log("Iframe #" + index + " loaded");
-
-    });
-
-    wrapper.appendChild(label);
-    wrapper.appendChild(frame);
-
-    frameBox.appendChild(wrapper);
-
-    count++;
-
-    counter.textContent =
-        "Frames: " + count;
-
-    inspectPermission(index);
+ log("Permission inspection cycle completed.");
 
 }
 
-window.addEventListener("message", event => {
+async function start(){
 
-    const data = event.data;
+ if(running)return;
 
-    if (!data || !data.type) return;
+ running=true;
+ count=0;
 
-    if (data.type === "FRAME_READY") {
+ frames=[];
+ timers=[];
 
-        log(
-            "Frame #" +
-            data.index +
-            " | User activation: " +
-            data.active
-        );
+ frameBox.replaceChildren();
 
-    }
+ logBox.textContent="Starting test...";
 
+ updateStatus("Running");
+
+ log("Browser: "+navigator.userAgent);
+
+ log("Secure context: "+isSecureContext);
+
+ for(let i=1;i<=MAX_FRAMES;i++){
+
+  if(!running)break;
+
+  createFrame(i);
+
+  await new Promise(resolve=>
+   setTimeout(resolve,200)
+  );
+
+ }
+
+ if(!running)return;
+
+ log("All iframe instances initialized.");
+
+ await runCycle();
+
+ const timer=setInterval(()=>{
+  if(running)runCycle();
+ },INTERVAL);
+
+ timers.push(timer);
+
+ log("Repeated permission inspection enabled.");
+
+}
+
+function stop(){
+
+ running=false;
+
+ timers.forEach(clearInterval);
+
+ timers=[];
+
+ frames=[];
+
+ frameBox.replaceChildren();
+
+ count=0;
+
+ counter.textContent="Frames: 0";
+
+ updateStatus("Stopped");
+
+ log("Test stopped and frames cleared.");
+
+}
+
+document.getElementById("start")
+ .addEventListener("click",start);
+
+document.getElementById("stop")
+ .addEventListener("click",stop);
+
+document.addEventListener("visibilitychange",()=>{
+ log("Visibility: "+document.visibilityState);
 });
 
-async function startIframeTest() {
-
-    if (running || stopped) return;
-
-    running = true;
-
-    updateStatus("Iframe test running");
-
-    log("Starting automatic iframe test");
-
-    activation("Initial page state");
-
-    log(
-        "Secure context: " +
-        window.isSecureContext
-    );
-
-    log(
-        "Browser: " +
-        navigator.userAgent
-    );
-
-    log(
-        "Permission API: " +
-        ("permissions" in navigator)
-    );
-
-    log(
-        "MediaDevices API: " +
-        ("mediaDevices" in navigator)
-    );
-
-    for (
-        let i = 1;
-        i <= MAX_FRAMES;
-        i++
-    ) {
-
-        if (stopped) break;
-
-        createFrame(i);
-
-        await new Promise(resolve => {
-            setTimeout(resolve, 250);
-        });
-
-    }
-
-    activation("After iframe creation");
-
-    log("Iframe test completed");
-
-    running = false;
-
-    if (!stopped) {
-        updateStatus("Test completed");
-    }
-
-}
-
-function openWhatsApp() {
-
-    const message = encodeURIComponent(
-        "Browser lifecycle security research test."
-    );
-
-    const url =
-        "https://wa.me/?text=" + message;
-
-    log("Attempting WhatsApp navigation");
-
-    updateStatus("WhatsApp navigation requested");
-
-    window.location.assign(url);
-
-}
-
-async function initialize() {
-
-    log("Page loaded");
-
-    log(
-        "Visibility: " +
-        document.visibilityState
-    );
-
-    await startIframeTest();
-
-    if (stopped) return;
-
-    log("Iframe sequence finished");
-
-    // Navigasi eksternal hanya dicoba satu kali.
-    openWhatsApp();
-
-}
-
-document.getElementById("stop").addEventListener(
-    "click",
-    () => {
-
-        stopped = true;
-
-        running = false;
-
-        frameBox.replaceChildren();
-
-        count = 0;
-
-        counter.textContent = "Frames: 0";
-
-        updateStatus("Stopped");
-
-        log("All frames cleared");
-
-    }
-);
-
-document.addEventListener(
-    "visibilitychange",
-    () => {
-
-        log(
-            "Visibility changed: " +
-            document.visibilityState
-        );
-
-    }
-);
-
-window.addEventListener("pagehide", () => {
-
-    log("Pagehide event");
-
+window.addEventListener("pagehide",()=>{
+ log("Pagehide event");
 });
-
-window.addEventListener("pageshow", event => {
-
-    log(
-        "Pageshow | Persisted: " +
-        event.persisted
-    );
-
-});
-
-window.addEventListener("load", initialize);
 
 </script>
-
 </body>
 </html>
