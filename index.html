@@ -3,98 +3,413 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Browser Navigation Race Test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser Audio Lifecycle Test</title>
+
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    padding: 60px 20px;
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-  button {
-    padding: 15px 25px;
-    font-size: 16px;
-    cursor: pointer;
-  }
+body {
+  font-family: Arial, sans-serif;
+  background: #fff;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+}
 
-  #log {
-    margin-top: 25px;
-    text-align: left;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-  }
+.container {
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+}
+
+button {
+  padding: 14px 24px;
+  border: 0;
+  border-radius: 8px;
+  background: #1769e0;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#log {
+  margin-top: 20px;
+  padding: 14px;
+  background: #f2f2f2;
+  border-radius: 8px;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 12px;
+}
 </style>
 </head>
+
 <body>
 
-<h2>Browser Navigation Race Test</h2>
-<p>Test TTS lifecycle during cross-origin navigation.</p>
+<div class="container">
+  <h2>Browser Audio Lifecycle Test</h2>
+  <p>Audio and navigation race-condition experiment.</p>
 
-<button id="start">Continue to Google</button>
+  <br>
 
-<pre id="log"></pre>
+  <button id="start">
+    Start Test & Continue to Google
+  </button>
+
+  <pre id="log"></pre>
+</div>
 
 <script>
-(() => {
-  const logBox = document.getElementById("log");
+(function () {
+'use strict';
 
-  function log(message) {
-    const entry =
-      performance.now().toFixed(2) + "ms | " + message;
+// ============================================
+// CONFIGURATION
+// ============================================
 
-    logBox.textContent += entry + "\n";
-    console.log(entry);
-  }
+var CONFIG = {
+  tts: {
+    text: "Browser audio lifecycle test. This is a controlled experiment.",
+    lang: "en-US",
+    rate: 0.85,
+    pitch: 1.0,
+    volume: 1.0,
+    repeatInterval: 8000,
+    maxRepeats: 20
+  },
 
-  let utterance;
-  let started = false;
+  redirectURL: "https://www.google.com/"
+};
 
-  function startSpeech() {
-    if (started) return;
-    started = true;
+// ============================================
+// STATE
+// ============================================
 
-    if (!("speechSynthesis" in window)) {
-      log("SpeechSynthesis unavailable");
-      return;
+var state = {
+  ttsStarted: false,
+  mainPlayed: false,
+  ttsCount: 0,
+  started: false,
+  audioContext: null,
+  utterance: null
+};
+
+var logBox = document.getElementById("log");
+
+// ============================================
+// LOGGING
+// ============================================
+
+function log(message) {
+  var timestamp = performance.now().toFixed(2);
+
+  var entry = timestamp + "ms | " + message;
+
+  logBox.textContent += entry + "\n";
+
+  console.log(entry);
+}
+
+// ============================================
+// AUDIO CONTEXT
+// ============================================
+
+function createAudioContext() {
+  try {
+    var AudioContextClass =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if (!AudioContextClass) {
+      log("AudioContext unavailable");
+      return null;
     }
 
-    utterance = new SpeechSynthesisUtterance(
-      "Browser navigation lifecycle test."
-    );
+    if (!state.audioContext ||
+        state.audioContext.state === "closed") {
 
-    utterance.lang = "en-US";
-    utterance.rate = 0.9;
-    utterance.volume = 1;
+      state.audioContext = new AudioContextClass();
 
-    utterance.onstart = () => log("TTS started");
-    utterance.onend = () => log("TTS ended");
-    utterance.onerror = e =>
-      log("TTS error: " + e.error);
+      log("AudioContext created");
+    }
 
-    speechSynthesis.speak(utterance);
+    return state.audioContext;
 
-    log("TTS queued");
+  } catch (e) {
+    log("AudioContext error: " + e.message);
+    return null;
+  }
+}
+
+// ============================================
+// TTS
+// ============================================
+
+function speakOnce() {
+
+  if (!("speechSynthesis" in window)) {
+    log("SpeechSynthesis unavailable");
+    return;
   }
 
-  document.getElementById("start")
-    .addEventListener("click", () => {
+  if (state.ttsCount >= CONFIG.tts.maxRepeats) {
+    log("Maximum TTS repetitions reached");
+    return;
+  }
 
-      log("User gesture received");
+  try {
 
-      // Schedule speech and navigation in the same
-      // interaction to examine event ordering.
-      startSpeech();
+    var u = new SpeechSynthesisUtterance(
+      CONFIG.tts.text
+    );
 
-      requestAnimationFrame(() => {
-        log("Navigation scheduled");
+    state.utterance = u;
 
-        window.location.assign(
-          "https://www.google.com/"
+    u.lang = CONFIG.tts.lang;
+    u.rate = CONFIG.tts.rate;
+    u.pitch = CONFIG.tts.pitch;
+    u.volume = CONFIG.tts.volume;
+
+    var voices = speechSynthesis.getVoices();
+
+    var enVoice = voices.find(function (v) {
+      return v.lang.indexOf("en") === 0;
+    });
+
+    if (enVoice) {
+      u.voice = enVoice;
+    }
+
+    u.onstart = function () {
+      log("TTS started #" + (state.ttsCount + 1));
+    };
+
+    u.onerror = function (e) {
+      log("TTS error: " + e.error);
+    };
+
+    u.onend = function () {
+
+      state.ttsCount++;
+
+      log("TTS ended #" + state.ttsCount);
+
+      if (state.ttsCount < CONFIG.tts.maxRepeats) {
+
+        setTimeout(
+          speakOnce,
+          CONFIG.tts.repeatInterval
         );
+
+      }
+    };
+
+    speechSynthesis.speak(u);
+
+    log("TTS queued");
+
+  } catch (e) {
+    log("TTS exception: " + e.message);
+  }
+}
+
+// ============================================
+// START TTS
+// ============================================
+
+function startTTS() {
+
+  if (state.ttsStarted) return;
+
+  state.ttsStarted = true;
+
+  speakOnce();
+}
+
+// ============================================
+// MAIN AUDIO
+// ============================================
+
+function playMainAudio() {
+
+  if (state.mainPlayed) return;
+
+  state.mainPlayed = true;
+
+  var ctx = createAudioContext();
+
+  if (!ctx) {
+    startTTS();
+    return;
+  }
+
+  try {
+
+    var play = function () {
+
+      var sr = ctx.sampleRate;
+      var dur = 3;
+
+      var buf = ctx.createBuffer(
+        1,
+        sr * dur,
+        sr
+      );
+
+      var data = buf.getChannelData(0);
+
+      for (var i = 0; i < data.length; i++) {
+
+        var t = i / sr;
+
+        var freq =
+          880 + (Math.floor(t * 4) % 2) * 440;
+
+        var env = Math.max(0, 1 - t / dur);
+
+        data[i] =
+          Math.sin(2 * Math.PI * freq * t) *
+          0.3 *
+          env;
+      }
+
+      var source = ctx.createBufferSource();
+
+      source.buffer = buf;
+      source.connect(ctx.destination);
+
+      source.onended = function () {
+        log("Main audio ended");
+        startTTS();
+      };
+
+      source.start();
+
+      log("Main audio started");
+    };
+
+    if (ctx.state === "suspended") {
+
+      ctx.resume().then(function () {
+        play();
+      }).catch(function (e) {
+        log("Resume failed: " + e.message);
+        startTTS();
       });
 
+    } else {
+      play();
+    }
+
+  } catch (e) {
+
+    log("Main audio error: " + e.message);
+
+    startTTS();
+  }
+}
+
+// ============================================
+// NAVIGATION RACE TEST
+// ============================================
+
+function startNavigationTest() {
+
+  if (state.started) return;
+
+  state.started = true;
+
+  log("User gesture received");
+
+  var ctx = createAudioContext();
+
+  if (ctx && ctx.state === "suspended") {
+
+    ctx.resume().then(function () {
+      log("AudioContext resumed");
+    }).catch(function (e) {
+      log("AudioContext resume failed: " + e.message);
     });
+  }
+
+  // Start audio and TTS from user interaction.
+
+  playMainAudio();
+
+  // Schedule navigation after the audio has
+  // been initiated, to measure lifecycle ordering.
+
+  requestAnimationFrame(function () {
+
+    log("Navigation scheduled");
+
+    setTimeout(function () {
+
+      log("Redirecting to Google");
+
+      window.location.assign(CONFIG.redirectURL);
+
+    }, 500);
+
+  });
+
+}
+
+// ============================================
+// LIFECYCLE MONITORING
+// ============================================
+
+document.addEventListener(
+  "visibilitychange",
+  function () {
+
+    log(
+      "Visibility changed: " +
+      document.visibilityState
+    );
+
+  }
+);
+
+window.addEventListener("pagehide", function (e) {
+
+  log("PAGEHIDE event");
+
+  log("Persisted: " + e.persisted);
+
+});
+
+window.addEventListener("pageshow", function (e) {
+
+  log("PAGESHOW event");
+
+  log("Persisted: " + e.persisted);
+
+});
+
+window.addEventListener("beforeunload", function () {
+
+  log("BEFOREUNLOAD event");
+
+});
+
+// ============================================
+// USER INTERACTION
+// ============================================
+
+document.getElementById("start")
+  .addEventListener("click", startNavigationTest);
+
 })();
 </script>
 
