@@ -1,162 +1,1059 @@
 
-const SecurityMonitor = {
-    results: [],
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Browser Security Assessment Lab</title>
 
-    report(name, status, detail) {
-        const result = {
-            time: new Date().toISOString(),
-            test: name,
-            status: status,
-            detail: detail
-        };
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-        this.results.push(result);
+body {
+    background: #111827;
+    color: #f9fafb;
+    font-family: Arial, sans-serif;
+    padding: 20px 14px;
+}
 
-        console.log("[SECURITY LAB]", result);
+.container {
+    max-width: 760px;
+    margin: auto;
+}
+
+h2 {
+    margin-bottom: 8px;
+}
+
+.subtitle {
+    color: #9ca3af;
+    margin-bottom: 20px;
+    font-size: 13px;
+}
+
+.panel {
+    background: #202938;
+    border: 1px solid #374151;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 15px;
+}
+
+.panel h3 {
+    margin-bottom: 12px;
+    font-size: 16px;
+}
+
+button {
+    border: 0;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+#start {
+    background: #4adea6;
+    color: #111827;
+}
+
+#stop {
+    background: #f87171;
+    color: #111827;
+}
+
+#speak {
+    background: #60a5fa;
+    color: #111827;
+}
+
+#popup {
+    background: #c4b5fd;
+    color: #111827;
+}
+
+.status {
+    color: #4adea6;
+    font-size: 13px;
+}
+
+#log {
+    background: #090e17;
+    padding: 13px;
+    border-radius: 8px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    min-height: 180px;
+    max-height: 420px;
+    overflow-y: auto;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.metric {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #374151;
+    font-size: 13px;
+}
+
+.metric:last-child {
+    border: 0;
+}
+
+iframe {
+    width: 100%;
+    height: 50px;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    margin-top: 6px;
+}
+
+.frame {
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+
+small {
+    color: #9ca3af;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Browser Security Assessment Lab</h2>
+
+<p class="subtitle">
+Autoplay · TTS · Iframe Isolation · Permission · Lifecycle
+</p>
+
+<div class="panel">
+
+<h3>Control Center</h3>
+
+<button id="start">START ASSESSMENT</button>
+<button id="speak">TEST TTS</button>
+<button id="popup">TEST POPUP</button>
+<button id="stop">STOP / CLEAR</button>
+
+<p class="status" id="status">
+Ready for assessment
+</p>
+
+</div>
+
+<div class="panel">
+
+<h3>Browser Information</h3>
+
+<div class="metric">
+<span>Browser</span>
+<span id="browser">Detecting...</span>
+</div>
+
+<div class="metric">
+<span>Secure Context</span>
+<span id="secure">-</span>
+</div>
+
+<div class="metric">
+<span>User Activation</span>
+<span id="activation">-</span>
+</div>
+
+<div class="metric">
+<span>Document Visibility</span>
+<span id="visibility">-</span>
+</div>
+
+<div class="metric">
+<span>Audio Context</span>
+<span id="audioState">Not initialized</span>
+</div>
+
+<div class="metric">
+<span>TTS Status</span>
+<span id="ttsState">Idle</span>
+</div>
+
+</div>
+
+<div class="panel">
+
+<h3>Permission Assessment</h3>
+
+<div id="permissions">
+Waiting...
+</div>
+
+</div>
+
+<div class="panel">
+
+<h3>Iframe Isolation</h3>
+
+<p id="frameCount">Frames: 0</p>
+
+<div id="frames"></div>
+
+</div>
+
+<div class="panel">
+
+<h3>Execution Monitor</h3>
+
+<div id="log">Assessment ready...</div>
+
+</div>
+
+</div>
+
+<script>
+(function () {
+
+"use strict";
+
+// ========================================
+// CONFIGURATION
+// ========================================
+
+const CONFIG = {
+
+    tts: {
+        text:
+        "This is a browser security assessment. " +
+        "This is a controlled audio policy test.",
+
+        lang: "en-US",
+        rate: 0.85,
+        pitch: 1,
+        volume: 0.7
     },
 
-    testUserActivation() {
-        this.report(
-            "User Activation",
-            navigator.userActivation.isActive
-                ? "ACTIVE"
-                : "INACTIVE",
+    iframe: {
+        maxFrames: 5,
+        delay: 500
+    },
+
+    audio: {
+        duration: 1,
+        maxTests: 5
+    }
+
+};
+
+// ========================================
+// STATE
+// ========================================
+
+const state = {
+
+    running: false,
+    stopped: false,
+
+    audioContext: null,
+
+    frames: [],
+
+    ttsCount: 0,
+
+    timers: [],
+
+    results: []
+
+};
+
+// ========================================
+// DOM
+// ========================================
+
+const $ = id => document.getElementById(id);
+
+const logBox = $("log");
+
+// ========================================
+// LOGGER
+// ========================================
+
+function log(category, message) {
+
+    const timestamp =
+        new Date().toLocaleTimeString();
+
+    const line =
+        "[" + timestamp + "] [" +
+        category + "] " + message;
+
+    logBox.textContent += "\n" + line;
+
+    logBox.scrollTop = logBox.scrollHeight;
+
+    console.log(line);
+
+}
+
+function report(name, status, detail) {
+
+    const result = {
+
+        timestamp: new Date().toISOString(),
+
+        test: name,
+
+        status: status,
+
+        detail: detail
+
+    };
+
+    state.results.push(result);
+
+    log(
+        "ASSESSMENT",
+        name + " | " + status + " | " +
+        JSON.stringify(detail)
+    );
+
+}
+
+// ========================================
+// BROWSER DETECTION
+// ========================================
+
+function detectBrowser() {
+
+    const ua = navigator.userAgent;
+
+    let name = "Unknown";
+
+    if (/EdgA/i.test(ua)) {
+        name = "Microsoft Edge Android";
+    }
+
+    else if (/Edg/i.test(ua)) {
+        name = "Microsoft Edge";
+    }
+
+    else if (/CriOS|Chrome/i.test(ua)) {
+        name = "Chrome";
+    }
+
+    else if (/Firefox/i.test(ua)) {
+        name = "Firefox";
+    }
+
+    else if (/Safari/i.test(ua)) {
+        name = "Safari";
+    }
+
+    $("browser").textContent = name;
+
+    $("secure").textContent =
+        window.isSecureContext;
+
+    log("BROWSER", name);
+
+}
+
+// ========================================
+// USER ACTIVATION
+// ========================================
+
+function inspectActivation() {
+
+    const active =
+        navigator.userActivation.isActive;
+
+    const historical =
+        navigator.userActivation.hasBeenActive;
+
+    $("activation").textContent =
+        active ? "ACTIVE" : "INACTIVE";
+
+    report(
+        "User Activation",
+        active ? "ACTIVE" : "INACTIVE",
+        {
+            active: active,
+            hasBeenActive: historical
+        }
+    );
+
+}
+
+// ========================================
+// AUDIO CONTEXT
+// ========================================
+
+async function inspectAudioContext() {
+
+    try {
+
+        const AudioContextClass =
+            window.AudioContext ||
+            window.webkitAudioContext;
+
+        if (!AudioContextClass) {
+
+            report(
+                "AudioContext",
+                "UNSUPPORTED",
+                {}
+            );
+
+            return;
+
+        }
+
+        const context =
+            new AudioContextClass();
+
+        state.audioContext = context;
+
+        $("audioState").textContent =
+            context.state;
+
+        report(
+            "AudioContext",
+            context.state,
             {
-                active: navigator.userActivation.isActive,
-                previouslyActive:
-                    navigator.userActivation.hasBeenActive
+                sampleRate: context.sampleRate,
+                state: context.state
             }
         );
-    },
 
-    async testAudioPolicy() {
+        context.addEventListener(
+            "statechange",
+            () => {
+
+                $("audioState").textContent =
+                    context.state;
+
+                log(
+                    "AUDIO",
+                    "Context state: " + context.state
+                );
+
+            }
+        );
+
+        if (context.state === "running") {
+
+            const oscillator =
+                context.createOscillator();
+
+            const gain =
+                context.createGain();
+
+            gain.gain.value = 0.03;
+
+            oscillator.frequency.value = 440;
+
+            oscillator.connect(gain);
+
+            gain.connect(context.destination);
+
+            oscillator.start();
+
+            oscillator.stop(
+                context.currentTime + CONFIG.audio.duration
+            );
+
+        }
+
+    } catch (error) {
+
+        report(
+            "AudioContext",
+            "ERROR",
+            error.message
+        );
+
+    }
+
+}
+
+// ========================================
+// TTS ASSESSMENT
+// ========================================
+
+function inspectTTS() {
+
+    if (!("speechSynthesis" in window)) {
+
+        report(
+            "SpeechSynthesis",
+            "UNSUPPORTED",
+            {}
+        );
+
+        return;
+
+    }
+
+    const synth = window.speechSynthesis;
+
+    const data = {
+
+        speaking: synth.speaking,
+
+        pending: synth.pending,
+
+        paused: synth.paused,
+
+        voices: synth.getVoices().length
+
+    };
+
+    $("ttsState").textContent =
+        synth.speaking ? "Speaking" : "Idle";
+
+    report(
+        "SpeechSynthesis",
+        "AVAILABLE",
+        data
+    );
+
+}
+
+function speakTest() {
+
+    if (!("speechSynthesis" in window)) return;
+
+    const synth = window.speechSynthesis;
+
+    const utterance =
+        new SpeechSynthesisUtterance(
+            CONFIG.tts.text
+        );
+
+    utterance.lang = CONFIG.tts.lang;
+
+    utterance.rate = CONFIG.tts.rate;
+
+    utterance.pitch = CONFIG.tts.pitch;
+
+    utterance.volume = CONFIG.tts.volume;
+
+    utterance.onstart = () => {
+
+        state.ttsCount++;
+
+        $("ttsState").textContent = "Speaking";
+
+        log(
+            "TTS",
+            "Speech started #" + state.ttsCount
+        );
+
+    };
+
+    utterance.onend = () => {
+
+        $("ttsState").textContent = "Idle";
+
+        log("TTS", "Speech completed");
+
+    };
+
+    utterance.onerror = event => {
+
+        $("ttsState").textContent = "Error";
+
+        log(
+            "TTS",
+            "Error: " + event.error
+        );
+
+    };
+
+    synth.speak(utterance);
+
+}
+
+// ========================================
+// PERMISSION ASSESSMENT
+// ========================================
+
+async function inspectPermissions() {
+
+    const permissions = [
+
+        "camera",
+
+        "microphone",
+
+        "geolocation"
+
+    ];
+
+    $("permissions").textContent = "";
+
+    for (const name of permissions) {
+
         try {
-            const context = new (
-                window.AudioContext ||
-                window.webkitAudioContext
-            )();
 
-            this.report(
-                "AudioContext Policy",
-                context.state,
+            const result =
+                await navigator.permissions.query({
+                    name: name
+                });
+
+            const item =
+                document.createElement("div");
+
+            item.className = "metric";
+
+            const label =
+                document.createElement("span");
+
+            label.textContent = name;
+
+            const value =
+                document.createElement("span");
+
+            value.textContent = result.state;
+
+            item.append(label, value);
+
+            $("permissions").appendChild(item);
+
+            report(
+                "Permission " + name,
+                result.state,
                 {
-                    sampleRate: context.sampleRate,
-                    state: context.state
+                    state: result.state
                 }
             );
 
-            await context.close();
+            result.addEventListener(
+                "change",
+                () => {
+
+                    value.textContent =
+                        result.state;
+
+                    report(
+                        "Permission change " + name,
+                        result.state,
+                        {}
+                    );
+
+                }
+            );
 
         } catch (error) {
-            this.report(
-                "AudioContext Policy",
-                "ERROR",
+
+            report(
+                "Permission " + name,
+                "UNSUPPORTED",
                 error.message
             );
-        }
-    },
 
-    testSpeechSynthesis() {
-        if (!("speechSynthesis" in window)) {
-            this.report(
-                "SpeechSynthesis",
-                "UNSUPPORTED",
-                "API unavailable"
-            );
-            return;
         }
 
-        this.report(
-            "SpeechSynthesis",
-            "AVAILABLE",
-            {
-                speaking: speechSynthesis.speaking,
-                pending: speechSynthesis.pending,
-                paused: speechSynthesis.paused
-            }
-        );
-    },
-
-    async testPermissions() {
-        const names = [
-            "camera",
-            "microphone",
-            "geolocation"
-        ];
-
-        for (const name of names) {
-            try {
-                const result =
-                    await navigator.permissions.query({
-                        name
-                    });
-
-                this.report(
-                    "Permission: " + name,
-                    result.state,
-                    "Browser permission status"
-                );
-
-            } catch (error) {
-                this.report(
-                    "Permission: " + name,
-                    "UNSUPPORTED",
-                    error.message
-                );
-            }
-        }
-    },
-
-    testLifecycle() {
-        this.report(
-            "Document Lifecycle",
-            document.visibilityState,
-            {
-                hidden: document.hidden,
-                focused: document.hasFocus()
-            }
-        );
-    },
-
-    async run() {
-        this.testUserActivation();
-        this.testSpeechSynthesis();
-        this.testLifecycle();
-
-        await this.testAudioPolicy();
-        await this.testPermissions();
-
-        console.log(
-            "Security assessment completed",
-            this.results
-        );
-
-        return this.results;
     }
-};
+
+}
+
+// ========================================
+// IFRAME ISOLATION
+// ========================================
+
+function createFrame(index) {
+
+    const wrapper =
+        document.createElement("div");
+
+    wrapper.className = "frame";
+
+    const label =
+        document.createElement("div");
+
+    label.textContent =
+        "Iframe #" + index + " initializing";
+
+    const frame =
+        document.createElement("iframe");
+
+    frame.title =
+        "Controlled iframe assessment " + index;
+
+    frame.allow =
+        "camera; microphone; geolocation";
+
+    frame.srcdoc = `
+        <!DOCTYPE html>
+        <html>
+        <body style="font:12px Arial">
+
+        Controlled iframe #${index}
+
+        <script>
+
+        parent.postMessage({
+
+            type: "FRAME_READY",
+
+            index: ${index},
+
+            activation:
+                navigator.userActivation.isActive
+
+        }, "*");
+
+        <\/script>
+
+        </body>
+        </html>
+    `;
+
+    frame.addEventListener("load", () => {
+
+        label.textContent =
+            "Iframe #" + index + " loaded";
+
+        log(
+            "IFRAME",
+            "Frame #" + index + " loaded"
+        );
+
+    });
+
+    wrapper.append(label, frame);
+
+    $("frames").appendChild(wrapper);
+
+    state.frames.push(frame);
+
+    $("frameCount").textContent =
+        "Frames: " + state.frames.length;
+
+}
+
+async function runIframeTest() {
+
+    for (
+        let i = 1;
+        i <= CONFIG.iframe.maxFrames;
+        i++
+    ) {
+
+        if (!state.running) return;
+
+        createFrame(i);
+
+        await new Promise(resolve => {
+
+            setTimeout(
+                resolve,
+                CONFIG.iframe.delay
+            );
+
+        });
+
+    }
+
+    report(
+        "Iframe Isolation",
+        "COMPLETED",
+        {
+            frameCount: state.frames.length,
+            note:
+            "Frame creation does not prove permission bypass."
+        }
+    );
+
+}
+
+// ========================================
+// ABOUT BLANK ASSESSMENT
+// ========================================
+
+function inspectAboutBlank() {
+
+    const blank =
+        window.open("about:blank", "_blank");
+
+    if (!blank) {
+
+        report(
+            "Popup Protection",
+            "BLOCKED",
+            "Popup was not opened"
+        );
+
+        return;
+
+    }
+
+    try {
+
+        const sameOrigin =
+            blank.location.origin === location.origin;
+
+        report(
+            "About Blank",
+            "OPENED",
+            {
+                origin: blank.location.origin,
+                sameOrigin: sameOrigin
+            }
+        );
+
+        blank.close();
+
+    } catch (error) {
+
+        report(
+            "About Blank",
+            "RESTRICTED",
+            error.message
+        );
+
+    }
+
+}
+
+// ========================================
+// POPUP TEST
+// ========================================
+
+function testPopup() {
+
+    const popup = window.open(
+        "about:blank",
+        "_blank"
+    );
+
+    report(
+        "Popup Protection",
+        popup ? "OPENED" : "BLOCKED",
+        {}
+    );
+
+    if (popup) popup.close();
+
+}
+
+// ========================================
+// LIFECYCLE
+// ========================================
 
 document.addEventListener(
     "visibilitychange",
-    () => SecurityMonitor.testLifecycle()
+    () => {
+
+        $("visibility").textContent =
+            document.visibilityState;
+
+        report(
+            "Visibility",
+            document.visibilityState,
+            {
+                hidden: document.hidden
+            }
+        );
+
+    }
 );
 
-window.addEventListener(
-    "pagehide",
-    () => SecurityMonitor.report(
+window.addEventListener("pagehide", () => {
+
+    report(
         "Page Lifecycle",
         "PAGEHIDE",
-        "Document is leaving"
-    )
-);
+        {}
+    );
 
-window.addEventListener(
-    "pageshow",
-    event => SecurityMonitor.report(
+});
+
+window.addEventListener("pageshow", event => {
+
+    report(
         "Page Lifecycle",
         "PAGESHOW",
-        { persisted: event.persisted }
-    )
+        {
+            persisted: event.persisted
+        }
+    );
+
+});
+
+// ========================================
+// MAIN ASSESSMENT
+// ========================================
+
+async function startAssessment() {
+
+    if (state.running) return;
+
+    state.running = true;
+
+    state.stopped = false;
+
+    $("status").textContent =
+        "Assessment running";
+
+    logBox.textContent =
+        "Starting browser security assessment...";
+
+    detectBrowser();
+
+    inspectActivation();
+
+    await inspectAudioContext();
+
+    inspectTTS();
+
+    await inspectPermissions();
+
+    await runIframeTest();
+
+    if (!state.running) return;
+
+    inspectAboutBlank();
+
+    inspectActivation();
+
+    $("status").textContent =
+        "Assessment completed";
+
+    state.running = false;
+
+    log(
+        "SYSTEM",
+        "Assessment completed. No bypass assumed."
+    );
+
+}
+
+// ========================================
+// CLEANUP
+// ========================================
+
+function stopAssessment() {
+
+    state.running = false;
+
+    state.stopped = true;
+
+    state.timers.forEach(clearTimeout);
+
+    state.timers = [];
+
+    if (state.audioContext) {
+
+        if (state.audioContext.state !== "closed") {
+
+            state.audioContext.close();
+
+        }
+
+        state.audioContext = null;
+
+    }
+
+    if ("speechSynthesis" in window) {
+
+        speechSynthesis.cancel();
+
+    }
+
+    state.frames.forEach(frame => {
+
+        frame.src = "about:blank";
+
+    });
+
+    state.frames = [];
+
+    $("frames").replaceChildren();
+
+    $("frameCount").textContent =
+        "Frames: 0";
+
+    $("status").textContent =
+        "Stopped and cleaned";
+
+    $("audioState").textContent =
+        "Closed";
+
+    $("ttsState").textContent =
+        "Idle";
+
+    log(
+        "SYSTEM",
+        "Assessment stopped and resources cleaned."
+    );
+
+}
+
+// ========================================
+// EVENT HANDLERS
+// ========================================
+
+$("start").addEventListener(
+    "click",
+    startAssessment
 );
 
-// Jalankan assessment
-SecurityMonitor.run();
+$("speak").addEventListener(
+    "click",
+    () => {
+
+        inspectActivation();
+
+        speakTest();
+
+    }
+);
+
+$("popup").addEventListener(
+    "click",
+    () => {
+
+        inspectActivation();
+
+        testPopup();
+
+    }
+);
+
+$("stop").addEventListener(
+    "click",
+    stopAssessment
+);
+
+// ========================================
+// INITIALIZATION
+// ========================================
+
+detectBrowser();
+
+$("visibility").textContent =
+    document.visibilityState;
+
+log(
+    "SYSTEM",
+    "Browser Security Assessment Lab initialized."
+);
+
+log(
+    "SYSTEM",
+    "Press START ASSESSMENT to begin."
+);
+
+})();
+</script>
+
+</body>
+</html>
