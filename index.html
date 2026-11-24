@@ -61,16 +61,19 @@ button:disabled {
 <body>
 
 <div class="container">
-  <h2>Browser Audio Lifecycle Test</h2>
-  <p>Controlled TTS and navigation experiment.</p>
 
-  <br>
+<h2>Browser Audio Lifecycle Test</h2>
 
-  <button id="start">
-    Start Test & Continue to Google
-  </button>
+<p>Controlled TTS and navigation experiment.</p>
 
-  <pre id="log"></pre>
+<br>
+
+<button id="start">
+Start Test & Continue to Google
+</button>
+
+<pre id="log"></pre>
+
 </div>
 
 <script>
@@ -103,7 +106,7 @@ var CONFIG = {
 
   navigation: {
     url: "https://www.google.com/",
-    delay: 180000
+    delay: 3000
   }
 };
 
@@ -128,6 +131,7 @@ var logBox = document.getElementById("log");
 
 function log(message) {
   var timestamp = performance.now().toFixed(2);
+
   var entry = timestamp + "ms | " + message;
 
   logBox.textContent += entry + "\n";
@@ -170,6 +174,7 @@ function createAudioContext() {
 // ============================================
 
 function speakOnce() {
+
   if (!("speechSynthesis" in window)) {
     log("SpeechSynthesis unavailable");
     return;
@@ -181,6 +186,7 @@ function speakOnce() {
   }
 
   try {
+
     var u = new SpeechSynthesisUtterance(
       CONFIG.tts.text
     );
@@ -211,19 +217,23 @@ function speakOnce() {
     };
 
     u.onend = function () {
+
       state.ttsCount++;
 
       log("TTS ended #" + state.ttsCount);
 
       if (state.ttsCount < CONFIG.tts.maxRepeats) {
+
         setTimeout(
           speakOnce,
           CONFIG.tts.repeatInterval
         );
+
       }
     };
 
     speechSynthesis.speak(u);
+
     log("TTS queued");
 
   } catch (e) {
@@ -236,9 +246,11 @@ function speakOnce() {
 // ============================================
 
 function startTTS() {
+
   if (state.ttsStarted) return;
 
   state.ttsStarted = true;
+
   speakOnce();
 }
 
@@ -247,6 +259,7 @@ function startTTS() {
 // ============================================
 
 function playMainAudio() {
+
   if (state.mainPlayed) return;
 
   state.mainPlayed = true;
@@ -259,7 +272,9 @@ function playMainAudio() {
   }
 
   function play() {
+
     try {
+
       var sr = ctx.sampleRate;
       var dur = CONFIG.audio.duration;
 
@@ -272,6 +287,7 @@ function playMainAudio() {
       var data = buf.getChannelData(0);
 
       for (var i = 0; i < data.length; i++) {
+
         var t = i / sr;
 
         var freq =
@@ -296,6 +312,7 @@ function playMainAudio() {
       };
 
       source.start();
+
       log("Main audio started");
 
     } catch (e) {
@@ -305,12 +322,14 @@ function playMainAudio() {
   }
 
   if (ctx.state === "suspended") {
+
     ctx.resume().then(function () {
       play();
     }).catch(function (e) {
       log("Audio resume failed: " + e.message);
       startTTS();
     });
+
   } else {
     play();
   }
@@ -321,6 +340,7 @@ function playMainAudio() {
 // ============================================
 
 function startNavigationTest() {
+
   if (state.started) return;
 
   state.started = true;
@@ -341,9 +361,10 @@ function startNavigationTest() {
 
   playMainAudio();
 
-  log("Navigation countdown: 3 minutes");
+  log("Navigation countdown: 3 seconds");
 
   setTimeout(function () {
+
     log("Navigation scheduled");
 
     window.location.assign(
@@ -360,25 +381,33 @@ function startNavigationTest() {
 document.addEventListener(
   "visibilitychange",
   function () {
+
     log(
       "Visibility changed: " +
       document.visibilityState
     );
+
   }
 );
 
 window.addEventListener("pagehide", function (e) {
+
   log("PAGEHIDE event");
   log("Persisted: " + e.persisted);
+
 });
 
 window.addEventListener("pageshow", function (e) {
+
   log("PAGESHOW event");
   log("Persisted: " + e.persisted);
+
 });
 
 window.addEventListener("beforeunload", function () {
+
   log("BEFOREUNLOAD event");
+
 });
 
 // ============================================
