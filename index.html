@@ -3,192 +3,137 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-content="width=device-width, initial-scale=1">
-
-<title>Contact Picker Lifecycle PoC</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fast Document PiP Lifecycle PoC</title>
 
 <style>
 body {
-    background: #10131a;
+    background: #111827;
     color: white;
-    font-family: Arial, sans-serif;
+    font-family: Arial;
     text-align: center;
-    padding: 35px 15px;
-}
-
-.container {
-    max-width: 650px;
-    margin: auto;
-}
-
-.panel {
-    background: #202938;
-    padding: 20px;
-    border-radius: 12px;
-    margin-top: 20px;
+    padding: 30px 15px;
 }
 
 button {
-    background: #4bd6a0;
-    color: #10131a;
-    padding: 14px 25px;
-    border: none;
-    border-radius: 7px;
-    font-weight: bold;
+    padding: 14px 22px;
     cursor: pointer;
+    border: 0;
+    border-radius: 8px;
     margin: 8px;
+    font-weight: bold;
 }
 
+#start { background: #45d6a0; }
+#navigate { background: #60a5fa; }
+
 #log {
-    background: #090e17;
+    background: #1f2937;
     padding: 15px;
     text-align: left;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     border-radius: 8px;
-    min-height: 100px;
-}
-
-#result {
-    overflow-wrap: anywhere;
-    color: #4bd6a0;
 }
 </style>
 </head>
 
 <body>
 
-<div class="container">
+<h2>Document PiP Race Test</h2>
+<p>Fast lifecycle transition measurement</p>
 
-<h2>Contact Picker Lifecycle PoC</h2>
+<button id="start">Start Test</button>
+<button id="navigate">Navigate Opener</button>
 
-<p>
-Testing Contact Picker API and Cross-Origin
-Navigation Behavior
-</p>
-
-<div class="panel">
-
-<h3>Contact Permission Test</h3>
-
-<button id="contactButton">
-    Select Contact
-</button>
-
-<button id="navigationButton">
-    Open Google
-</button>
-
-<div id="result">
-    No contact selected.
-</div>
-
-</div>
-
-<div class="panel">
-
-<h3>Execution Log</h3>
-
-<div id="log">Waiting for interaction...</div>
-
-</div>
-
-</div>
+<div id="log">Ready...</div>
 
 <script>
-const logElement = document.getElementById("log");
-const resultElement = document.getElementById("result");
+let popup = null;
+let pipWindow = null;
+let started = false;
+
+const logBox = document.getElementById("log");
 
 function log(message) {
-    const timestamp = new Date().toLocaleTimeString();
-
-    logElement.textContent +=
-        "\n[" + timestamp + "] " + message;
+    logBox.textContent +=
+        "\n+" + performance.now().toFixed(2) +
+        "ms | " + message;
 }
 
-function checkSupport() {
-    if (!("contacts" in navigator)) {
-        log("Contact Picker API unavailable.");
-        return false;
+document.getElementById("start").onclick = () => {
+    if (started) return;
+    started = true;
+
+    log("User activation received.");
+
+    popup = window.open(
+        "about:blank",
+        "lifecycle_test",
+        "width=400,height=400"
+    );
+
+    if (!popup) {
+        log("Popup blocked.");
+        return;
     }
 
-    if (!navigator.contacts.select) {
-        log("Contact selection unavailable.");
-        return false;
-    }
+    popup.document.body.innerHTML = `
+        <h2>Document PiP Test</h2>
+        <button id="pip">Open Test PiP</button>
+    `;
 
-    log("Contact Picker API detected.");
-    return true;
-}
+    popup.document.getElementById("pip")
+    .onclick = async () => {
+        try {
+            log("PiP request started.");
 
-document.getElementById("contactButton")
-.addEventListener("click", async () => {
+            pipWindow =
+                await documentPictureInPicture.requestWindow({
+                    width: 300,
+                    height: 220
+                });
 
-    if (!checkSupport()) return;
+            log("PiP window created.");
 
-    try {
-        log("Contact selection requested.");
+            pipWindow.document.body.innerHTML = `
+                <h2>Lifecycle Test</h2>
+                <p>Test window active.</p>
+                <p id="state">Monitoring...</p>
+            `;
 
-        const contacts =
-            await navigator.contacts.select(
-                ["name"],
-                { multiple: false }
+            pipWindow.addEventListener(
+                "pagehide",
+                () => log("PiP pagehide event.")
             );
 
-        if (!contacts.length) {
-            log("No contact selected.");
-            return;
+            log("PiP monitoring initialized.");
+
+        } catch (error) {
+            log("PiP error: " + error.message);
         }
+    };
+};
 
-        const name = contacts[0].name?.[0] || "Unknown";
-
-        resultElement.textContent =
-            "Selected contact: " + name;
-
-        log("Contact selection completed.");
-
-    } catch (error) {
-        log(
-            "Contact Picker error: " +
-            error.name + " - " + error.message
-        );
-    }
-});
-
-document.getElementById("navigationButton")
-.addEventListener("click", () => {
-
-    log("Opening cross-origin page.");
-
-    window.open(
-        "https://www.google.com",
-        "_blank",
-        "noopener"
-    );
-
+document.getElementById("navigate").onclick = () => {
     log("Navigation initiated.");
-});
+
+    window.location.assign(
+        "https://example.com"
+    );
+};
 
 document.addEventListener("visibilitychange", () => {
-    log(
-        "Visibility changed: " +
-        document.visibilityState
-    );
+    log("Visibility: " + document.visibilityState);
 });
 
 window.addEventListener("pagehide", () => {
-    log("Page lifecycle: pagehide.");
+    log("Opener pagehide.");
 });
 
-window.addEventListener("pageshow", event => {
-    log(
-        "Page lifecycle: pageshow. Persisted: " +
-        event.persisted
-    );
+window.addEventListener("pageshow", () => {
+    log("Opener pageshow.");
 });
-
-log("PoC initialized.");
 </script>
 
 </body>
