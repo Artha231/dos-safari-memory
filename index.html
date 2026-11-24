@@ -4,389 +4,239 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>File Type Allowlist Security Lab</title>
+<title>APK Download Race Condition Lab</title>
+
 <style>
-* { box-sizing:border-box; margin:0; padding:0; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
-  font-family:system-ui,-apple-system,sans-serif;
-  background:#090d16;
-  color:#f8fafc;
-  min-height:100vh;
-  padding:24px;
-  display:flex;
-  justify-content:center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Arial, sans-serif;
+  background: #090d16;
+  color: #f8fafc;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
 }
 
 .panel {
-  width:100%;
-  max-width:850px;
-  background:#111827;
-  border:1px solid #263449;
-  border-radius:16px;
-  padding:26px;
+  background: #111827;
+  padding: 32px;
+  border-radius: 16px;
+  max-width: 540px;
+  width: 100%;
+  border: 1px solid #1f2937;
+  box-shadow: 0 20px 25px -5px #0008;
+  text-align: center;
 }
 
-h2 { margin-bottom:8px; }
-.subtitle { color:#9ca3af; font-size:13px; margin-bottom:22px; }
-
-.section {
-  background:#0b1220;
-  border:1px solid #263449;
-  border-radius:10px;
-  padding:16px;
-  margin-top:15px;
+h2 {
+  margin-bottom: 10px;
+  font-size: 22px;
 }
 
-h3 { font-size:14px; margin-bottom:13px; }
-
-label {
-  display:block;
-  color:#9ca3af;
-  font-size:12px;
-  margin-bottom:6px;
-}
-
-input,select {
-  width:100%;
-  padding:11px;
-  border-radius:7px;
-  border:1px solid #374151;
-  background:#111827;
-  color:white;
-  margin-bottom:12px;
+p {
+  margin-bottom: 24px;
+  color: #9ca3af;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 button {
-  border:0;
-  border-radius:8px;
-  padding:12px 16px;
-  background:#2563eb;
-  color:white;
-  cursor:pointer;
-  font-weight:600;
-  margin:3px;
+  width: 100%;
+  padding: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  background: #3b82f6;
+  color: white;
+  font-weight: 600;
+  font-size: 15px;
 }
 
-button:hover { background:#1d4ed8; }
-
-.secondary { background:#374151; }
-.secondary:hover { background:#4b5563; }
-
-#results {
-  overflow-x:auto;
+button:hover {
+  background: #2563eb;
 }
 
-table {
-  width:100%;
-  border-collapse:collapse;
-  font-size:12px;
-  min-width:500px;
+button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
 }
 
-th,td {
-  padding:11px;
-  border-bottom:1px solid #263449;
-  text-align:left;
+#status {
+  margin-top: 20px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #0c2638;
+  color: #38bdf8;
+  font-size: 13px;
 }
-
-th { color:#93c5fd; }
-
-.pass { color:#4ade80; font-weight:bold; }
-.fail { color:#f87171; font-weight:bold; }
-.warn { color:#fbbf24; font-weight:bold; }
 
 #logs {
-  background:#030712;
-  color:#a7f3d0;
-  padding:13px;
-  border-radius:8px;
-  height:180px;
-  overflow:auto;
-  font-family:monospace;
-  font-size:11px;
-  line-height:1.8;
-  white-space:pre-wrap;
+  margin-top: 18px;
+  padding: 14px;
+  height: 210px;
+  overflow-y: auto;
+  background: #030712;
+  color: #a7f3d0;
+  border-radius: 8px;
+  text-align: left;
+  font: 11px/1.8 monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
-.status {
-  margin-top:12px;
-  color:#38bdf8;
-  font-size:12px;
+.download-link {
+  display: block;
+  margin-top: 12px;
+  color: #4ade80;
+  font-size: 13px;
 }
 </style>
 </head>
 
 <body>
-<main class="panel">
-  <h2>File Type Allowlist Security Lab</h2>
-  <p class="subtitle">
-    Controlled validation testing · Dummy files only · v3.0
+
+<div class="panel">
+
+  <h2>APK Download Race Lab</h2>
+
+  <p>
+    Controlled experiment for observing download initiation,
+    MIME handling, and browser navigation events.
   </p>
 
-  <div class="section">
-    <h3>01 / Test Configuration</h3>
+  <button id="start">
+    Start APK Download Test
+  </button>
 
-    <label>Filename</label>
-    <input id="filename" value="report.txt">
-
-    <label>Declared MIME Type</label>
-    <select id="mime">
-      <option value="text/plain">text/plain</option>
-      <option value="application/octet-stream">application/octet-stream</option>
-      <option value="application/pdf">application/pdf</option>
-      <option value="image/png">image/png</option>
-      <option value="application/zip">application/zip</option>
-    </select>
-
-    <label>Dummy file signature</label>
-    <select id="signature">
-      <option value="text">Plain text</option>
-      <option value="pdf">PDF signature</option>
-      <option value="png">PNG signature</option>
-      <option value="zip">ZIP signature</option>
-      <option value="unknown">Unknown signature</option>
-    </select>
-
-    <button onclick="runTest()">Run Validation</button>
-    <button class="secondary" onclick="runSuite()">Run Test Suite</button>
+  <div id="status">
+    System ready.
   </div>
 
-  <div class="section">
-    <h3>02 / Validation Results</h3>
-    <div id="results">
-      <table>
-        <thead>
-          <tr>
-            <th>Filename</th>
-            <th>Extension</th>
-            <th>Client</th>
-            <th>Strict Validator</th>
-          </tr>
-        </thead>
-        <tbody id="resultBody">
-          <tr><td colspan="4">No tests executed.</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="status" id="status">Ready for testing.</p>
+  <div id="logs">
+    [INIT] APK download lab initialized.
   </div>
 
-  <div class="section">
-    <h3>03 / Evidence Log</h3>
-    <div id="logs">[INIT] Security lab initialized.</div>
-    <button onclick="exportLogs()">Export Evidence</button>
-    <button class="secondary" onclick="clearLogs()">Clear Logs</button>
-  </div>
-</main>
+  <a id="downloadLink" class="download-link" hidden>
+    Download test file
+  </a>
+
+</div>
 
 <script>
 "use strict";
 
-const $ = id => document.getElementById(id);
+const startBtn = document.getElementById("start");
+const statusBox = document.getElementById("status");
+const logsBox = document.getElementById("logs");
+const downloadLink = document.getElementById("downloadLink");
 
-const allowedExtensions = ["txt", "pdf", "png"];
-const allowedMimes = [
-  "text/plain",
-  "application/pdf",
-  "image/png"
-];
-
-const signatures = {
-  text: [0x54,0x45,0x53,0x54],
-  pdf: [0x25,0x50,0x44,0x46],
-  png: [0x89,0x50,0x4e,0x47],
-  zip: [0x50,0x4b,0x03,0x04],
-  unknown: [0x00,0x00,0x00,0x00]
-};
-
-const signatureMimes = {
-  text: "text/plain",
-  pdf: "application/pdf",
-  png: "image/png",
-  zip: "application/zip",
-  unknown: null
-};
-
-let evidence = [];
+let events = [];
 
 function log(message) {
-  const time = new Date().toLocaleTimeString();
-  evidence.push(`[${time}] ${message}`);
-  $("logs").textContent = evidence.join("\n");
-  $("logs").scrollTop = $("logs").scrollHeight;
+  const timestamp = performance.now().toFixed(2);
+
+  const entry =
+    "[" + timestamp + " ms] " + message;
+
+  events.push(entry);
+
+  logsBox.textContent = events.join("\n");
+  logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-function getExtension(filename) {
-  const name = filename.split(/[\\/]/).pop();
-  const index = name.lastIndexOf(".");
-  return index < 0 ? "" : name.slice(index + 1).toLowerCase();
-}
-
-function inspectSignature(bytes) {
-  const hex = bytes
-    .map(b => b.toString(16).padStart(2,"0"))
-    .join(" ");
-
-  if (hex.startsWith("25 50 44 46")) return "pdf";
-  if (hex.startsWith("89 50 4e 47")) return "png";
-  if (hex.startsWith("50 4b 03 04")) return "zip";
-  if (hex.startsWith("54 45 53 54")) return "text";
-
-  return "unknown";
-}
-
-function clientValidation(filename, mime) {
-  const ext = getExtension(filename);
-
-  return {
-    allowed:
-      allowedExtensions.includes(ext) &&
-      allowedMimes.includes(mime),
-    extension: ext
-  };
-}
-
-function strictValidation(filename, mime, signature) {
-  const ext = getExtension(filename);
-  const expectedMime = signatureMimes[signature];
-
-  const valid =
-    allowedExtensions.includes(ext) &&
-    allowedMimes.includes(mime) &&
-    expectedMime !== null &&
-    mime === expectedMime &&
-    ext === signature;
-
-  return {
-    allowed: valid,
-    reason: valid
-      ? "All validation checks passed"
-      : "Extension, MIME, or signature mismatch"
-  };
-}
-
-function addResult(filename, ext, client, server) {
-  const row = document.createElement("tr");
-
-  function cell(value, className) {
-    const td = document.createElement("td");
-    td.textContent = value;
-    if (className) td.className = className;
-    return td;
-  }
-
-  row.append(
-    cell(filename),
-    cell(ext || "(none)"),
-    cell(client.allowed ? "ALLOW" : "REJECT",
-      client.allowed ? "pass" : "fail"),
-    cell(server.allowed ? "ALLOW" : "REJECT",
-      server.allowed ? "pass" : "fail")
-  );
-
-  $("resultBody").appendChild(row);
-}
-
-function execute(filename, mime, signature) {
-  const bytes = signatures[signature];
-  const actualSignature = inspectSignature(bytes);
-
-  const client = clientValidation(filename, mime);
-  const server = strictValidation(
-    filename, mime, actualSignature
-  );
-
-  const ext = getExtension(filename);
-
-  addResult(filename, ext, client, server);
-
-  log(
-    `FILE=${filename} | MIME=${mime} | ` +
-    `SIGNATURE=${actualSignature} | ` +
-    `CLIENT=${client.allowed ? "ALLOW" : "REJECT"} | ` +
-    `STRICT=${server.allowed ? "ALLOW" : "REJECT"}`
-  );
-
-  if (client.allowed && !server.allowed) {
-    log("[FINDING] Client/server validation discrepancy detected.");
-  }
-
-  return { client, server };
-}
-
-function runTest() {
-  const filename = $("filename").value.trim();
-  const mime = $("mime").value;
-  const signature = $("signature").value;
-
-  if (!filename || filename.includes("/") ||
-      filename.includes("\\")) {
-    $("status").textContent = "Invalid filename.";
-    return;
-  }
-
-  execute(filename, mime, signature);
-  $("status").textContent = "Test completed.";
-}
-
-function runSuite() {
-  const tests = [
-    ["report.txt","text/plain","text"],
-    ["report.pdf","application/pdf","pdf"],
-    ["report.png","image/png","png"],
-    ["report.txt","application/pdf","pdf"],
-    ["report.pdf","text/plain","text"],
-    ["report.TXT","text/plain","text"],
-    ["report.txt.apk","text/plain","text"],
-    ["report.txt.html","text/plain","text"],
-    ["report.zip","application/zip","zip"],
-    ["report.txt","application/zip","zip"],
-    ["report","text/plain","text"],
-    ["report.exe","application/octet-stream","unknown"]
-  ];
-
-  $("resultBody").replaceChildren();
-  log("[SUITE] Starting controlled test suite.");
-
-  tests.forEach(test => {
-    execute(...test);
-  });
-
-  $("status").textContent =
-    `${tests.length} test cases completed.`;
-}
-
-function exportLogs() {
+// Non-executable dummy content.
+// This is intentionally NOT a valid Android APK.
+function createDummyAPK() {
   const content = [
-    "FILE TYPE ALLOWLIST SECURITY LAB",
-    "Evidence generated: " + new Date().toISOString(),
-    "",
-    ...evidence
+    "SECURITY LAB TEST FILE",
+    "This is a non-executable dummy payload.",
+    "It is not an Android application.",
+    "Purpose: browser download behavior testing.",
+    "Test ID: APK-RACE-LAB-001"
   ].join("\n");
 
-  const blob = new Blob([content], {
-    type:"text/plain"
+  return new Blob([content], {
+    type: "application/vnd.android.package-archive"
   });
-
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-
-  a.href = url;
-  a.download = "allowlist-evidence.txt";
-  a.click();
-
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  log("[EXPORT] Evidence exported.");
 }
 
-function clearLogs() {
-  evidence = [];
-  $("logs").textContent = "[RESET] Evidence cleared.";
-  $("resultBody").replaceChildren();
-  $("status").textContent = "Ready for testing.";
+function startTest() {
+
+  startBtn.disabled = true;
+  events = [];
+
+  log("TEST STARTED");
+
+  const blob = createDummyAPK();
+
+  log("DUMMY APK CONTENT CREATED");
+
+  log("MIME: application/vnd.android.package-archive");
+
+  const objectURL = URL.createObjectURL(blob);
+
+  log("BLOB URL CREATED");
+
+  const anchor = document.createElement("a");
+
+  anchor.href = objectURL;
+  anchor.download = "security-test.apk";
+
+  document.body.appendChild(anchor);
+
+  log("DOWNLOAD REQUEST PREPARED");
+
+  anchor.click();
+
+  log("DOWNLOAD TRIGGERED");
+
+  anchor.remove();
+
+  downloadLink.href = objectURL;
+  downloadLink.download = "security-test.apk";
+  downloadLink.hidden = false;
+
+  statusBox.textContent =
+    "Dummy APK download triggered.";
+
+  // Record navigation timing without automatically
+  // redirecting away from the test page.
+
+  setTimeout(() => {
+
+    log("NAVIGATION EVENT SIMULATED");
+
+    log("TARGET: https://www.google.com");
+
+    log("DOWNLOAD STATUS: Check browser Downloads.");
+
+    statusBox.textContent =
+      "Download event recorded. Test complete.";
+
+    startBtn.disabled = false;
+
+  }, 500);
 }
+
+startBtn.addEventListener("click", startTest);
+
+window.addEventListener("pagehide", () => {
+  log("PAGEHIDE EVENT");
+});
+
+window.addEventListener("visibilitychange", () => {
+  log("VISIBILITY: " + document.visibilityState);
+});
 
 </script>
+
 </body>
 </html>
