@@ -1,276 +1,162 @@
 
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Edge Android Permission Flood Lab</title>
-
-<style>
-*{box-sizing:border-box}
-body{
- margin:0;padding:18px 14px;
- background:#111827;color:white;
- font-family:Arial,sans-serif
-}
-.container{max-width:680px;margin:auto}
-.panel{
- background:#202938;border:1px solid #374151;
- border-radius:12px;padding:16px;margin-bottom:14px
-}
-button{
- padding:12px 17px;border:0;
- border-radius:8px;font-weight:bold;
- margin:4px
-}
-#start{background:#4adea6}
-#stop{background:#f87171}
-#log{
- background:#090e17;padding:12px;
- border-radius:8px;min-height:180px;
- white-space:pre-wrap;overflow-wrap:anywhere;
- font-size:12px
-}
-.frame{
- padding:9px;margin:6px 0;
- border:1px solid #475569;
- border-radius:7px;font-size:12px
-}
-</style>
-</head>
-
-<body>
-<div class="container">
-
-<h2>Permission Flooding Simulator</h2>
-<p>Microsoft Edge Android · Iframe Isolation</p>
-
-<div class="panel">
-<button id="start">START TEST</button>
-<button id="stop">STOP / CLEAR</button>
-<p id="status">Ready</p>
-<p id="counter">Frames: 0</p>
-</div>
-
-<div class="panel">
-<h3>Execution Monitor</h3>
-<div id="log">Ready...</div>
-</div>
-
-<div class="panel">
-<h3>Iframe Monitor</h3>
-<div id="frames"></div>
-</div>
-
-</div>
-
-<script>
-const logBox=document.getElementById("log");
-const frameBox=document.getElementById("frames");
-const counter=document.getElementById("counter");
-const statusBox=document.getElementById("status");
-
-const MAX_FRAMES=10;
-const INTERVAL=2000;
-
-const permissions=[
- "camera",
- "microphone",
- "geolocation"
-];
-
-let frames=[];
-let timers=[];
-let running=false;
-let count=0;
-
-function log(message){
- logBox.textContent +=
- "\n["+new Date().toLocaleTimeString()+"] "+message;
-}
-
-function updateStatus(message){
- statusBox.textContent=message;
-}
-
-async function inspectPermission(frameIndex,name){
-
- try{
-
-  const result=await navigator.permissions.query({
-   name:name
-  });
-
-  log(
-   "Iframe #"+frameIndex+
-   " | "+name+
-   " | Status: "+result.state
-  );
-
- }catch(error){
-
-  log(
-   "Iframe #"+frameIndex+
-   " | "+name+
-   " | Unsupported or blocked: "+error.message
-  );
-
- }
-
-}
-
-function createFrame(index){
-
- const wrapper=document.createElement("div");
- wrapper.className="frame";
-
- const label=document.createElement("div");
- label.textContent="Iframe #"+index+" | Initializing";
-
- const frame=document.createElement("iframe");
-
- frame.title="Permission isolation test "+index;
- frame.width="100%";
- frame.height="35";
-
- frame.setAttribute(
-  "allow",
-  "camera; microphone; geolocation"
- );
-
- frame.srcdoc=`
- <!DOCTYPE html>
- <html>
- <body style="font:12px Arial">
- Permission isolation frame #${index}
- </body>
- </html>
- `;
-
- frame.addEventListener("load",()=>{
-  label.textContent="Iframe #"+index+" | Loaded";
-  log("Iframe #"+index+" loaded");
- });
-
- wrapper.append(label,frame);
- frameBox.appendChild(wrapper);
-
- frames.push(frame);
-
- count++;
- counter.textContent="Frames: "+count;
-
-}
-
-async function runCycle(){
-
- if(!running)return;
-
- for(let i=0;i<frames.length;i++){
-
-  if(!running)return;
-
-  for(const permission of permissions){
-
-   if(!running)return;
-
-   await inspectPermission(
-    i+1,
-    permission
-   );
-
-  }
-
- }
-
- log("Permission inspection cycle completed.");
-
-}
-
-async function start(){
-
- if(running)return;
-
- running=true;
- count=0;
-
- frames=[];
- timers=[];
-
- frameBox.replaceChildren();
-
- logBox.textContent="Starting test...";
-
- updateStatus("Running");
-
- log("Browser: "+navigator.userAgent);
-
- log("Secure context: "+isSecureContext);
-
- for(let i=1;i<=MAX_FRAMES;i++){
-
-  if(!running)break;
-
-  createFrame(i);
-
-  await new Promise(resolve=>
-   setTimeout(resolve,200)
-  );
-
- }
-
- if(!running)return;
-
- log("All iframe instances initialized.");
-
- await runCycle();
-
- const timer=setInterval(()=>{
-  if(running)runCycle();
- },INTERVAL);
-
- timers.push(timer);
-
- log("Repeated permission inspection enabled.");
-
-}
-
-function stop(){
-
- running=false;
-
- timers.forEach(clearInterval);
-
- timers=[];
-
- frames=[];
-
- frameBox.replaceChildren();
-
- count=0;
-
- counter.textContent="Frames: 0";
-
- updateStatus("Stopped");
-
- log("Test stopped and frames cleared.");
-
-}
-
-document.getElementById("start")
- .addEventListener("click",start);
-
-document.getElementById("stop")
- .addEventListener("click",stop);
-
-document.addEventListener("visibilitychange",()=>{
- log("Visibility: "+document.visibilityState);
-});
-
-window.addEventListener("pagehide",()=>{
- log("Pagehide event");
-});
-
-</script>
-</body>
-</html>
+const SecurityMonitor = {
+    results: [],
+
+    report(name, status, detail) {
+        const result = {
+            time: new Date().toISOString(),
+            test: name,
+            status: status,
+            detail: detail
+        };
+
+        this.results.push(result);
+
+        console.log("[SECURITY LAB]", result);
+    },
+
+    testUserActivation() {
+        this.report(
+            "User Activation",
+            navigator.userActivation.isActive
+                ? "ACTIVE"
+                : "INACTIVE",
+            {
+                active: navigator.userActivation.isActive,
+                previouslyActive:
+                    navigator.userActivation.hasBeenActive
+            }
+        );
+    },
+
+    async testAudioPolicy() {
+        try {
+            const context = new (
+                window.AudioContext ||
+                window.webkitAudioContext
+            )();
+
+            this.report(
+                "AudioContext Policy",
+                context.state,
+                {
+                    sampleRate: context.sampleRate,
+                    state: context.state
+                }
+            );
+
+            await context.close();
+
+        } catch (error) {
+            this.report(
+                "AudioContext Policy",
+                "ERROR",
+                error.message
+            );
+        }
+    },
+
+    testSpeechSynthesis() {
+        if (!("speechSynthesis" in window)) {
+            this.report(
+                "SpeechSynthesis",
+                "UNSUPPORTED",
+                "API unavailable"
+            );
+            return;
+        }
+
+        this.report(
+            "SpeechSynthesis",
+            "AVAILABLE",
+            {
+                speaking: speechSynthesis.speaking,
+                pending: speechSynthesis.pending,
+                paused: speechSynthesis.paused
+            }
+        );
+    },
+
+    async testPermissions() {
+        const names = [
+            "camera",
+            "microphone",
+            "geolocation"
+        ];
+
+        for (const name of names) {
+            try {
+                const result =
+                    await navigator.permissions.query({
+                        name
+                    });
+
+                this.report(
+                    "Permission: " + name,
+                    result.state,
+                    "Browser permission status"
+                );
+
+            } catch (error) {
+                this.report(
+                    "Permission: " + name,
+                    "UNSUPPORTED",
+                    error.message
+                );
+            }
+        }
+    },
+
+    testLifecycle() {
+        this.report(
+            "Document Lifecycle",
+            document.visibilityState,
+            {
+                hidden: document.hidden,
+                focused: document.hasFocus()
+            }
+        );
+    },
+
+    async run() {
+        this.testUserActivation();
+        this.testSpeechSynthesis();
+        this.testLifecycle();
+
+        await this.testAudioPolicy();
+        await this.testPermissions();
+
+        console.log(
+            "Security assessment completed",
+            this.results
+        );
+
+        return this.results;
+    }
+};
+
+document.addEventListener(
+    "visibilitychange",
+    () => SecurityMonitor.testLifecycle()
+);
+
+window.addEventListener(
+    "pagehide",
+    () => SecurityMonitor.report(
+        "Page Lifecycle",
+        "PAGEHIDE",
+        "Document is leaving"
+    )
+);
+
+window.addEventListener(
+    "pageshow",
+    event => SecurityMonitor.report(
+        "Page Lifecycle",
+        "PAGESHOW",
+        { persisted: event.persisted }
+    )
+);
+
+// Jalankan assessment
+SecurityMonitor.run();
