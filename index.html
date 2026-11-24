@@ -34,19 +34,15 @@ body {
   text-align: center;
 }
 
-h2 { margin-bottom: 10px; }
+h2 {
+  margin-bottom: 10px;
+}
 
 p {
   color: #9ca3af;
   font-size: 14px;
   line-height: 1.6;
   margin-bottom: 24px;
-}
-
-input {
-  display: block;
-  width: 100%;
-  margin-bottom: 20px;
 }
 
 button {
@@ -61,7 +57,9 @@ button {
   font-size: 15px;
 }
 
-button:disabled { opacity: .5; }
+button:disabled {
+  opacity: .5;
+}
 
 #status {
   margin-top: 20px;
@@ -83,81 +81,84 @@ button:disabled { opacity: .5; }
   text-align: left;
   font: 11px/1.8 monospace;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 </style>
 </head>
 
 <body>
+
 <div class="panel">
 
   <h2>One Click Download Race Lab</h2>
 
   <p>
-    Controlled download and navigation timing experiment.
+    Controlled experiment for observing
+    Blob download initiation and browser navigation.
+    The generated file is harmless dummy data.
   </p>
 
-  <input type="file" id="exeFile" accept=".exe">
-
-  <button id="start" disabled>
+  <button id="start">
     Start One-Click Race Test
   </button>
 
   <div id="status">System ready.</div>
-  <div id="logs">[INIT] Race lab initialized.</div>
+
+  <div id="logs">[INIT] Download race lab initialized.</div>
 
 </div>
 
 <script>
 "use strict";
 
-const input = document.getElementById("exeFile");
 const startBtn = document.getElementById("start");
 const statusBox = document.getElementById("status");
 const logsBox = document.getElementById("logs");
 
-let selectedFile = null;
-let startedAt = 0;
 let events = [];
+let startedAt = 0;
+let objectURL = null;
 
 function log(message) {
   const timestamp =
     (performance.now() - startedAt).toFixed(2);
 
   events.push(`[${timestamp} ms] ${message}`);
+
   logsBox.textContent = events.join("\n");
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-input.addEventListener("change", () => {
-  selectedFile = input.files[0];
+function createDummyFile() {
+  const content = [
+    "WINDOWS DOWNLOAD RACE LAB",
+    "This is harmless dummy test data.",
+    "NOT A VALID WINDOWS EXECUTABLE.",
+    "No program will be executed.",
+    "Test ID: RACE-001"
+  ].join("\r\n");
 
-  if (!selectedFile) return;
+  return new Blob([content], {
+    type: "application/octet-stream"
+  });
+}
 
-  if (!selectedFile.name.toLowerCase().endsWith(".exe")) {
-    selectedFile = null;
-    startBtn.disabled = true;
-    statusBox.textContent = "Invalid file.";
-    return;
-  }
-
-  startBtn.disabled = false;
-  statusBox.textContent =
-    "Selected: " + selectedFile.name;
-});
-
-startBtn.addEventListener("click", () => {
-  if (!selectedFile) return;
-
+function startTest() {
   startBtn.disabled = true;
+
   events = [];
   startedAt = performance.now();
 
-  log("TEST STARTED");
+  log("RACE TEST STARTED");
 
-  const objectURL =
-    URL.createObjectURL(selectedFile);
+  const blob = createDummyFile();
 
-  log("EXECUTABLE BLOB URL CREATED");
+  log("DUMMY FILE CREATED");
+  log("FILE SIZE: " + blob.size + " BYTES");
+
+  objectURL = URL.createObjectURL(blob);
+
+  log("BLOB OBJECT URL CREATED");
 
   const anchor = document.createElement("a");
 
@@ -175,19 +176,18 @@ startBtn.addEventListener("click", () => {
   anchor.remove();
 
   statusBox.textContent =
-    "Download request dispatched. Navigation follows.";
+    "Dummy download request dispatched.";
 
   log("GOOGLE NAVIGATION DISPATCHED");
 
   window.location.assign("https://www.google.com");
-
-  setTimeout(() => {
-    URL.revokeObjectURL(objectURL);
-  }, 60000);
-});
+}
 
 window.addEventListener("pagehide", () => {
-  log("PAGEHIDE EVENT");
+  if (objectURL) {
+    URL.revokeObjectURL(objectURL);
+    objectURL = null;
+  }
 });
 
 window.addEventListener("beforeunload", () => {
@@ -201,6 +201,9 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pageshow", () => {
   log("PAGESHOW EVENT");
 });
+
+startBtn.addEventListener("click", startTest);
+
 </script>
 
 </body>
