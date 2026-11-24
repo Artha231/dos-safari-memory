@@ -14,8 +14,8 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Arial, sans-serif;
   background: #090d16;
   color: #f8fafc;
   min-height: 100vh;
@@ -108,12 +108,12 @@ button:disabled {
   <h2>APK Download Race Lab</h2>
 
   <p>
-    Controlled experiment for observing download initiation,
-    MIME handling, and browser navigation events.
+    Controlled experiment for observing simultaneous
+    download initiation and browser navigation.
   </p>
 
   <button id="start">
-    Start APK Download Test
+    Start Race Test
   </button>
 
   <div id="status">
@@ -124,7 +124,9 @@ button:disabled {
     [INIT] APK download lab initialized.
   </div>
 
-  <a id="downloadLink" class="download-link" hidden>
+  <a id="downloadLink"
+     class="download-link"
+     hidden>
     Download test file
   </a>
 
@@ -139,27 +141,25 @@ const logsBox = document.getElementById("logs");
 const downloadLink = document.getElementById("downloadLink");
 
 let events = [];
+let startedAt = 0;
+let objectURL = null;
 
 function log(message) {
-  const timestamp = performance.now().toFixed(2);
+  const timestamp =
+    (performance.now() - startedAt).toFixed(2);
 
-  const entry =
-    "[" + timestamp + " ms] " + message;
-
-  events.push(entry);
+  events.push(`[${timestamp} ms] ${message}`);
 
   logsBox.textContent = events.join("\n");
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-// Non-executable dummy content.
-// This is intentionally NOT a valid Android APK.
+// Non-executable dummy APK content.
 function createDummyAPK() {
   const content = [
     "SECURITY LAB TEST FILE",
-    "This is a non-executable dummy payload.",
-    "It is not an Android application.",
-    "Purpose: browser download behavior testing.",
+    "This is NOT a valid Android APK.",
+    "Browser download experiment only.",
     "Test ID: APK-RACE-LAB-001"
   ].join("\n");
 
@@ -172,19 +172,23 @@ function startTest() {
 
   startBtn.disabled = true;
   events = [];
+  startedAt = performance.now();
 
-  log("TEST STARTED");
+  log("RACE TEST STARTED");
 
+  // Prepare dummy file.
   const blob = createDummyAPK();
 
-  log("DUMMY APK CONTENT CREATED");
+  log("DUMMY APK CREATED");
 
   log("MIME: application/vnd.android.package-archive");
 
-  const objectURL = URL.createObjectURL(blob);
+  // Create Blob URL.
+  objectURL = URL.createObjectURL(blob);
 
   log("BLOB URL CREATED");
 
+  // Prepare download.
   const anchor = document.createElement("a");
 
   anchor.href = objectURL;
@@ -192,49 +196,47 @@ function startTest() {
 
   document.body.appendChild(anchor);
 
-  log("DOWNLOAD REQUEST PREPARED");
-
-  anchor.click();
-
-  log("DOWNLOAD TRIGGERED");
-
-  anchor.remove();
-
   downloadLink.href = objectURL;
   downloadLink.download = "security-test.apk";
   downloadLink.hidden = false;
 
+  log("DOWNLOAD REQUEST PREPARED");
+
+  // Trigger download.
+  anchor.click();
+
+  log("DOWNLOAD TRIGGER DISPATCHED");
+
+  // Clean up DOM element.
+  anchor.remove();
+
+  // Trigger navigation in the same click handler.
+  log("GOOGLE NAVIGATION TRIGGER DISPATCHED");
+
   statusBox.textContent =
-    "Dummy APK download triggered.";
+    "Download and navigation actions dispatched.";
 
-  // Record navigation timing without automatically
-  // redirecting away from the test page.
-
-  setTimeout(() => {
-
-    log("NAVIGATION EVENT SIMULATED");
-
-    log("TARGET: https://www.google.com");
-
-    log("DOWNLOAD STATUS: Check browser Downloads.");
-
-    statusBox.textContent =
-      "Download event recorded. Test complete.";
-
-    startBtn.disabled = false;
-
-  }, 500);
+  window.location.assign("https://www.google.com");
 }
 
-startBtn.addEventListener("click", startTest);
-
+// Browser lifecycle monitoring.
 window.addEventListener("pagehide", () => {
   log("PAGEHIDE EVENT");
 });
 
-window.addEventListener("visibilitychange", () => {
+window.addEventListener("beforeunload", () => {
+  log("BEFOREUNLOAD EVENT");
+});
+
+document.addEventListener("visibilitychange", () => {
   log("VISIBILITY: " + document.visibilityState);
 });
+
+window.addEventListener("pageshow", (event) => {
+  log("PAGESHOW EVENT");
+});
+
+startBtn.addEventListener("click", startTest);
 
 </script>
 
