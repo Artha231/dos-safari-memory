@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>APK Download Race Condition Lab</title> 
+<title>Browser Extension Download Race Lab</title>
 
 <style>
 * {
@@ -104,11 +105,11 @@ button:disabled {
 
 <div class="panel">
 
-  <h2>APK Download Race Lab</h2>
+  <h2>Browser Extension Download Race Lab</h2>
 
   <p>
     Controlled experiment for observing simultaneous
-    download initiation and browser navigation.
+    extension download initiation and browser navigation.
   </p>
 
   <button id="start">
@@ -120,13 +121,13 @@ button:disabled {
   </div>
 
   <div id="logs">
-    [INIT] APK download lab initialized.
+    [INIT] Extension download lab initialized.
   </div>
 
   <a id="downloadLink"
      class="download-link"
      hidden>
-    Download test file
+    Download test extension
   </a>
 
 </div>
@@ -141,7 +142,9 @@ const downloadLink = document.getElementById("downloadLink");
 
 let events = [];
 let startedAt = 0;
-let objectURL = null;
+
+// Ganti dengan URL file extension milikmu.
+const EXTENSION_URL = "./extension.crx";
 
 function log(message) {
   const timestamp =
@@ -153,20 +156,6 @@ function log(message) {
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-// Non-executable dummy APK content.
-function createDummyAPK() {
-  const content = [
-    "SECURITY LAB TEST FILE",
-    "This is NOT a valid Android APK.",
-    "Browser download experiment only.",
-    "Test ID: APK-RACE-LAB-001"
-  ].join("\n");
-
-  return new Blob([content], {
-    type: "application/vnd.android.package-archive"
-  });
-}
-
 function startTest() {
 
   startBtn.disabled = true;
@@ -175,38 +164,28 @@ function startTest() {
 
   log("RACE TEST STARTED");
 
-  // Prepare dummy file.
-  const blob = createDummyAPK();
-
-  log("DUMMY APK CREATED");
-
-  log("MIME: application/vnd.android.package-archive");
-
-  // Create Blob URL.
-  objectURL = URL.createObjectURL(blob);
-
-  log("BLOB URL CREATED");
-
-  // Prepare download.
+  // Prepare extension download.
   const anchor = document.createElement("a");
 
-  anchor.href = objectURL;
-  anchor.download = "security-test.apk";
+  anchor.href = EXTENSION_URL;
+  anchor.download = "my-extension.crx";
+  anchor.rel = "noopener";
 
   document.body.appendChild(anchor);
 
-  downloadLink.href = objectURL;
-  downloadLink.download = "security-test.apk";
+  downloadLink.href = EXTENSION_URL;
+  downloadLink.download = "my-extension.crx";
   downloadLink.hidden = false;
 
-  log("DOWNLOAD REQUEST PREPARED");
+  log("EXTENSION DOWNLOAD PREPARED");
+  log("FORMAT: CRX");
+  log("DOWNLOAD REQUEST DISPATCHED");
 
   // Trigger download.
   anchor.click();
 
   log("DOWNLOAD TRIGGER DISPATCHED");
 
-  // Clean up DOM element.
   anchor.remove();
 
   // Trigger navigation in the same click handler.
@@ -231,7 +210,7 @@ document.addEventListener("visibilitychange", () => {
   log("VISIBILITY: " + document.visibilityState);
 });
 
-window.addEventListener("pageshow", (event) => {
+window.addEventListener("pageshow", () => {
   log("PAGESHOW EVENT");
 });
 
