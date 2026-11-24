@@ -3,21 +3,22 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>User Activation Lifecycle Test</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Browser Lifecycle & Iframe Test</title>
 
 <style>
+* { box-sizing: border-box; }
+
 body {
     margin: 0;
-    padding: 30px 15px;
+    padding: 25px 15px;
     background: #111827;
-    color: white;
+    color: #fff;
     font-family: Arial, sans-serif;
-    text-align: center;
 }
 
 .container {
-    max-width: 650px;
+    max-width: 680px;
     margin: auto;
 }
 
@@ -25,28 +26,37 @@ body {
     background: #202938;
     border: 1px solid #374151;
     border-radius: 12px;
-    padding: 20px;
-    margin-top: 18px;
+    padding: 18px;
+    margin-bottom: 16px;
 }
 
 button {
-    padding: 15px 24px;
-    background: #4adea6;
-    color: #111827;
+    padding: 13px 18px;
     border: 0;
     border-radius: 8px;
-    font-weight: bold;
     cursor: pointer;
+    font-weight: bold;
+    margin: 5px;
 }
+
+#start { background: #4adea6; }
+#stop { background: #f87171; }
 
 #log {
     background: #090e17;
-    padding: 15px;
+    padding: 14px;
     border-radius: 8px;
-    text-align: left;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     font-size: 13px;
+    min-height: 140px;
+}
+
+#frames iframe {
+    width: 100%;
+    height: 35px;
+    border: 1px solid #475569;
+    margin-top: 5px;
 }
 </style>
 </head>
@@ -54,26 +64,38 @@ button {
 <body>
 <div class="container">
 
-<h2>User Activation Lifecycle PoC</h2>
-<p>Document PiP · Cross-Origin · WhatsApp Intent</p>
+<h2>Browser Lifecycle Security PoC</h2>
+<p>User Activation · Document PiP · WhatsApp · Iframe Test</p>
 
 <div class="panel">
     <button id="start">START FULL TEST</button>
+    <button id="stop">STOP / CLEAR</button>
 </div>
 
 <div class="panel">
-    <h3>Execution Log</h3>
+    <h3>Execution Monitor</h3>
     <div id="log">Ready...</div>
+</div>
+
+<div class="panel">
+    <h3>Iframe Monitor</h3>
+    <p id="frameCount">Frames: 0</p>
+    <div id="frames"></div>
 </div>
 
 </div>
 
 <script>
 const logBox = document.getElementById("log");
+const frameBox = document.getElementById("frames");
+const frameCount = document.getElementById("frameCount");
 
-const WA_URL =
-    "https://wa.me/?text=" +
-    encodeURIComponent("Browser security lifecycle test.");
+let pipWindow = null;
+let frameTimer = null;
+let running = false;
+let count = 0;
+
+const MAX_FRAMES = 10;
 
 function log(message) {
     logBox.textContent +=
@@ -81,69 +103,110 @@ function log(message) {
         "ms] " + message;
 }
 
-function activationStatus(label) {
+function activation(label) {
     log(
-        label + ": " +
+        label + " | Active: " +
         navigator.userActivation.isActive
     );
 }
 
-document.getElementById("start").addEventListener(
-"click", async () => {
+function createFrame() {
+    if (count >= MAX_FRAMES) {
+        clearInterval(frameTimer);
+        frameTimer = null;
+        log("Iframe test completed.");
+        return;
+    }
 
-    const button = document.getElementById("start");
-    button.disabled = true;
+    const frame = document.createElement("iframe");
 
-    activationStatus("Initial user activation");
+    frame.title = "Controlled lifecycle test";
+    frame.loading = "lazy";
+    frame.srcdoc = `
+        <!DOCTYPE html>
+        <html>
+        <body style="font:12px Arial">
+            Controlled iframe lifecycle test
+        </body>
+        </html>
+    `;
 
-    // Open WhatsApp directly from the original user gesture.
-    const waWindow = window.open(
-        WA_URL,
+    frameBox.appendChild(frame);
+    count++;
+
+    frameCount.textContent = "Frames: " + count;
+}
+
+async function runTest() {
+    if (running) return;
+    running = true;
+
+    log("Full test started.");
+    activation("Initial gesture");
+
+    // WhatsApp external navigation:
+    // Opens only after the explicit user gesture.
+    const message = encodeURIComponent(
+        "Browser lifecycle security test."
+    );
+
+    const wa = window.open(
+        "https://wa.me/?text=" + message,
         "_blank",
         "noopener"
     );
 
     log(
-        waWindow === null
-        ? "WhatsApp popup blocked or opened without a window reference."
-        : "WhatsApp navigation initiated."
+        wa === null
+        ? "WhatsApp navigation initiated or popup blocked."
+        : "WhatsApp popup opened."
     );
 
-    activationStatus("After WhatsApp navigation");
+    activation("After external navigation");
 
-    // Test Document PiP.
+    // Controlled iframe creation.
+    log("Starting bounded iframe test.");
+
+    for (let i = 0; i < MAX_FRAMES; i++) {
+        createFrame();
+    }
+
+    log("Created " + count + " iframes.");
+
+    // Document PiP.
     if (!("documentPictureInPicture" in window)) {
         log("Document PiP unsupported.");
-        button.disabled = false;
+        running = false;
         return;
     }
 
     try {
-        const started = performance.now();
+        const start = performance.now();
 
-        const pip =
+        pipWindow =
             await documentPictureInPicture.requestWindow({
                 width: 320,
-                height: 220
+                height: 230
             });
 
         log(
             "PiP created in " +
-            (performance.now() - started).toFixed(2) +
+            (performance.now() - start).toFixed(2) +
             "ms"
         );
 
-        activationStatus("After PiP request");
+        activation("After PiP request");
 
-        pip.document.body.innerHTML = `
+        pipWindow.document.body.innerHTML = `
             <main style="font-family:Arial;padding:15px">
                 <h3>Lifecycle Monitor</h3>
                 <p>Document PiP active.</p>
-                <p>Monitor the original tab for navigation behavior.</p>
+                <p>Frames created: ${count}</p>
+                <p>Controlled security test.</p>
             </main>
         `;
 
-        pip.addEventListener("pagehide", () => {
+        pipWindow.addEventListener("pagehide", () => {
             log("PiP pagehide event.");
         });
 
@@ -153,8 +216,35 @@ document.getElementById("start").addEventListener(
         log(error.name + ": " + error.message);
     }
 
-    button.disabled = false;
-});
+    running = false;
+    log("Test sequence finished.");
+}
+
+document.getElementById("start").addEventListener(
+    "click", runTest
+);
+
+document.getElementById("stop").addEventListener(
+    "click", () => {
+
+        clearInterval(frameTimer);
+        frameTimer = null;
+
+        frameBox.replaceChildren();
+        count = 0;
+
+        frameCount.textContent = "Frames: 0";
+
+        if (pipWindow && !pipWindow.closed) {
+            pipWindow.close();
+        }
+
+        pipWindow = null;
+        running = false;
+
+        log("Test stopped. All frames cleared.");
+    }
+);
 
 document.addEventListener("visibilitychange", () => {
     log("Visibility: " + document.visibilityState);
