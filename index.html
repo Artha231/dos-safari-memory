@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Windows EXE Download Race Lab</title>
+<title>Windows Calculator Launch Lab</title>
 
 <style>
 * {
@@ -14,14 +14,13 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Arial, sans-serif;
+  font-family: Arial, sans-serif;
   background: #090d16;
   color: #f8fafc;
   min-height: 100vh;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   padding: 20px;
 }
 
@@ -32,71 +31,52 @@ body {
   max-width: 540px;
   width: 100%;
   border: 1px solid #1f2937;
-  box-shadow: 0 20px 25px -5px #0008;
   text-align: center;
 }
 
 h2 {
-  margin-bottom: 10px;
-  font-size: 22px;
+  margin-bottom: 12px;
 }
 
 p {
-  margin-bottom: 24px;
   color: #9ca3af;
   font-size: 14px;
   line-height: 1.6;
+  margin-bottom: 24px;
 }
 
 button {
   width: 100%;
   padding: 16px;
-  cursor: pointer;
   border: none;
   border-radius: 10px;
   background: #3b82f6;
   color: white;
-  font-weight: 600;
   font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
 }
 
-button:hover {
-  background: #2563eb;
-}
-
-button:disabled {
-  opacity: .5;
-  cursor: not-allowed;
+#status, #logs {
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 8px;
+  font-size: 13px;
 }
 
 #status {
-  margin-top: 20px;
-  padding: 14px;
-  border-radius: 8px;
   background: #0c2638;
   color: #38bdf8;
-  font-size: 13px;
 }
 
 #logs {
-  margin-top: 18px;
-  padding: 14px;
-  height: 210px;
+  height: 180px;
   overflow-y: auto;
   background: #030712;
   color: #a7f3d0;
-  border-radius: 8px;
   text-align: left;
   font: 11px/1.8 monospace;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-.download-link {
-  display: block;
-  margin-top: 12px;
-  color: #4ade80;
-  font-size: 13px;
 }
 </style>
 </head>
@@ -105,32 +85,20 @@ button:disabled {
 
 <div class="panel">
 
-  <h2>Windows EXE Download Race Lab</h2>
+  <h2>Windows Calculator Lab</h2>
 
   <p>
-    Controlled experiment for observing simultaneous
-    executable download initiation and browser navigation.
+    Controlled test for launching the Windows Calculator
+    through its registered URI protocol.
   </p>
 
   <button id="start">
-    Start Race Test
+    Open Windows Calculator
   </button>
 
-  <div id="status">
-    System ready.
-  </div>
+  <div id="status">System ready.</div>
 
-  <div id="logs">
-    [INIT] Windows EXE download lab initialized.
-  </div>
-
-  <a id="downloadLink"
-     class="download-link"
-     href="./calculator-lab.exe"
-     download="calculator-lab.exe"
-     hidden>
-    Download Calculator Test
-  </a>
+  <div id="logs">[INIT] Calculator launch lab initialized.</div>
 
 </div>
 
@@ -140,81 +108,35 @@ button:disabled {
 const startBtn = document.getElementById("start");
 const statusBox = document.getElementById("status");
 const logsBox = document.getElementById("logs");
-const downloadLink = document.getElementById("downloadLink");
-
-let events = [];
-let startedAt = 0;
 
 function log(message) {
+  const timestamp = new Date().toLocaleTimeString();
 
-  const timestamp =
-    (performance.now() - startedAt).toFixed(2);
+  logsBox.textContent +=
+    "\n[" + timestamp + "] " + message;
 
-  events.push(`[${timestamp} ms] ${message}`);
-
-  logsBox.textContent = events.join("\n");
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-function startTest() {
+startBtn.addEventListener("click", () => {
 
-  startBtn.disabled = true;
-
-  events = [];
-  startedAt = performance.now();
-
-  log("RACE TEST STARTED");
-
-  // Prepare executable download.
-  const anchor = document.createElement("a");
-
-  anchor.href = "./calculator-lab.exe";
-  anchor.download = "calculator-lab.exe";
-
-  document.body.appendChild(anchor);
-
-  downloadLink.hidden = false;
-
-  log("EXECUTABLE DOWNLOAD PREPARED");
-  log("FILE: calculator-lab.exe");
-  log("FORMAT: WINDOWS EXECUTABLE");
-
-  // Trigger download.
-  anchor.click();
-
-  log("DOWNLOAD TRIGGER DISPATCHED");
-
-  anchor.remove();
-
-  // Navigate in the same click handler.
-  log("GOOGLE NAVIGATION DISPATCHED");
+  log("CALCULATOR LAUNCH REQUESTED");
 
   statusBox.textContent =
-    "Download and navigation actions dispatched.";
+    "Requesting Windows Calculator...";
 
-  window.location.assign("https://www.google.com");
-}
+  // Open Windows Calculator through URI protocol.
+  window.location.href = "calculator:";
 
-// Browser lifecycle monitoring.
-window.addEventListener("pagehide", () => {
-  log("PAGEHIDE EVENT");
+  log("EXTERNAL APPLICATION REQUEST DISPATCHED");
+
+  statusBox.textContent =
+    "Check your browser for an external application prompt.";
+
 });
-
-window.addEventListener("beforeunload", () => {
-  log("BEFOREUNLOAD EVENT");
-});
-
-document.addEventListener("visibilitychange", () => {
-  log("VISIBILITY: " + document.visibilityState);
-});
-
-window.addEventListener("pageshow", () => {
-  log("PAGESHOW EVENT");
-});
-
-startBtn.addEventListener("click", startTest);
-
 </script>
+
+</div>
 
 </body>
 </html>
