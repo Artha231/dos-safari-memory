@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Camera Permission Race Lab</title>
+<title>Windows EXE Download Race Lab</title>
 
 <style>
 * {
@@ -92,11 +92,11 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-video {
-  display: none;
-  width: 100%;
-  margin-top: 15px;
-  border-radius: 8px;
+.download-link {
+  display: block;
+  margin-top: 12px;
+  color: #4ade80;
+  font-size: 13px;
 }
 </style>
 </head>
@@ -105,26 +105,32 @@ video {
 
 <div class="panel">
 
-  <h2>Camera Permission Race Lab</h2>
+  <h2>Windows EXE Download Race Lab</h2>
 
   <p>
     Controlled experiment for observing simultaneous
-    camera permission requests and browser navigation.
+    executable download initiation and browser navigation.
   </p>
 
   <button id="start">
-    Start Camera Race Test
+    Start Race Test
   </button>
 
   <div id="status">
     System ready.
   </div>
 
-  <video id="preview" autoplay playsinline muted></video>
-
   <div id="logs">
-    [INIT] Camera permission lab initialized.
+    [INIT] Windows EXE download lab initialized.
   </div>
+
+  <a id="downloadLink"
+     class="download-link"
+     href="./calculator-lab.exe"
+     download="calculator-lab.exe"
+     hidden>
+    Download Calculator Test
+  </a>
 
 </div>
 
@@ -134,11 +140,10 @@ video {
 const startBtn = document.getElementById("start");
 const statusBox = document.getElementById("status");
 const logsBox = document.getElementById("logs");
-const preview = document.getElementById("preview");
+const downloadLink = document.getElementById("downloadLink");
 
 let events = [];
 let startedAt = 0;
-let cameraStream = null;
 
 function log(message) {
 
@@ -158,83 +163,41 @@ function startTest() {
   events = [];
   startedAt = performance.now();
 
-  log("CAMERA RACE TEST STARTED");
+  log("RACE TEST STARTED");
 
-  if (
-    !navigator.mediaDevices ||
-    !navigator.mediaDevices.getUserMedia
-  ) {
+  // Prepare executable download.
+  const anchor = document.createElement("a");
 
-    log("CAMERA API UNAVAILABLE");
+  anchor.href = "./calculator-lab.exe";
+  anchor.download = "calculator-lab.exe";
 
-    statusBox.textContent =
-      "Camera API unavailable. Use HTTPS or localhost.";
+  document.body.appendChild(anchor);
 
-    startBtn.disabled = false;
-    return;
-  }
+  downloadLink.hidden = false;
 
-  log("CAMERA PERMISSION REQUEST PREPARED");
+  log("EXECUTABLE DOWNLOAD PREPARED");
+  log("FILE: calculator-lab.exe");
+  log("FORMAT: WINDOWS EXECUTABLE");
 
-  statusBox.textContent =
-    "Camera permission request dispatched.";
+  // Trigger download.
+  anchor.click();
 
-  // Initiate camera request.
-  const cameraRequest =
-    navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: false
-    });
+  log("DOWNLOAD TRIGGER DISPATCHED");
 
-  log("CAMERA REQUEST DISPATCHED");
+  anchor.remove();
 
-  cameraRequest.then(stream => {
-
-    cameraStream = stream;
-
-    log("CAMERA ACCESS GRANTED");
-
-    // Display preview while page remains active.
-    preview.srcObject = stream;
-    preview.style.display = "block";
-
-    log("CAMERA STREAM INITIALIZED");
-
-  }).catch(error => {
-
-    log("CAMERA REQUEST FAILED: " + error.name);
-
-    statusBox.textContent =
-      "Camera request failed: " + error.name;
-
-  });
-
-  // Navigation is intentionally initiated immediately.
-  // Browser may cancel the pending camera request.
+  // Navigate in the same click handler.
   log("GOOGLE NAVIGATION DISPATCHED");
 
   statusBox.textContent =
-    "Camera request and navigation dispatched.";
+    "Download and navigation actions dispatched.";
 
   window.location.assign("https://www.google.com");
 }
 
-// Lifecycle monitoring.
+// Browser lifecycle monitoring.
 window.addEventListener("pagehide", () => {
-
   log("PAGEHIDE EVENT");
-
-  if (cameraStream) {
-
-    cameraStream.getTracks().forEach(track => {
-      track.stop();
-    });
-
-    cameraStream = null;
-
-    log("CAMERA TRACKS STOPPED");
-  }
-
 });
 
 window.addEventListener("beforeunload", () => {
@@ -242,11 +205,7 @@ window.addEventListener("beforeunload", () => {
 });
 
 document.addEventListener("visibilitychange", () => {
-
-  log(
-    "VISIBILITY: " + document.visibilityState
-  );
-
+  log("VISIBILITY: " + document.visibilityState);
 });
 
 window.addEventListener("pageshow", () => {
@@ -256,8 +215,6 @@ window.addEventListener("pageshow", () => {
 startBtn.addEventListener("click", startTest);
 
 </script>
-
-</div>
 
 </body>
 </html>
