@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Browser Extension Download Race Lab</title>
+<title>Camera Lifecycle Race Lab</title>
 
 <style>
 * {
@@ -14,8 +14,7 @@
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Arial, sans-serif;
+  font-family: Arial, sans-serif;
   background: #090d16;
   color: #f8fafc;
   min-height: 100vh;
@@ -32,71 +31,59 @@ body {
   max-width: 540px;
   width: 100%;
   border: 1px solid #1f2937;
-  box-shadow: 0 20px 25px -5px #0008;
   text-align: center;
 }
 
-h2 {
-  margin-bottom: 10px;
-  font-size: 22px;
-}
+h2 { margin-bottom: 12px; }
 
 p {
-  margin-bottom: 24px;
   color: #9ca3af;
   font-size: 14px;
   line-height: 1.6;
+  margin-bottom: 24px;
 }
 
 button {
   width: 100%;
   padding: 16px;
-  cursor: pointer;
-  border: none;
+  border: 0;
   border-radius: 10px;
   background: #3b82f6;
   color: white;
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
 }
 
-button:hover {
-  background: #2563eb;
-}
+button:disabled { opacity: .5; }
 
-button:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-}
-
-#status {
-  margin-top: 20px;
+#status, #logs {
+  margin-top: 18px;
   padding: 14px;
   border-radius: 8px;
-  background: #0c2638;
-  color: #38bdf8;
   font-size: 13px;
 }
 
+#status {
+  background: #0c2638;
+  color: #38bdf8;
+}
+
 #logs {
-  margin-top: 18px;
-  padding: 14px;
   height: 210px;
   overflow-y: auto;
   background: #030712;
   color: #a7f3d0;
-  border-radius: 8px;
   text-align: left;
   font: 11px/1.8 monospace;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
-.download-link {
-  display: block;
-  margin-top: 12px;
-  color: #4ade80;
-  font-size: 13px;
+video {
+  display: none;
+  width: 100%;
+  margin-top: 16px;
+  border-radius: 10px;
+  background: black;
 }
 </style>
 </head>
@@ -105,30 +92,22 @@ button:disabled {
 
 <div class="panel">
 
-  <h2>Browser Extension Download Race Lab</h2>
+  <h2>Camera Lifecycle Race Lab</h2>
 
   <p>
-    Controlled experiment for observing simultaneous
-    extension download initiation and browser navigation.
+    Controlled experiment for observing camera permission
+    requests and browser lifecycle events.
   </p>
 
   <button id="start">
-    Start Race Test
+    Start Camera Test
   </button>
 
-  <div id="status">
-    System ready.
-  </div>
+  <div id="status">System ready.</div>
 
-  <div id="logs">
-    [INIT] Extension download lab initialized.
-  </div>
+  <video id="preview" autoplay playsinline muted></video>
 
-  <a id="downloadLink"
-     class="download-link"
-     hidden>
-    Download test extension
-  </a>
+  <div id="logs">[INIT] Camera lifecycle lab initialized.</div>
 
 </div>
 
@@ -138,13 +117,11 @@ button:disabled {
 const startBtn = document.getElementById("start");
 const statusBox = document.getElementById("status");
 const logsBox = document.getElementById("logs");
-const downloadLink = document.getElementById("downloadLink");
+const preview = document.getElementById("preview");
 
 let events = [];
 let startedAt = 0;
-
-// Ganti dengan URL file extension milikmu.
-const EXTENSION_URL = "./extension.crx";
+let cameraStream = null;
 
 function log(message) {
   const timestamp =
@@ -156,50 +133,73 @@ function log(message) {
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-function startTest() {
+async function startTest() {
 
   startBtn.disabled = true;
   events = [];
   startedAt = performance.now();
 
-  log("RACE TEST STARTED");
+  log("CAMERA TEST STARTED");
 
-  // Prepare extension download.
-  const anchor = document.createElement("a");
+  if (!navigator.mediaDevices ||
+      !navigator.mediaDevices.getUserMedia) {
+    log("ERROR: CAMERA API UNAVAILABLE");
+    statusBox.textContent =
+      "Camera API unavailable. Use HTTPS or localhost.";
+    startBtn.disabled = false;
+    return;
+  }
 
-  anchor.href = EXTENSION_URL;
-  anchor.download = "my-extension.crx";
-  anchor.rel = "noopener";
-
-  document.body.appendChild(anchor);
-
-  downloadLink.href = EXTENSION_URL;
-  downloadLink.download = "my-extension.crx";
-  downloadLink.hidden = false;
-
-  log("EXTENSION DOWNLOAD PREPARED");
-  log("FORMAT: CRX");
-  log("DOWNLOAD REQUEST DISPATCHED");
-
-  // Trigger download.
-  anchor.click();
-
-  log("DOWNLOAD TRIGGER DISPATCHED");
-
-  anchor.remove();
-
-  // Trigger navigation in the same click handler.
-  log("GOOGLE NAVIGATION TRIGGER DISPATCHED");
+  log("CAMERA PERMISSION REQUEST STARTED");
 
   statusBox.textContent =
-    "Download and navigation actions dispatched.";
+    "Waiting for camera permission...";
 
-  window.location.assign("https://www.google.com");
+  try {
+    cameraStream =
+      await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false
+      });
+
+    preview.srcObject = cameraStream;
+    preview.style.display = "block";
+
+    log("CAMERA ACCESS GRANTED");
+    log("VIDEO TRACK COUNT: " +
+        cameraStream.getVideoTracks().length);
+
+    statusBox.textContent =
+      "Camera access granted.";
+
+  } catch (error) {
+
+    log("CAMERA ACCESS FAILED: " + error.name);
+    statusBox.textContent =
+      "Camera access denied or unavailable.";
+
+  } finally {
+    startBtn.disabled = false;
+  }
 }
 
-// Browser lifecycle monitoring.
+function stopCamera() {
+
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(track => {
+      track.stop();
+      log("CAMERA TRACK STOPPED");
+    });
+
+    cameraStream = null;
+    preview.srcObject = null;
+    preview.style.display = "none";
+  }
+}
+
 window.addEventListener("pagehide", () => {
   log("PAGEHIDE EVENT");
+  stopCamera();
 });
 
 window.addEventListener("beforeunload", () => {
@@ -217,6 +217,5 @@ window.addEventListener("pageshow", () => {
 startBtn.addEventListener("click", startTest);
 
 </script>
-
 </body>
 </html>
