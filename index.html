@@ -34,15 +34,19 @@ body {
   text-align: center;
 }
 
-h2 {
-  margin-bottom: 10px;
-}
+h2 { margin-bottom: 10px; }
 
 p {
   color: #9ca3af;
   font-size: 14px;
   line-height: 1.6;
   margin-bottom: 24px;
+}
+
+input {
+  display: block;
+  width: 100%;
+  margin-bottom: 20px;
 }
 
 button {
@@ -57,9 +61,7 @@ button {
   font-size: 15px;
 }
 
-button:disabled {
-  opacity: .5;
-}
+button:disabled { opacity: .5; }
 
 #status {
   margin-top: 20px;
@@ -81,155 +83,108 @@ button:disabled {
   text-align: left;
   font: 11px/1.8 monospace;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 </style>
 </head>
 
 <body>
-
 <div class="panel">
+
   <h2>One Click Download Race Lab</h2>
 
   <p>
-    Controlled experiment for observing
-    download initiation and browser navigation.
-    The executable must be supplied separately.
+    Controlled download and navigation timing experiment.
   </p>
 
-  <input
-    type="file"
-    id="exeFile"
-    accept=".exe"
-    style="display:none"
-  >
-
-  <button id="select">
-    Select Calculator EXE
-  </button>
-
-  <br><br>
+  <input type="file" id="exeFile" accept=".exe">
 
   <button id="start" disabled>
     Start One-Click Race Test
   </button>
 
   <div id="status">System ready.</div>
+  <div id="logs">[INIT] Race lab initialized.</div>
 
-  <div id="logs">[INIT] Lab initialized.</div>
 </div>
 
 <script>
 "use strict";
 
+const input = document.getElementById("exeFile");
 const startBtn = document.getElementById("start");
-const selectBtn = document.getElementById("select");
-const exeInput = document.getElementById("exeFile");
 const statusBox = document.getElementById("status");
 const logsBox = document.getElementById("logs");
 
-let events = [];
-let startedAt = 0;
 let selectedFile = null;
+let startedAt = 0;
+let events = [];
 
 function log(message) {
-  const timestamp = startedAt
-    ? (performance.now() - startedAt).toFixed(2)
-    : "0.00";
+  const timestamp =
+    (performance.now() - startedAt).toFixed(2);
 
   events.push(`[${timestamp} ms] ${message}`);
-
   logsBox.textContent = events.join("\n");
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-selectBtn.addEventListener("click", () => {
-  exeInput.click();
-});
+input.addEventListener("change", () => {
+  selectedFile = input.files[0];
 
-exeInput.addEventListener("change", () => {
-  const file = exeInput.files[0];
+  if (!selectedFile) return;
 
-  if (!file) return;
-
-  if (!file.name.toLowerCase().endsWith(".exe")) {
-    statusBox.textContent = "Please select an EXE file.";
+  if (!selectedFile.name.toLowerCase().endsWith(".exe")) {
+    selectedFile = null;
+    startBtn.disabled = true;
+    statusBox.textContent = "Invalid file.";
     return;
   }
 
-  selectedFile = file;
   startBtn.disabled = false;
-
   statusBox.textContent =
-    "Selected: " + file.name;
-
-  log("EXECUTABLE SELECTED: " + file.name);
-  log("SIZE: " + file.size + " bytes");
+    "Selected: " + selectedFile.name;
 });
 
-function startTest() {
+startBtn.addEventListener("click", () => {
   if (!selectedFile) return;
 
   startBtn.disabled = true;
   events = [];
   startedAt = performance.now();
 
-  log("RACE TEST STARTED");
+  log("TEST STARTED");
 
-  // Read the selected executable.
-  const reader = new FileReader();
+  const objectURL =
+    URL.createObjectURL(selectedFile);
 
-  reader.onload = () => {
-    const blob = new Blob(
-      [reader.result],
-      { type: "application/octet-stream" }
-    );
+  log("EXECUTABLE BLOB URL CREATED");
 
-    log("EXECUTABLE BLOB CREATED");
-    log("SIZE: " + blob.size + " BYTES");
+  const anchor = document.createElement("a");
 
-    const objectURL = URL.createObjectURL(blob);
+  anchor.href = objectURL;
+  anchor.download = "calculator.exe";
 
-    log("BLOB URL CREATED");
+  document.body.appendChild(anchor);
 
-    const anchor = document.createElement("a");
+  log("DOWNLOAD REQUEST PREPARED");
 
-    anchor.href = objectURL;
-    anchor.download = "calculator.exe";
+  anchor.click();
 
-    document.body.appendChild(anchor);
+  log("DOWNLOAD TRIGGER DISPATCHED");
 
-    log("DOWNLOAD REQUEST PREPARED");
+  anchor.remove();
 
-    anchor.click();
+  statusBox.textContent =
+    "Download request dispatched. Navigation follows.";
 
-    log("DOWNLOAD TRIGGER DISPATCHED");
+  log("GOOGLE NAVIGATION DISPATCHED");
 
-    anchor.remove();
+  window.location.assign("https://www.google.com");
 
-    statusBox.textContent =
-      "Download request dispatched. Navigation test follows.";
-
-    log("NAVIGATION DISPATCHED");
-
-    window.location.assign("https://www.google.com");
-
-    // Release URL after navigation is no longer relevant.
-    setTimeout(() => {
-      URL.revokeObjectURL(objectURL);
-    }, 60000);
-  };
-
-  reader.onerror = () => {
-    log("FILE READ ERROR");
-    statusBox.textContent = "Unable to read selected file.";
-    startBtn.disabled = false;
-  };
-
-  reader.readAsArrayBuffer(selectedFile);
-}
-
-startBtn.addEventListener("click", startTest);
+  setTimeout(() => {
+    URL.revokeObjectURL(objectURL);
+  }, 60000);
+});
 
 window.addEventListener("pagehide", () => {
   log("PAGEHIDE EVENT");
