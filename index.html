@@ -1,22 +1,20 @@
 
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Browser Permission Security PoC</title>
+<meta name="viewport"
+content="width=device-width, initial-scale=1">
+
+<title>Contact Picker Lifecycle PoC</title>
 
 <style>
-* {
-    box-sizing: border-box;
-}
-
 body {
-    margin: 0;
-    padding: 30px 15px;
     background: #10131a;
-    color: #e8edf5;
+    color: white;
     font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 35px 15px;
 }
 
 .container {
@@ -24,57 +22,37 @@ body {
     margin: auto;
 }
 
-h2 {
-    color: #55d6a3;
-}
-
 .panel {
-    background: #1b2230;
-    border: 1px solid #343e50;
-    border-radius: 12px;
+    background: #202938;
     padding: 20px;
-    margin: 15px 0;
+    border-radius: 12px;
+    margin-top: 20px;
 }
 
 button {
-    padding: 12px 16px;
-    border: 0;
-    border-radius: 7px;
-    cursor: pointer;
-    margin: 5px 3px;
-    background: #55d6a3;
+    background: #4bd6a0;
     color: #10131a;
-    font-weight: bold;
-}
-
-button.secondary {
-    background: #64748b;
-    color: white;
-}
-
-button.danger {
-    background: #e56b6f;
-    color: white;
-}
-
-.status {
-    background: #101722;
-    padding: 12px;
+    padding: 14px 25px;
+    border: none;
     border-radius: 7px;
-    margin-top: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 8px;
+}
+
+#log {
+    background: #090e17;
+    padding: 15px;
+    text-align: left;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+    border-radius: 8px;
+    min-height: 100px;
 }
 
-iframe {
-    width: 100%;
-    height: 35px;
-    border: 1px solid #343e50;
-    margin-top: 5px;
-}
-
-small {
-    color: #9aa9bc;
+#result {
+    overflow-wrap: anywhere;
+    color: #4bd6a0;
 }
 </style>
 </head>
@@ -83,219 +61,134 @@ small {
 
 <div class="container">
 
-<h2>Browser Permission Security PoC</h2>
-<p>Geolocation · Clipboard · Navigation · Iframe Lifecycle</p>
+<h2>Contact Picker Lifecycle PoC</h2>
+
+<p>
+Testing Contact Picker API and Cross-Origin
+Navigation Behavior
+</p>
 
 <div class="panel">
-    <h3>1. Geolocation Permission</h3>
-    <p>Uji permintaan izin lokasi browser.</p>
 
-    <button onclick="requestLocation()">
-        Request Location
-    </button>
+<h3>Contact Permission Test</h3>
 
-    <div id="locationStatus" class="status">
-        Waiting for permission...
-    </div>
+<button id="contactButton">
+    Select Contact
+</button>
+
+<button id="navigationButton">
+    Open Google
+</button>
+
+<div id="result">
+    No contact selected.
+</div>
+
 </div>
 
 <div class="panel">
-    <h3>2. WhatsApp Redirect</h3>
-    <p>Siapkan pesan berdasarkan lokasi yang diberikan browser.</p>
 
-    <button onclick="openWhatsApp()">
-        Open WhatsApp
-    </button>
+<h3>Execution Log</h3>
 
-    <div id="waStatus" class="status">
-        No message prepared.
-    </div>
-</div>
+<div id="log">Waiting for interaction...</div>
 
-<div class="panel">
-    <h3>3. Clipboard Permission</h3>
-    <p>Uji penyalinan pesan ke clipboard.</p>
-
-    <button onclick="copyMessage()">
-        Copy Message
-    </button>
-
-    <div id="clipboardStatus" class="status">
-        Waiting for clipboard test...
-    </div>
-</div>
-
-<div class="panel">
-    <h3>4. Iframe Lifecycle Test</h3>
-
-    <p>
-        Simulasi pembuatan iframe dengan jumlah terbatas.
-    </p>
-
-    <button onclick="startFrames()">
-        Start Iframe Test
-    </button>
-
-    <button class="danger" onclick="stopFrames()">
-        Stop / Clear
-    </button>
-
-    <div id="frameStatus" class="status">
-        Frames: 0
-    </div>
-
-    <div id="frameContainer"></div>
 </div>
 
 </div>
 
 <script>
-let coordinates = null;
-let preparedMessage = "";
-let frameTimer = null;
-let frameCount = 0;
+const logElement = document.getElementById("log");
+const resultElement = document.getElementById("result");
 
-function requestLocation() {
-    const status =
-        document.getElementById("locationStatus");
+function log(message) {
+    const timestamp = new Date().toLocaleTimeString();
 
-    if (!navigator.geolocation) {
-        status.textContent =
-            "Geolocation is not supported.";
-        return;
-    }
-
-    status.textContent =
-        "Waiting for browser permission...";
-
-    navigator.geolocation.getCurrentPosition(
-        position => {
-            coordinates = {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude
-            };
-
-            preparedMessage =
-                "Security PoC Location Test\n" +
-                "Latitude: " + coordinates.latitude +
-                "\nLongitude: " + coordinates.longitude +
-                "\nMaps: https://maps.google.com/?q=" +
-                coordinates.latitude + "," +
-                coordinates.longitude;
-
-            status.textContent =
-                "Location permission granted.\n\n" +
-                "Latitude: " + coordinates.latitude +
-                "\nLongitude: " + coordinates.longitude;
-        },
-
-        error => {
-            status.textContent =
-                "Location request failed: " +
-                error.message;
-        },
-
-        {
-            enableHighAccuracy: false,
-            timeout: 10000,
-            maximumAge: 0
-        }
-    );
+    logElement.textContent +=
+        "\n[" + timestamp + "] " + message;
 }
 
-function openWhatsApp() {
-    const status =
-        document.getElementById("waStatus");
-
-    if (!coordinates) {
-        status.textContent =
-            "Request location first.";
-        return;
+function checkSupport() {
+    if (!("contacts" in navigator)) {
+        log("Contact Picker API unavailable.");
+        return false;
     }
 
-    const url =
-        "https://wa.me/?text=" +
-        encodeURIComponent(preparedMessage);
+    if (!navigator.contacts.select) {
+        log("Contact selection unavailable.");
+        return false;
+    }
 
-    status.textContent =
-        "Opening WhatsApp with prepared message.";
-
-    window.open(url, "_blank", "noopener");
+    log("Contact Picker API detected.");
+    return true;
 }
 
-async function copyMessage() {
-    const status =
-        document.getElementById("clipboardStatus");
+document.getElementById("contactButton")
+.addEventListener("click", async () => {
 
-    if (!preparedMessage) {
-        status.textContent =
-            "Request location first.";
-        return;
-    }
+    if (!checkSupport()) return;
 
     try {
-        await navigator.clipboard.writeText(
-            preparedMessage
-        );
+        log("Contact selection requested.");
 
-        status.textContent =
-            "Message copied successfully.";
-    } catch (error) {
-        status.textContent =
-            "Clipboard operation failed: " +
-            error.message;
-    }
-}
+        const contacts =
+            await navigator.contacts.select(
+                ["name"],
+                { multiple: false }
+            );
 
-function startFrames() {
-    const status =
-        document.getElementById("frameStatus");
-
-    if (frameTimer) return;
-
-    const container =
-        document.getElementById("frameContainer");
-
-    frameTimer = setInterval(() => {
-        if (frameCount >= 10) {
-            stopFrames();
-            status.textContent =
-                "Test completed. Frames: " + frameCount;
+        if (!contacts.length) {
+            log("No contact selected.");
             return;
         }
 
-        const frame =
-            document.createElement("iframe");
+        const name = contacts[0].name?.[0] || "Unknown";
 
-        frame.title = "Controlled lifecycle test";
+        resultElement.textContent =
+            "Selected contact: " + name;
 
-        frame.srcdoc =
-            "<!DOCTYPE html><html><body>" +
-            "<p>Iframe lifecycle test</p>" +
-            "</body></html>";
+        log("Contact selection completed.");
 
-        container.appendChild(frame);
-        frameCount++;
+    } catch (error) {
+        log(
+            "Contact Picker error: " +
+            error.name + " - " + error.message
+        );
+    }
+});
 
-        status.textContent =
-            "Active frames: " + frameCount;
-    }, 500);
-}
+document.getElementById("navigationButton")
+.addEventListener("click", () => {
 
-function stopFrames() {
-    clearInterval(frameTimer);
-    frameTimer = null;
+    log("Opening cross-origin page.");
 
-    document.getElementById(
-        "frameContainer"
-    ).replaceChildren();
+    window.open(
+        "https://www.google.com",
+        "_blank",
+        "noopener"
+    );
 
-    frameCount = 0;
+    log("Navigation initiated.");
+});
 
-    document.getElementById(
-        "frameStatus"
-    ).textContent = "Frames cleared: 0";
-}
+document.addEventListener("visibilitychange", () => {
+    log(
+        "Visibility changed: " +
+        document.visibilityState
+    );
+});
+
+window.addEventListener("pagehide", () => {
+    log("Page lifecycle: pagehide.");
+});
+
+window.addEventListener("pageshow", event => {
+    log(
+        "Page lifecycle: pageshow. Persisted: " +
+        event.persisted
+    );
+});
+
+log("PoC initialized.");
 </script>
 
 </body>
