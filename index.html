@@ -4,11 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Document PiP + WhatsApp PoC</title>
+<title>User Activation Lifecycle Test</title>
 
 <style>
-* { box-sizing: border-box; }
-
 body {
     margin: 0;
     padding: 30px 15px;
@@ -32,16 +30,14 @@ body {
 }
 
 button {
-    padding: 13px 20px;
-    margin: 6px;
+    padding: 15px 24px;
+    background: #4adea6;
+    color: #111827;
     border: 0;
-    border-radius: 7px;
-    cursor: pointer;
+    border-radius: 8px;
     font-weight: bold;
+    cursor: pointer;
 }
-
-#start { background: #4adea6; }
-#navigate { background: #60a5fa; }
 
 #log {
     background: #090e17;
@@ -51,45 +47,33 @@ button {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     font-size: 13px;
-    min-height: 130px;
 }
 </style>
 </head>
 
 <body>
-
 <div class="container">
 
-<h2>Document PiP + WhatsApp Intent</h2>
-<p>WhatsApp Popup · Document PiP · Google Navigation</p>
+<h2>User Activation Lifecycle PoC</h2>
+<p>Document PiP · Cross-Origin · WhatsApp Intent</p>
 
 <div class="panel">
-    <button id="start">1. Open WhatsApp</button>
-    <button id="navigate">2. Start PiP + Navigate</button>
+    <button id="start">START FULL TEST</button>
 </div>
 
 <div class="panel">
-    <h3>Execution Monitor</h3>
+    <h3>Execution Log</h3>
     <div id="log">Ready...</div>
 </div>
 
 </div>
 
 <script>
-const TARGET = "https://www.google.com/x";
-
-const MESSAGE =
-    "Browser Document PiP lifecycle security test.";
-
-const WHATSAPP =
-    "https://wa.me/?text=" +
-    encodeURIComponent(MESSAGE);
-
 const logBox = document.getElementById("log");
 
-let popup = null;
-let started = false;
-let navigating = false;
+const WA_URL =
+    "https://wa.me/?text=" +
+    encodeURIComponent("Browser security lifecycle test.");
 
 function log(message) {
     logBox.textContent +=
@@ -97,106 +81,93 @@ function log(message) {
         "ms] " + message;
 }
 
-// STEP 1: OPEN WHATSAPP POPUP
-document.getElementById("start").onclick = () => {
+function activationStatus(label) {
+    log(
+        label + ": " +
+        navigator.userActivation.isActive
+    );
+}
 
-    if (started) return;
-    started = true;
+document.getElementById("start").addEventListener(
+"click", async () => {
 
-    log("Opening WhatsApp Intent.");
+    const button = document.getElementById("start");
+    button.disabled = true;
 
-    popup = window.open(
-        WHATSAPP,
-        "whatsapp_test",
-        "width=500,height=500"
+    activationStatus("Initial user activation");
+
+    // Open WhatsApp directly from the original user gesture.
+    const waWindow = window.open(
+        WA_URL,
+        "_blank",
+        "noopener"
     );
 
-    if (!popup) {
-        started = false;
-        log("Popup blocked.");
-        return;
-    }
+    log(
+        waWindow === null
+        ? "WhatsApp popup blocked or opened without a window reference."
+        : "WhatsApp navigation initiated."
+    );
 
-    log("WhatsApp popup initiated.");
-};
+    activationStatus("After WhatsApp navigation");
 
-// STEP 2: DOCUMENT PIP + GOOGLE NAVIGATION
-document.getElementById("navigate").onclick = async () => {
-
-    if (navigating) return;
-
+    // Test Document PiP.
     if (!("documentPictureInPicture" in window)) {
         log("Document PiP unsupported.");
+        button.disabled = false;
         return;
     }
 
-    navigating = true;
-
-    const startTime = performance.now();
-
     try {
+        const started = performance.now();
 
-        log("Requesting Document PiP.");
-
-        const pipWindow =
+        const pip =
             await documentPictureInPicture.requestWindow({
-                width: 340,
-                height: 250
+                width: 320,
+                height: 220
             });
 
         log(
             "PiP created in " +
-            (performance.now() - startTime).toFixed(2) +
+            (performance.now() - started).toFixed(2) +
             "ms"
         );
 
-        pipWindow.document.body.innerHTML = `
-            <main style="
-                font-family:Arial,sans-serif;
-                padding:18px;
-                color:#222;
-            ">
+        activationStatus("After PiP request");
+
+        pip.document.body.innerHTML = `
+            <main style="font-family:Arial;padding:15px">
                 <h3>Lifecycle Monitor</h3>
-                <p>Document PiP is active.</p>
-                <p style="font-size:13px">
-                    Target: Google /x
-                </p>
+                <p>Document PiP active.</p>
+                <p>Monitor the original tab for navigation behavior.</p>
             </main>
         `;
 
-        pipWindow.addEventListener("pagehide", () => {
-            log("PiP pagehide.");
+        pip.addEventListener("pagehide", () => {
+            log("PiP pagehide event.");
         });
 
-        log("PiP lifecycle listener registered.");
-        log("Navigating opener to Google /x.");
-
-        window.location.replace(TARGET);
+        log("PiP lifecycle monitoring active.");
 
     } catch (error) {
-
-        navigating = false;
-
-        log(
-            "Error: " + error.name +
-            " - " + error.message
-        );
+        log(error.name + ": " + error.message);
     }
-};
 
-// LIFECYCLE MONITOR
+    button.disabled = false;
+});
+
 document.addEventListener("visibilitychange", () => {
     log("Visibility: " + document.visibilityState);
 });
 
 window.addEventListener("pagehide", () => {
-    log("Opener pagehide.");
+    log("Original pagehide.");
 });
 
 window.addEventListener("pageshow", event => {
-    log("Opener pageshow: " + event.persisted);
+    log("Original pageshow: " + event.persisted);
 });
-
 </script>
+
 </body>
 </html>
