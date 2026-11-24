@@ -1,10 +1,10 @@
-
+Intent Redirection / Spoofing coba ini 
 <!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Edge APK Download Race Lab</title>
+<title>APK Download Race Condition Lab</title> 
 
 <style>
 * {
@@ -51,7 +51,6 @@ p {
 button {
   width: 100%;
   padding: 16px;
-  margin-top: 10px;
   cursor: pointer;
   border: none;
   border-radius: 10px;
@@ -63,6 +62,11 @@ button {
 
 button:hover {
   background: #2563eb;
+}
+
+button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
 }
 
 #status {
@@ -77,7 +81,7 @@ button:hover {
 #logs {
   margin-top: 18px;
   padding: 14px;
-  height: 230px;
+  height: 210px;
   overflow-y: auto;
   background: #030712;
   color: #a7f3d0;
@@ -101,32 +105,30 @@ button:hover {
 
 <div class="panel">
 
-<h2>Edge APK Download Race Lab</h2>
+  <h2>APK Download Race Lab</h2>
 
-<p>
-Controlled experiment for observing APK download
-handling and browser navigation lifecycle.
-</p>
+  <p>
+    Controlled experiment for observing simultaneous
+    download initiation and browser navigation.
+  </p>
 
-<button id="start">
-1. Start APK Download
-</button>
+  <button id="start">
+    Start Race Test
+  </button>
 
-<button id="google">
-2. Navigate to Google
-</button>
+  <div id="status">
+    System ready.
+  </div>
 
-<button id="reset">
-Reset Test
-</button>
+  <div id="logs">
+    [INIT] APK download lab initialized.
+  </div>
 
-<div id="status">System ready.</div>
-
-<div id="logs">[INIT] Edge APK Lab initialized.</div>
-
-<a id="downloadLink" class="download-link" hidden>
-Download dummy APK
-</a>
+  <a id="downloadLink"
+     class="download-link"
+     hidden>
+    Download test file
+  </a>
 
 </div>
 
@@ -134,15 +136,12 @@ Download dummy APK
 "use strict";
 
 const startBtn = document.getElementById("start");
-const googleBtn = document.getElementById("google");
-const resetBtn = document.getElementById("reset");
-
 const statusBox = document.getElementById("status");
 const logsBox = document.getElementById("logs");
 const downloadLink = document.getElementById("downloadLink");
 
 let events = [];
-let startedAt = performance.now();
+let startedAt = 0;
 let objectURL = null;
 
 function log(message) {
@@ -155,18 +154,13 @@ function log(message) {
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-function status(message) {
-  statusBox.textContent = message;
-  log(message);
-}
-
-// Harmless, non-executable dummy file.
+// Non-executable dummy APK content.
 function createDummyAPK() {
   const content = [
-    "EDGE ANDROID SECURITY LAB",
+    "SECURITY LAB TEST FILE",
     "This is NOT a valid Android APK.",
-    "Non-executable browser test data.",
-    "Test ID: EDGE-APK-RACE-001"
+    "Browser download experiment only.",
+    "Test ID: APK-RACE-LAB-001"
   ].join("\n");
 
   return new Blob([content], {
@@ -174,76 +168,60 @@ function createDummyAPK() {
   });
 }
 
-// Prepare and initiate download.
-function startDownload() {
-  if (objectURL) {
-    URL.revokeObjectURL(objectURL);
-  }
+function startTest() {
 
-  startedAt = performance.now();
+  startBtn.disabled = true;
   events = [];
+  startedAt = performance.now();
 
-  log("DOWNLOAD TEST STARTED");
+  log("RACE TEST STARTED");
 
+  // Prepare dummy file.
   const blob = createDummyAPK();
 
-  log("DUMMY FILE CREATED");
-  log("MIME: " + blob.type);
-  log("SIZE: " + blob.size + " bytes");
+  log("DUMMY APK CREATED");
 
+  log("MIME: application/vnd.android.package-archive");
+
+  // Create Blob URL.
   objectURL = URL.createObjectURL(blob);
 
   log("BLOB URL CREATED");
+
+  // Prepare download.
+  const anchor = document.createElement("a");
+
+  anchor.href = objectURL;
+  anchor.download = "security-test.apk";
+
+  document.body.appendChild(anchor);
 
   downloadLink.href = objectURL;
   downloadLink.download = "security-test.apk";
   downloadLink.hidden = false;
 
-  log("DOWNLOAD LINK PREPARED");
+  log("DOWNLOAD REQUEST PREPARED");
 
-  // Explicit user-initiated download.
-  downloadLink.click();
+  // Trigger download.
+  anchor.click();
 
-  log("DOWNLOAD REQUEST DISPATCHED");
+  log("DOWNLOAD TRIGGER DISPATCHED");
 
-  status("Download request dispatched.");
-}
+  // Clean up DOM element.
+  anchor.remove();
 
-// Separate navigation action.
-function navigateGoogle() {
-  log("GOOGLE NAVIGATION REQUESTED");
-  status("Navigating to Google.");
+  // Trigger navigation in the same click handler.
+  log("GOOGLE NAVIGATION TRIGGER DISPATCHED");
+
+  statusBox.textContent =
+    "Download and navigation actions dispatched.";
 
   window.location.assign("https://www.google.com");
 }
 
-// Reset local test state.
-function resetTest() {
-  if (objectURL) {
-    URL.revokeObjectURL(objectURL);
-    objectURL = null;
-  }
-
-  events = [];
-  startedAt = performance.now();
-
-  logsBox.textContent = "[RESET] Lab reset.";
-  status("System ready.");
-
-  downloadLink.hidden = true;
-
-  log("RESET COMPLETED");
-}
-
 // Browser lifecycle monitoring.
-window.addEventListener("pagehide", event => {
+window.addEventListener("pagehide", () => {
   log("PAGEHIDE EVENT");
-  log("BFCACHE: " + event.persisted);
-});
-
-window.addEventListener("pageshow", event => {
-  log("PAGESHOW EVENT");
-  log("BFCACHE: " + event.persisted);
 });
 
 window.addEventListener("beforeunload", () => {
@@ -254,18 +232,13 @@ document.addEventListener("visibilitychange", () => {
   log("VISIBILITY: " + document.visibilityState);
 });
 
-window.addEventListener("blur", () => {
-  log("WINDOW BLUR");
+window.addEventListener("pageshow", (event) => {
+  log("PAGESHOW EVENT");
 });
 
-window.addEventListener("focus", () => {
-  log("WINDOW FOCUS");
-});
-
-startBtn.addEventListener("click", startDownload);
-googleBtn.addEventListener("click", navigateGoogle);
-resetBtn.addEventListener("click", resetTest);
+startBtn.addEventListener("click", startTest);
 
 </script>
+
 </body>
-</html>
+</html>Intent Redirection / 
