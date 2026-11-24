@@ -3,10 +3,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport"
-content="width=device-width, initial-scale=1">
-
-<title>Google Document PiP Lifecycle PoC</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Document PiP Fast Lifecycle PoC</title>
 
 <style>
 * {
@@ -15,7 +13,7 @@ content="width=device-width, initial-scale=1">
 
 body {
     margin: 0;
-    padding: 35px 15px;
+    padding: 30px 15px;
     background: #111827;
     color: white;
     font-family: Arial, sans-serif;
@@ -32,26 +30,24 @@ body {
     border: 1px solid #374151;
     border-radius: 12px;
     padding: 20px;
-    margin-top: 20px;
+    margin-top: 18px;
 }
 
 button {
-    padding: 14px 22px;
-    margin: 7px;
+    padding: 13px 20px;
+    margin: 6px;
     border: 0;
-    border-radius: 8px;
+    border-radius: 7px;
     cursor: pointer;
     font-weight: bold;
 }
 
 #start {
     background: #4adea6;
-    color: #111827;
 }
 
 #navigate {
     background: #60a5fa;
-    color: #111827;
 }
 
 #log {
@@ -61,8 +57,8 @@ button {
     text-align: left;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    min-height: 150px;
     font-size: 13px;
+    min-height: 130px;
 }
 </style>
 </head>
@@ -73,29 +69,24 @@ button {
 
 <h2>Document PiP Lifecycle PoC</h2>
 
-<p>
-Google Popup · Document PiP · Navigation Timing
-</p>
+<p>Google /x · Popup · PiP · Navigation Timing</p>
 
 <div class="panel">
 
-<h3>Test Controls</h3>
-
 <button id="start">
-Start Google Popup
+1. Open Google Popup
 </button>
 
 <button id="navigate">
-Navigate to Google
+2. Start PiP + Navigate
 </button>
 
 </div>
 
 <div class="panel">
 
-<h3>Execution Log</h3>
-
-<div id="log">PoC initialized...</div>
+<h3>Execution Monitor</h3>
+<div id="log">Ready...</div>
 
 </div>
 
@@ -104,120 +95,113 @@ Navigate to Google
 <script>
 const logBox = document.getElementById("log");
 
+const TARGET = "https://www.google.com/x";
+
 let popup = null;
-let pipWindow = null;
 let started = false;
+let navigating = false;
 
 function log(message) {
-    const time = performance.now().toFixed(2);
-
     logBox.textContent +=
-        "\n[" + time + "ms] " + message;
+        "\n[" + performance.now().toFixed(2) +
+        "ms] " + message;
 }
 
-document.getElementById("start")
-.addEventListener("click", () => {
+document.getElementById("start").onclick = () => {
 
     if (started) return;
+
     started = true;
 
-    log("User interaction received.");
+    log("Opening Google /x");
 
     popup = window.open(
-        "https://www.google.com/",
+        TARGET,
         "google_test",
         "width=500,height=500"
     );
 
     if (!popup) {
-        log("Popup blocked by browser.");
         started = false;
+        log("Popup blocked.");
         return;
     }
 
     log("Google popup opened.");
+};
 
-});
+document.getElementById("navigate").onclick = async () => {
 
-document.getElementById("navigate")
-.addEventListener("click", async () => {
+    if (navigating) return;
 
     if (!("documentPictureInPicture" in window)) {
-        log("Document PiP is not supported.");
+        log("Document PiP unsupported.");
         return;
     }
+
+    navigating = true;
+
+    const startTime = performance.now();
 
     try {
 
         log("Requesting Document PiP.");
 
-        pipWindow =
+        const pipWindow =
             await documentPictureInPicture.requestWindow({
                 width: 300,
                 height: 220
             });
 
-        log("Document PiP created.");
+        const elapsed =
+            performance.now() - startTime;
+
+        log(
+            "PiP created in " +
+            elapsed.toFixed(2) + "ms"
+        );
 
         pipWindow.document.body.innerHTML = `
-            <div style="
+            <main style="
                 font-family:Arial;
                 padding:15px;
                 color:#222;
             ">
                 <h3>Lifecycle Monitor</h3>
                 <p>Document PiP active.</p>
-                <p>Google navigation test.</p>
-            </div>
+                <p>Target: Google /x</p>
+            </main>
         `;
 
         pipWindow.addEventListener("pagehide", () => {
-            log("PiP pagehide event.");
+            log("PiP pagehide.");
         });
 
-        log("PiP lifecycle listener registered.");
+        log("Navigating opener.");
 
-        log("Navigating opener to Google.");
-
-        window.location.assign(
-            "https://www.google.com/"
-        );
+        window.location.replace(TARGET);
 
     } catch (error) {
 
+        navigating = false;
+
         log(
-            "PiP Error: " +
-            error.name + ": " +
-            error.message
+            "Error: " + error.name +
+            " - " + error.message
         );
-
     }
+};
 
+document.addEventListener("visibilitychange", () => {
+    log("Visibility: " + document.visibilityState);
 });
 
-document.addEventListener(
-    "visibilitychange",
-    () => {
-        log(
-            "Visibility: " +
-            document.visibilityState
-        );
-    }
-);
-
 window.addEventListener("pagehide", () => {
-    log("Opener pagehide event.");
+    log("Opener pagehide.");
 });
 
 window.addEventListener("pageshow", event => {
-    log(
-        "Opener pageshow. Persisted: " +
-        event.persisted
-    );
-});
-
-window.addEventListener("beforeunload", () => {
-    log("Opener beforeunload event.");
+    log("Opener pageshow: " + event.persisted);
 });
 
 </script>
