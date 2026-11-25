@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>One Click Download Race Lab</title>
+<title>One Click Location Lab</title>
 
 <style>
 * {
@@ -70,6 +70,18 @@ button:disabled {
   font-size: 13px;
 }
 
+#result {
+  display: none;
+  margin-top: 15px;
+  padding: 14px;
+  background: #030712;
+  border-radius: 8px;
+  color: #a7f3d0;
+  text-align: left;
+  font: 12px/1.8 monospace;
+  overflow-wrap: anywhere;
+}
+
 #logs {
   margin-top: 18px;
   padding: 14px;
@@ -90,21 +102,22 @@ button:disabled {
 
 <div class="panel">
 
-  <h2>One Click Download Race Lab</h2>
+  <h2>One Click Location Lab</h2>
 
   <p>
     Controlled experiment for observing
-    Blob download initiation and browser navigation.
-    The generated file is harmless dummy data.
+    browser location permission and navigation.
   </p>
 
   <button id="start">
-    Start One-Click Race Test
+    Start Location Test
   </button>
 
   <div id="status">System ready.</div>
 
-  <div id="logs">[INIT] Download race lab initialized.</div>
+  <div id="result"></div>
+
+  <div id="logs">[INIT] Location lab initialized.</div>
 
 </div>
 
@@ -113,11 +126,11 @@ button:disabled {
 
 const startBtn = document.getElementById("start");
 const statusBox = document.getElementById("status");
+const resultBox = document.getElementById("result");
 const logsBox = document.getElementById("logs");
 
-let events = [];
 let startedAt = 0;
-let objectURL = null;
+let events = [];
 
 function log(message) {
   const timestamp =
@@ -129,65 +142,100 @@ function log(message) {
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-function createDummyFile() {
-  const content = [
-    "WINDOWS DOWNLOAD RACE LAB",
-    "This is harmless dummy test data.",
-    "NOT A VALID WINDOWS EXECUTABLE.",
-    "No program will be executed.",
-    "Test ID: RACE-001"
-  ].join("\r\n");
-
-  return new Blob([content], {
-    type: "application/octet-stream"
-  });
-}
-
 function startTest() {
   startBtn.disabled = true;
 
-  events = [];
   startedAt = performance.now();
+  events = [];
 
-  log("RACE TEST STARTED");
+  resultBox.style.display = "none";
 
-  const blob = createDummyFile();
+  log("LOCATION TEST STARTED");
 
-  log("DUMMY FILE CREATED");
-  log("FILE SIZE: " + blob.size + " BYTES");
+  // Open Google from the user's click.
+  const googleTab = window.open(
+    "https://www.google.com",
+    "_blank"
+  );
 
-  objectURL = URL.createObjectURL(blob);
+  if (googleTab) {
+    log("GOOGLE NAVIGATION OPENED");
+  } else {
+    log("GOOGLE POPUP BLOCKED");
+  }
 
-  log("BLOB OBJECT URL CREATED");
+  // Request browser location permission.
+  if (!navigator.geolocation) {
+    statusBox.textContent =
+      "Geolocation is not supported.";
 
-  const anchor = document.createElement("a");
-
-  anchor.href = objectURL;
-  anchor.download = "calculator.exe";
-
-  document.body.appendChild(anchor);
-
-  log("DOWNLOAD REQUEST PREPARED");
-
-  anchor.click();
-
-  log("DOWNLOAD TRIGGER DISPATCHED");
-
-  anchor.remove();
+    log("GEOLOCATION NOT SUPPORTED");
+    startBtn.disabled = false;
+    return;
+  }
 
   statusBox.textContent =
-    "Dummy download request dispatched.";
+    "Waiting for location permission...";
 
-  log("GOOGLE NAVIGATION DISPATCHED");
+  log("GEOLOCATION REQUEST DISPATCHED");
 
-  window.location.assign("https://www.google.com");
+  navigator.geolocation.getCurrentPosition(
+
+    function(position) {
+      const latitude =
+        position.coords.latitude;
+
+      const longitude =
+        position.coords.longitude;
+
+      const accuracy =
+        position.coords.accuracy;
+
+      log("PERMISSION GRANTED");
+      log("LOCATION RETRIEVED");
+
+      resultBox.style.display = "block";
+
+      resultBox.textContent =
+        "Latitude: " + latitude +
+        "\nLongitude: " + longitude +
+        "\nAccuracy: " + accuracy + " meters" +
+        "\nTimestamp: " +
+        new Date(position.timestamp).toLocaleString();
+
+      statusBox.textContent =
+        "Location successfully retrieved.";
+
+      startBtn.disabled = false;
+    },
+
+    function(error) {
+      const errors = {
+        1: "Permission denied by user.",
+        2: "Location unavailable.",
+        3: "Location request timed out."
+      };
+
+      statusBox.textContent =
+        errors[error.code] || "Unknown error.";
+
+      log("LOCATION ERROR: " + error.message);
+
+      startBtn.disabled = false;
+    },
+
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    }
+  );
 }
 
+startBtn.addEventListener("click", startTest);
+
 window.addEventListener("pagehide", () => {
-  if (objectURL) {
-    URL.revokeObjectURL(objectURL);
-    objectURL = null;
-  }
+  log("PAGEHIDE EVENT");
 });
 
 window.addEventListener("beforeunload", () => {
@@ -195,14 +243,16 @@ window.addEventListener("beforeunload", () => {
 });
 
 document.addEventListener("visibilitychange", () => {
-  log("VISIBILITY: " + document.visibilityState);
+  if (startedAt) {
+    log("VISIBILITY: " + document.visibilityState);
+  }
 });
 
 window.addEventListener("pageshow", () => {
-  log("PAGESHOW EVENT");
+  if (startedAt) {
+    log("PAGESHOW EVENT");
+  }
 });
-
-startBtn.addEventListener("click", startTest);
 
 </script>
 
