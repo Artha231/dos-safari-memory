@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Contact Dialog PoC</title>
+<title>Contact Picker PoC</title>
 
 <style>
 * {
@@ -18,8 +18,18 @@ body {
 }
 
 .page {
-    padding: 25px;
+    padding: 30px;
     text-align: center;
+}
+
+button {
+    border: none;
+    padding: 13px 22px;
+    border-radius: 8px;
+    background: #1677ff;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 .overlay {
@@ -35,11 +45,10 @@ body {
 .dialog {
     width: 92%;
     max-width: 420px;
-    background: #f8f7fc;
-    border-radius: 28px;
     padding: 25px;
+    border-radius: 28px;
+    background: #f8f7fc;
     color: #202127;
-    box-shadow: 0 10px 40px rgba(0,0,0,.25);
 }
 
 .header {
@@ -59,10 +68,9 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 23px;
 }
 
-.demo-label {
+.demo {
     font-size: 11px;
     color: #777;
     margin-top: 5px;
@@ -78,23 +86,12 @@ body {
 .actions {
     display: flex;
     justify-content: flex-end;
-    margin-top: 45px;
+    margin-top: 40px;
 }
 
-button {
-    border: none;
+.close {
     background: transparent;
     color: #2874ad;
-    font-size: 17px;
-    font-weight: bold;
-    padding: 12px 15px;
-    cursor: pointer;
-}
-
-.open-btn {
-    background: #1677ff;
-    color: white;
-    border-radius: 8px;
 }
 </style>
 </head>
@@ -104,9 +101,8 @@ button {
 <div class="page">
     <h2>Contact Picker PoC</h2>
     <p>Web-based contact dialog simulation.</p>
-    <button class="open-btn" onclick="runPoC()">
-        Select Contact
-    </button>
+
+    <button id="start">Select Contact</button>
 </div>
 
 <div class="overlay" id="overlay">
@@ -116,25 +112,33 @@ button {
             <div class="avatar">S</div>
             <div>
                 Spoof Contact
-                <div class="demo-label">WEB DEMO · NOT SYSTEM UI</div>
+                <div class="demo">WEB DEMO · NOT SYSTEM UI</div>
             </div>
         </div>
 
         <div id="numbers"></div>
 
         <div class="actions">
-            <button onclick="closeDialog()">Tutup</button>
+            <button class="close" id="close">
+                Tutup
+            </button>
         </div>
 
     </div>
 </div>
 
 <script>
-async function runPoC() {
+const start = document.getElementById("start");
+const overlay = document.getElementById("overlay");
+
+start.addEventListener("click", async () => {
+
     if (!("contacts" in navigator)) {
-        alert("Contact Picker tidak didukung.");
+        alert("Contact Picker tidak didukung browser.");
         return;
     }
+
+    start.disabled = true;
 
     try {
         const contacts = await navigator.contacts.select(
@@ -142,14 +146,19 @@ async function runPoC() {
             { multiple: true }
         );
 
-        if (!contacts.length) return;
+        if (!contacts.length) {
+            start.disabled = false;
+            return;
+        }
 
-        const numbers = contacts.flatMap(c => c.tel || []);
+        const numbers = contacts.flatMap(
+            contact => contact.tel || []
+        );
 
         const container = document.getElementById("numbers");
         container.replaceChildren();
 
-        if (!numbers.length) {
+        if (numbers.length === 0) {
             container.textContent = "Nomor tidak tersedia";
         } else {
             numbers.forEach(number => {
@@ -160,16 +169,26 @@ async function runPoC() {
             });
         }
 
-        document.getElementById("overlay").style.display = "flex";
+        overlay.style.display = "flex";
+
+        // Redirect otomatis setelah dialog ditampilkan.
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                window.location.assign(
+                    "https://www.google.com"
+                );
+            }, 100);
+        });
 
     } catch (error) {
         console.error(error);
+        start.disabled = false;
     }
-}
+});
 
-function closeDialog() {
-    document.getElementById("overlay").style.display = "none";
-}
+document.getElementById("close").addEventListener("click", () => {
+    overlay.style.display = "none";
+});
 </script>
 
 </body>
