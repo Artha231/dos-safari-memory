@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
     <title>Contact Picker + Audio Policy PoC</title>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport"
           content="width=device-width,initial-scale=1">
 
@@ -22,28 +22,14 @@
             color: white;
             font-size: 16px;
             cursor: pointer;
-            margin: 5px;
         }
 
-        #result {
-            display: none;
-            margin: 25px auto;
-            padding: 20px;
-            max-width: 400px;
-            background: #f4f4f4;
-            border-radius: 12px;
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f2f2f2;
+            border-radius: 10px;
             overflow-wrap: anywhere;
-        }
-
-        .name {
-            color: #1677ff;
-            font-weight: bold;
-            font-size: 22px;
-        }
-
-        .phone {
-            color: #d32f2f;
-            font-size: 18px;
         }
     </style>
 </head>
@@ -52,137 +38,93 @@
 
 <h1>Contact Picker PoC</h1>
 
-<p>
-    Contact Picker and Web Audio autoplay policy test.
-</p>
+<p>Contact Picker and Web Audio Policy Test</p>
 
 <button id="startButton">
-    Start PoC
+    Select Contact
 </button>
 
-<div id="result">
-
-    <h2>Selected Contact</h2>
-
-    <p>Contact Name:</p>
-    <div class="name" id="contactName"></div>
-
-    <p>Phone Number:</p>
-    <div class="phone" id="contactPhone"></div>
-
-    <p id="audioStatus"></p>
-
-    <button id="redirectButton">
-        Open Google
-    </button>
-
+<div id="status">
+    Waiting for user interaction...
 </div>
 
 <script>
-let audioContext;
+const statusBox = document.getElementById("status");
 
-async function playTestTone() {
+function log(message) {
+    statusBox.textContent = message;
+}
 
+// Audio policy test on page load.
+async function testAutoplay() {
     try {
-
-        audioContext = new (
+        const AudioClass =
             window.AudioContext ||
-            window.webkitAudioContext
-        )();
+            window.webkitAudioContext;
 
-        await audioContext.resume();
+        if (!AudioClass) {
+            log("Web Audio API unavailable.");
+            return;
+        }
 
-        const oscillator =
-            audioContext.createOscillator();
+        const context = new AudioClass();
 
-        const gain =
-            audioContext.createGain();
+        log("Autoplay state: " + context.state);
 
-        oscillator.type = "sine";
-        oscillator.frequency.value = 880;
+        try {
+            await context.resume();
+        } catch (error) {
+            log("Autoplay blocked: " + error.message);
+        }
 
-        gain.gain.setValueAtTime(
-            0.08,
-            audioContext.currentTime
-        );
+        log("AudioContext state: " + context.state);
 
-        gain.gain.exponentialRampToValueAtTime(
-            0.001,
-            audioContext.currentTime + 0.2
-        );
-
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-
-        oscillator.start();
-
-        oscillator.stop(
-            audioContext.currentTime + 0.2
-        );
-
-        document.getElementById("audioStatus")
-            .textContent = "Audio test started.";
+        await context.close();
 
     } catch (error) {
-
-        document.getElementById("audioStatus")
-            .textContent = "Audio blocked: " + error.message;
-
+        log("Audio test error: " + error.message);
     }
 }
 
+window.addEventListener("load", testAutoplay);
+
+// Contact selection and redirect.
 document.getElementById("startButton")
 .addEventListener("click", async () => {
 
-    // Audio test initiated by user interaction.
-    const audioPromise = playTestTone();
-
     if (!("contacts" in navigator)) {
         alert("Contact Picker is not supported.");
-        await audioPromise;
+        return;
+    }
+
+    if (!window.isSecureContext) {
+        alert("HTTPS is required.");
         return;
     }
 
     try {
+        log("Waiting for contact selection...");
 
-        const contacts =
-            await navigator.contacts.select(
-                ["name", "tel"],
-                { multiple: false }
-            );
+        const contacts = await navigator.contacts.select(
+            ["name", "tel"],
+            { multiple: false }
+        );
 
-        if (!contacts.length) return;
+        if (!contacts.length) {
+            log("No contact selected.");
+            return;
+        }
 
-        const contact = contacts[0];
+        // Redirect after explicit contact selection.
+        log("Contact selected. Redirecting to Google...");
 
-        document.getElementById("contactName")
-            .textContent =
-            contact.name?.[0] || "Unknown";
-
-        document.getElementById("contactPhone")
-            .textContent =
-            contact.tel?.[0] || "Unavailable";
-
-        document.getElementById("result")
-            .style.display = "block";
+        window.location.replace(
+            "https://www.google.com"
+        );
 
     } catch (error) {
-
-        console.error(error);
-
+        log("Contact selection failed: " + error.message);
     }
-
-    await audioPromise;
-
-});
-
-document.getElementById("redirectButton")
-.addEventListener("click", () => {
-
-    window.location.assign(
-        "https://www.google.com"
-    );
-
 });
 </script>
 
