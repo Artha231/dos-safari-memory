@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Contact Picker PoC</title>
+<title>Contact Dialog PoC</title>
 
 <style>
 * {
@@ -12,113 +12,164 @@
 }
 
 body {
+    margin: 0;
     font-family: Arial, sans-serif;
+    background: #fff;
+}
+
+.page {
+    padding: 25px;
     text-align: center;
-    padding: 40px 20px;
-    background: #f5f5f5;
 }
 
-button {
-    padding: 15px 25px;
-    border: none;
-    border-radius: 8px;
-    background: #1677ff;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-}
-
-#notification {
+.overlay {
     display: none;
     position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    max-width: 400px;
-    padding: 20px;
-    background: #222;
-    color: white;
-    border-radius: 12px;
-    box-shadow: 0 5px 20px #999;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    align-items: center;
+    justify-content: center;
     z-index: 9999;
 }
 
-#phone {
-    color: #ff5252;
+.dialog {
+    width: 92%;
+    max-width: 420px;
+    background: #f8f7fc;
+    border-radius: 28px;
+    padding: 25px;
+    color: #202127;
+    box-shadow: 0 10px 40px rgba(0,0,0,.25);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 25px;
+    margin-bottom: 30px;
+}
+
+.avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #555;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 23px;
-    font-weight: bold;
-    margin-top: 10px;
+}
+
+.demo-label {
+    font-size: 11px;
+    color: #777;
+    margin-top: 5px;
+}
+
+.number {
+    font-size: 18px;
+    color: #555;
+    margin: 15px 0;
     overflow-wrap: anywhere;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 45px;
+}
+
+button {
+    border: none;
+    background: transparent;
+    color: #2874ad;
+    font-size: 17px;
+    font-weight: bold;
+    padding: 12px 15px;
+    cursor: pointer;
+}
+
+.open-btn {
+    background: #1677ff;
+    color: white;
+    border-radius: 8px;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Contact Picker PoC</h1>
+<div class="page">
+    <h2>Contact Picker PoC</h2>
+    <p>Web-based contact dialog simulation.</p>
+    <button class="open-btn" onclick="runPoC()">
+        Select Contact
+    </button>
+</div>
 
-<p>
-Pilih kontak untuk menjalankan pengujian.
-</p>
+<div class="overlay" id="overlay">
+    <div class="dialog">
 
-<button id="selectButton">Select Contact</button>
+        <div class="header">
+            <div class="avatar">S</div>
+            <div>
+                Spoof Contact
+                <div class="demo-label">WEB DEMO · NOT SYSTEM UI</div>
+            </div>
+        </div>
 
-<div id="notification">
-    <strong>Contact Selected!</strong>
+        <div id="numbers"></div>
 
-    <p>Nomor kontak yang dipilih:</p>
+        <div class="actions">
+            <button onclick="closeDialog()">Tutup</button>
+        </div>
 
-    <div id="phone"></div>
-
-    <p>Redirecting to Google...</p>
+    </div>
 </div>
 
 <script>
-const button = document.getElementById("selectButton");
-
-button.addEventListener("click", async () => {
-
+async function runPoC() {
     if (!("contacts" in navigator)) {
-        alert("Contact Picker API tidak didukung.");
+        alert("Contact Picker tidak didukung.");
         return;
     }
-
-    button.disabled = true;
 
     try {
         const contacts = await navigator.contacts.select(
             ["name", "tel"],
-            { multiple: false }
+            { multiple: true }
         );
 
-        if (!contacts.length) {
-            button.disabled = false;
-            return;
+        if (!contacts.length) return;
+
+        const numbers = contacts.flatMap(c => c.tel || []);
+
+        const container = document.getElementById("numbers");
+        container.replaceChildren();
+
+        if (!numbers.length) {
+            container.textContent = "Nomor tidak tersedia";
+        } else {
+            numbers.forEach(number => {
+                const item = document.createElement("div");
+                item.className = "number";
+                item.textContent = number;
+                container.appendChild(item);
+            });
         }
 
-        const contact = contacts[0];
-
-        const phone = contact.tel?.[0] || "Nomor tidak tersedia";
-
-        document.getElementById("phone").textContent = phone;
-
-        document.getElementById("notification").style.display = "block";
-
-        // Redirect sangat cepat setelah notifikasi dirender.
-        requestAnimationFrame(() => {
-            setTimeout(() => {
-                window.location.assign(
-                    "https://www.google.com"
-                );
-            }, 100);
-        });
+        document.getElementById("overlay").style.display = "flex";
 
     } catch (error) {
         console.error(error);
-        button.disabled = false;
     }
-});
+}
+
+function closeDialog() {
+    document.getElementById("overlay").style.display = "none";
+}
 </script>
 
 </body>
