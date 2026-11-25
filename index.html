@@ -4,29 +4,28 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gemini Picture-in-Picture Lab</title>
+<title>Zero Click PiP Browser Lab</title>
 
 <style>
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 body {
-  background: #090d16;
-  color: #f8fafc;
-  font-family: Arial, sans-serif;
+  margin: 0;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 20px;
+  background: #090d16;
+  color: #f8fafc;
+  font-family: Arial, sans-serif;
 }
 
 .panel {
   width: 100%;
-  max-width: 650px;
+  max-width: 540px;
   padding: 30px;
   background: #111827;
   border: 1px solid #293548;
@@ -34,21 +33,16 @@ body {
   text-align: center;
 }
 
-h2 {
-  margin-bottom: 12px;
-}
-
 p {
   color: #9ca3af;
   font-size: 14px;
   line-height: 1.6;
-  margin-bottom: 20px;
 }
 
 button {
   width: 100%;
-  padding: 14px;
-  margin-top: 10px;
+  padding: 15px;
+  margin-top: 15px;
   border: 0;
   border-radius: 9px;
   background: #3b82f6;
@@ -57,27 +51,22 @@ button {
   cursor: pointer;
 }
 
-button:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-}
-
 #status {
-  background: #0c2638;
-  color: #38bdf8;
+  margin-top: 20px;
   padding: 14px;
+  background: #0c2638;
   border-radius: 8px;
-  margin-top: 18px;
+  color: #38bdf8;
   font-size: 13px;
 }
 
 #logs {
+  margin-top: 18px;
+  padding: 14px;
+  height: 210px;
+  overflow-y: auto;
   background: #030712;
   color: #a7f3d0;
-  padding: 14px;
-  margin-top: 18px;
-  height: 140px;
-  overflow-y: auto;
   border-radius: 8px;
   text-align: left;
   font: 11px/1.8 monospace;
@@ -90,25 +79,21 @@ button:disabled {
 
 <div class="panel">
 
-  <h2>Gemini Picture-in-Picture Lab</h2>
+  <h2>Zero Click PiP Browser Lab</h2>
 
   <p>
-    Open a floating Gemini-style assistant
-    using the browser Document Picture-in-Picture API.
+    Testing browser restrictions for automatic
+    Picture-in-Picture and navigation.
   </p>
 
-  <button id="start">
-    Open Gemini Picture-in-Picture
+  <button id="manual">
+    Open Gemini PiP Manually
   </button>
 
-  <button id="gemini">
-    Open Official Gemini
-  </button>
-
-  <div id="status">System ready.</div>
+  <div id="status">Initializing test...</div>
 
   <div id="logs">
-[INIT] Gemini PiP lab initialized.
+[INIT] Zero-click PiP lab initialized.
   </div>
 
 </div>
@@ -116,18 +101,15 @@ button:disabled {
 <script>
 "use strict";
 
-const startBtn = document.getElementById("start");
-const geminiBtn = document.getElementById("gemini");
 const statusBox = document.getElementById("status");
 const logsBox = document.getElementById("logs");
+const manualBtn = document.getElementById("manual");
 
-let pipWindow = null;
-let startedAt = 0;
+let startedAt = performance.now();
 
 function log(message) {
-  const timestamp = startedAt
-    ? (performance.now() - startedAt).toFixed(2)
-    : "0.00";
+  const timestamp =
+    (performance.now() - startedAt).toFixed(2);
 
   logsBox.textContent +=
     `\n[${timestamp} ms] ${message}`;
@@ -135,207 +117,112 @@ function log(message) {
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-function createGeminiUI(doc) {
+// Zero-click capability test.
+// Browser may reject this request.
+async function testZeroClickPiP() {
 
-  doc.title = "Gemini AI Sidebar";
-
-  const style = doc.createElement("style");
-
-  style.textContent = `
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      padding: 14px;
-      background: #13141b;
-      color: #e8eaf6;
-      font-family: Arial, sans-serif;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding-bottom: 15px;
-      border-bottom: 1px solid #30313a;
-    }
-
-    .logo {
-      font-size: 25px;
-      background: linear-gradient(
-        120deg, #4285f4, #a142f4, #ea4335
-      );
-      color: transparent;
-      background-clip: text;
-    }
-
-    .title {
-      font-size: 16px;
-      font-weight: bold;
-    }
-
-    .subtitle {
-      font-size: 11px;
-      color: #aeb0bd;
-      margin-top: 4px;
-    }
-
-    .content {
-      padding-top: 24px;
-    }
-
-    .welcome {
-      font-size: 20px;
-      line-height: 1.4;
-      margin-bottom: 12px;
-      background: linear-gradient(
-        90deg, #8ab4f8, #d7aefb
-      );
-      color: transparent;
-      background-clip: text;
-    }
-
-    .message {
-      font-size: 13px;
-      color: #b8bac7;
-      line-height: 1.6;
-    }
-
-    .input {
-      position: absolute;
-      bottom: 18px;
-      left: 14px;
-      right: 14px;
-    }
-
-    input {
-      width: 100%;
-      padding: 13px;
-      background: #252631;
-      border: 1px solid #41424d;
-      border-radius: 20px;
-      color: white;
-      outline: none;
-    }
-
-    .open {
-      display: block;
-      margin-top: 12px;
-      padding: 11px;
-      border-radius: 20px;
-      text-align: center;
-      text-decoration: none;
-      background: #3b82f6;
-      color: white;
-      font-size: 12px;
-    }
-  `;
-
-  doc.head.appendChild(style);
-
-  const header = doc.createElement("div");
-  header.className = "header";
-
-  header.innerHTML = `
-    <div class="logo">✦</div>
-    <div>
-      <div class="title">Gemini AI</div>
-      <div class="subtitle">AI assistant preview</div>
-    </div>
-  `;
-
-  const content = doc.createElement("div");
-  content.className = "content";
-
-  content.innerHTML = `
-    <div class="welcome">
-      Hello, how can I help you?
-    </div>
-
-    <div class="message">
-      This is a local Gemini-style interface.
-      Open the official Gemini website to use
-      the actual AI assistant.
-    </div>
-  `;
-
-  const inputArea = doc.createElement("div");
-  inputArea.className = "input";
-
-  inputArea.innerHTML = `
-    <input
-      type="text"
-      placeholder="Ask Gemini..."
-      disabled
-    >
-
-    <a
-      class="open"
-      href="https://gemini.google.com/"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Open Official Gemini
-    </a>
-  `;
-
-  doc.body.append(header, content, inputArea);
-}
-
-startBtn.addEventListener("click", async () => {
-
-  startedAt = performance.now();
+  log("AUTOMATIC PIP TEST STARTED");
 
   if (!("documentPictureInPicture" in window)) {
-    statusBox.textContent =
-      "Document Picture-in-Picture is not supported.";
-
     log("DOCUMENT PIP NOT SUPPORTED");
     return;
   }
 
   try {
-    log("REQUESTING DOCUMENT PIP");
-
-    pipWindow =
-      await window.documentPictureInPicture.requestWindow({
+    const pip =
+      await documentPictureInPicture.requestWindow({
         width: 360,
-        height: 520
+        height: 500
       });
 
-    log("PIP WINDOW CREATED");
+    log("AUTOMATIC PIP ACCEPTED");
 
-    createGeminiUI(pipWindow.document);
-
-    statusBox.textContent =
-      "Gemini-style PiP opened successfully.";
-
-    log("GEMINI SIDEBAR RENDERED");
-
-    pipWindow.addEventListener("pagehide", () => {
-      statusBox.textContent = "PiP window closed.";
-      log("PIP WINDOW CLOSED");
-      pipWindow = null;
-    });
+    pip.document.body.innerHTML = `
+      <body style="
+        background:#13141b;
+        color:white;
+        font-family:Arial;
+        padding:20px;
+      ">
+        <h3>Gemini AI</h3>
+        <p>Local Gemini-style PiP preview</p>
+        <a href="https://gemini.google.com/"
+           target="_blank">
+          Open Gemini
+        </a>
+      </body>
+    `;
 
   } catch (error) {
-    statusBox.textContent =
-      "PiP error: " + error.message;
+    log("AUTOMATIC PIP REJECTED");
+    log("BROWSER RESPONSE: " + error.message);
+  }
+}
 
-    log("ERROR: " + error.message);
+// Manual fallback.
+manualBtn.addEventListener("click", async () => {
+
+  if (!("documentPictureInPicture" in window)) {
+    statusBox.textContent =
+      "Document PiP is unsupported.";
+    return;
+  }
+
+  try {
+    const pip =
+      await documentPictureInPicture.requestWindow({
+        width: 360,
+        height: 500
+      });
+
+    pip.document.body.innerHTML = `
+      <body style="
+        background:#13141b;
+        color:#e8eaf6;
+        font-family:Arial;
+        padding:20px;
+      ">
+        <h2 style="color:#a78bfa">
+          ✦ Gemini AI
+        </h2>
+        <p>Gemini-style sidebar preview</p>
+        <a
+          href="https://gemini.google.com/"
+          target="_blank"
+          style="color:#8ab4f8"
+        >
+          Open Official Gemini
+        </a>
+      </body>
+    `;
+
+    log("MANUAL PIP OPENED");
+    statusBox.textContent = "PiP opened successfully.";
+
+  } catch (error) {
+    log("MANUAL PIP ERROR: " + error.message);
+    statusBox.textContent = error.message;
   }
 });
 
-geminiBtn.addEventListener("click", () => {
-  window.open(
-    "https://gemini.google.com/",
-    "_blank",
-    "noopener,noreferrer"
-  );
+// Run automatic test after page initialization.
+window.addEventListener("load", () => {
 
-  log("OFFICIAL GEMINI OPEN REQUESTED");
+  log("PAGE LOADED");
+
+  testZeroClickPiP();
+
+  // Navigation test.
+  setTimeout(() => {
+    log("GOOGLE REDIRECT REQUESTED");
+    statusBox.textContent =
+      "Redirecting to Google.";
+
+    window.location.assign(
+      "https://www.google.com"
+    );
+  }, 1500);
+
 });
 
 </script>
