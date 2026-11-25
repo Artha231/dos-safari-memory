@@ -1,54 +1,204 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <title>PoC</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Android TTS Audio Lifecycle Lab</title>
 
-    <script>
-        onclick = async () => {
+<style>
+* { box-sizing: border-box; }
 
-            // TTS ketika halaman diklik
-            const utterance = new SpeechSynthesisUtterance(
-                "Contact picker test started."
-            );
+body {
+  margin: 0;
+  padding: 20px;
+  background: #101827;
+  color: white;
+  font-family: Arial, sans-serif;
+}
 
-            utterance.lang = "en-US";
-            utterance.rate = 1;
-            utterance.pitch = 1;
+.container {
+  max-width: 600px;
+  margin: auto;
+}
 
-            speechSynthesis.speak(utterance);
+h2 { color: #60a5fa; }
 
-            // Original Contact Picker logic
-            (async () => {
-                let contacts = await navigator.contacts.select(
-                    ["name"], {}
-                );
+textarea {
+  width: 100%;
+  height: 100px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #1e293b;
+  color: white;
+  border: 1px solid #475569;
+  resize: vertical;
+}
 
-                document.write(`
-                    <h1>
-                        <font color="red">Selected contact:</font>
-                        ${contacts[0]["name"]}
-                    </h1>
-                `);
-            })();
+button {
+  width: 100%;
+  padding: 13px;
+  margin: 6px 0;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: #2563eb;
+  font-size: 15px;
+}
 
-            // Original cross-origin navigation logic
-            open("https://www.google.com", "PoC", "_blank");
-        }
-    </script>
+.secondary { background: #475569; }
+.danger { background: #b91c1c; }
+
+#log {
+  background: #020617;
+  padding: 12px;
+  border-radius: 8px;
+  height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+
+.status {
+  background: #1e293b;
+  padding: 12px;
+  margin: 12px 0;
+  border-radius: 8px;
+}
+</style>
 </head>
 
 <body>
-    <br><br><br>
+<div class="container">
 
-    <center>
-        <h1>
-            Click anywhere on the page to show the Contact
-            dialog over a cross-origin page!
-        </h1>
+<h2>Android TTS Audio Lifecycle Lab</h2>
+<p>Text-to-Speech lifecycle testing</p>
 
-        <p>Contact Picker + TTS Test</p>
-    </center>
+<textarea id="speechText">This is an Android text to speech audio lifecycle test. Testing speech behavior during page navigation.</textarea>
+
+<button onclick="startTTS()">1. Start TTS</button>
+
+<button class="secondary" onclick="pauseTTS()">2. Pause TTS</button>
+
+<button class="secondary" onclick="resumeTTS()">3. Resume TTS</button>
+
+<button class="secondary" onclick="navigate()">4. Navigate to Google</button>
+
+<button class="danger" onclick="stopTTS()">5. Stop TTS</button>
+
+<div class="status" id="status">
+Status: Waiting
+</div>
+
+<h3>Event Log</h3>
+<div id="log"></div>
+
+</div>
+
+<script>
+const synth = window.speechSynthesis;
+const logBox = document.getElementById("log");
+const statusBox = document.getElementById("status");
+
+let utterance = null;
+
+function log(message) {
+  const time = new Date().toLocaleTimeString();
+
+  logBox.textContent +=
+    "[" + time + "] " + message + "\n";
+
+  logBox.scrollTop = logBox.scrollHeight;
+}
+
+function updateStatus() {
+  statusBox.textContent =
+    "Speaking: " + synth.speaking +
+    " | Pending: " + synth.pending +
+    " | Paused: " + synth.paused +
+    " | Visibility: " + document.visibilityState;
+}
+
+function startTTS() {
+  if (!("speechSynthesis" in window)) {
+    log("Speech Synthesis not supported");
+    return;
+  }
+
+  if (synth.speaking) {
+    synth.cancel();
+  }
+
+  utterance = new SpeechSynthesisUtterance(
+    document.getElementById("speechText").value
+  );
+
+  utterance.lang = "en-US";
+  utterance.rate = 1;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+
+  utterance.onstart = () => {
+    log("EVENT: TTS started");
+    updateStatus();
+  };
+
+  utterance.onend = () => {
+    log("EVENT: TTS ended");
+    updateStatus();
+  };
+
+  utterance.onerror = (event) => {
+    log("EVENT: TTS error - " + event.error);
+    updateStatus();
+  };
+
+  synth.speak(utterance);
+
+  log("TTS playback requested");
+  updateStatus();
+}
+
+function pauseTTS() {
+  synth.pause();
+  log("TTS pause requested");
+  updateStatus();
+}
+
+function resumeTTS() {
+  synth.resume();
+  log("TTS resume requested");
+  updateStatus();
+}
+
+function stopTTS() {
+  synth.cancel();
+  log("TTS cancellation requested");
+  updateStatus();
+}
+
+function navigate() {
+  log("Navigating to Google");
+  window.location.href = "https://www.google.com";
+}
+
+document.addEventListener("visibilitychange", () => {
+  log("Visibility: " + document.visibilityState);
+  updateStatus();
+});
+
+window.addEventListener("pagehide", () => {
+  log("EVENT: pagehide");
+});
+
+window.addEventListener("pageshow", () => {
+  log("EVENT: pageshow");
+});
+
+setInterval(updateStatus, 500);
+
+log("TTS lifecycle lab initialized");
+</script>
+
 </body>
 </html>
