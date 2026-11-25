@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Zero Click PiP Browser Lab</title>
+<title>Zero Click PiP Security Lab</title>
 
 <style>
 * {
@@ -39,18 +39,6 @@ p {
   line-height: 1.6;
 }
 
-button {
-  width: 100%;
-  padding: 15px;
-  margin-top: 15px;
-  border: 0;
-  border-radius: 9px;
-  background: #3b82f6;
-  color: white;
-  font-weight: bold;
-  cursor: pointer;
-}
-
 #status {
   margin-top: 20px;
   padding: 14px;
@@ -63,7 +51,7 @@ button {
 #logs {
   margin-top: 18px;
   padding: 14px;
-  height: 210px;
+  height: 240px;
   overflow-y: auto;
   background: #030712;
   color: #a7f3d0;
@@ -78,24 +66,16 @@ button {
 <body>
 
 <div class="panel">
-
   <h2>Zero Click PiP Browser Lab</h2>
 
   <p>
-    Testing browser restrictions for automatic
-    Picture-in-Picture and navigation.
+    Automatic Document Picture-in-Picture
+    security restriction test.
   </p>
 
-  <button id="manual">
-    Open Gemini PiP Manually
-  </button>
+  <div id="status">Initializing...</div>
 
-  <div id="status">Initializing test...</div>
-
-  <div id="logs">
-[INIT] Zero-click PiP lab initialized.
-  </div>
-
+  <div id="logs">[INIT] Zero-click test initialized.</div>
 </div>
 
 <script>
@@ -103,126 +83,105 @@ button {
 
 const statusBox = document.getElementById("status");
 const logsBox = document.getElementById("logs");
-const manualBtn = document.getElementById("manual");
 
-let startedAt = performance.now();
+const startedAt = performance.now();
 
 function log(message) {
-  const timestamp =
+  const elapsed =
     (performance.now() - startedAt).toFixed(2);
 
   logsBox.textContent +=
-    `\n[${timestamp} ms] ${message}`;
+    `\n[${elapsed} ms] ${message}`;
 
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-// Zero-click capability test.
-// Browser may reject this request.
-async function testZeroClickPiP() {
+async function zeroClickPiPTest() {
 
-  log("AUTOMATIC PIP TEST STARTED");
+  log("PAGE INITIALIZATION");
+  log("CHECKING DOCUMENT PIP API");
 
   if (!("documentPictureInPicture" in window)) {
-    log("DOCUMENT PIP NOT SUPPORTED");
+    log("RESULT: DOCUMENT PIP UNSUPPORTED");
+    statusBox.textContent = "PiP API unsupported";
     return;
   }
 
+  log("DOCUMENT PIP API AVAILABLE");
+  log("CHECKING USER ACTIVATION");
+
+  log(
+    "User activation: " +
+    navigator.userActivation.isActive
+  );
+
+  log("REQUESTING AUTOMATIC PIP");
+
   try {
+
     const pip =
       await documentPictureInPicture.requestWindow({
         width: 360,
         height: 500
       });
 
-    log("AUTOMATIC PIP ACCEPTED");
+    log("RESULT: PIP REQUEST ACCEPTED");
 
-    pip.document.body.innerHTML = `
-      <body style="
-        background:#13141b;
-        color:white;
-        font-family:Arial;
-        padding:20px;
-      ">
-        <h3>Gemini AI</h3>
-        <p>Local Gemini-style PiP preview</p>
-        <a href="https://gemini.google.com/"
-           target="_blank">
-          Open Gemini
-        </a>
-      </body>
+    const doc = pip.document;
+
+    doc.body.style.cssText = `
+      margin:0;
+      padding:20px;
+      min-height:100vh;
+      box-sizing:border-box;
+      background:#13141b;
+      color:#ffffff;
+      font-family:Arial,sans-serif;
     `;
 
+    const heading = doc.createElement("h2");
+    heading.textContent = "Gemini AI";
+    heading.style.color = "#a78bfa";
+
+    const description = doc.createElement("p");
+    description.textContent =
+      "Local Picture-in-Picture security test.";
+
+    const link = doc.createElement("a");
+    link.href = "https://gemini.google.com/";
+    link.target = "_blank";
+    link.textContent = "Open Official Gemini";
+    link.style.color = "#8ab4f8";
+
+    doc.body.append(
+      heading,
+      description,
+      link
+    );
+
+    log("PIP CONTENT INITIALIZED");
+
+    pip.addEventListener("pagehide", () => {
+      log("PIP WINDOW CLOSED");
+      statusBox.textContent = "PiP closed";
+    });
+
+    statusBox.textContent = "PiP request accepted";
+
   } catch (error) {
-    log("AUTOMATIC PIP REJECTED");
-    log("BROWSER RESPONSE: " + error.message);
+
+    log("RESULT: PIP REQUEST REJECTED");
+    log("ERROR NAME: " + error.name);
+    log("ERROR MESSAGE: " + error.message);
+
+    statusBox.textContent =
+      "Automatic PiP blocked by browser policy";
   }
 }
 
-// Manual fallback.
-manualBtn.addEventListener("click", async () => {
-
-  if (!("documentPictureInPicture" in window)) {
-    statusBox.textContent =
-      "Document PiP is unsupported.";
-    return;
-  }
-
-  try {
-    const pip =
-      await documentPictureInPicture.requestWindow({
-        width: 360,
-        height: 500
-      });
-
-    pip.document.body.innerHTML = `
-      <body style="
-        background:#13141b;
-        color:#e8eaf6;
-        font-family:Arial;
-        padding:20px;
-      ">
-        <h2 style="color:#a78bfa">
-          ✦ Gemini AI
-        </h2>
-        <p>Gemini-style sidebar preview</p>
-        <a
-          href="https://gemini.google.com/"
-          target="_blank"
-          style="color:#8ab4f8"
-        >
-          Open Official Gemini
-        </a>
-      </body>
-    `;
-
-    log("MANUAL PIP OPENED");
-    statusBox.textContent = "PiP opened successfully.";
-
-  } catch (error) {
-    log("MANUAL PIP ERROR: " + error.message);
-    statusBox.textContent = error.message;
-  }
-});
-
-// Run automatic test after page initialization.
 window.addEventListener("load", () => {
-
-  log("PAGE LOADED");
-
-  testZeroClickPiP();
-
-  // Navigation test.
-  setTimeout(() => {
-    log("GOOGLE REDIRECT REQUESTED");
-    statusBox.textContent =
-      "Redirecting to Google.";
-
-    window.location.assign(
-      "https://www.google.com"
-    );
-  }, 1500);
-
+  log("WINDOW LOAD EVENT");
+  zeroClickPiPTest();
 });
 
 </script>
