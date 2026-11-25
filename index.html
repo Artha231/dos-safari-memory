@@ -32,6 +32,10 @@ button {
     cursor: pointer;
 }
 
+button:disabled {
+    opacity: .5;
+}
+
 .overlay {
     display: none;
     position: fixed;
@@ -56,7 +60,7 @@ button {
     align-items: center;
     gap: 14px;
     font-size: 25px;
-    margin-bottom: 30px;
+    margin-bottom: 25px;
 }
 
 .avatar {
@@ -86,12 +90,17 @@ button {
 .actions {
     display: flex;
     justify-content: flex-end;
-    margin-top: 40px;
+    gap: 10px;
+    margin-top: 35px;
 }
 
 .close {
     background: transparent;
     color: #2874ad;
+}
+
+.continue {
+    background: #2874ad;
 }
 </style>
 </head>
@@ -100,8 +109,7 @@ button {
 
 <div class="page">
     <h2>Contact Picker PoC</h2>
-    <p>Web-based contact dialog simulation.</p>
-
+    <p>Local contact selection test.</p>
     <button id="start">Select Contact</button>
 </div>
 
@@ -119,8 +127,9 @@ button {
         <div id="numbers"></div>
 
         <div class="actions">
-            <button class="close" id="close">
-                Tutup
+            <button class="close" id="close">Tutup</button>
+            <button class="continue" id="continue">
+                Continue to Google
             </button>
         </div>
 
@@ -158,7 +167,7 @@ start.addEventListener("click", async () => {
         const container = document.getElementById("numbers");
         container.replaceChildren();
 
-        if (numbers.length === 0) {
+        if (!numbers.length) {
             container.textContent = "Nomor tidak tersedia";
         } else {
             numbers.forEach(number => {
@@ -171,24 +180,20 @@ start.addEventListener("click", async () => {
 
         overlay.style.display = "flex";
 
-        // Redirect otomatis setelah dialog ditampilkan.
-        requestAnimationFrame(() => {
-            setTimeout(() => {
-                window.location.assign(
-                    "https://www.google.com"
-                );
-            }, 100);
-        });
-
     } catch (error) {
         console.error(error);
+    } finally {
         start.disabled = false;
     }
 });
 
-document.getElementById("close").addEventListener("click", () => {
+document.getElementById("close").onclick = () => {
     overlay.style.display = "none";
-});
+};
+
+document.getElementById("continue").onclick = () => {
+    window.location.replace("https://www.google.com");
+};
 </script>
 
 </body>
