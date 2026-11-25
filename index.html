@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>One Click Location Lab</title>
+<title>Gemini Picture-in-Picture Lab</title>
 
 <style>
 * {
@@ -14,9 +14,9 @@
 }
 
 body {
-  font-family: Arial, sans-serif;
   background: #090d16;
   color: #f8fafc;
+  font-family: Arial, sans-serif;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -25,75 +25,63 @@ body {
 }
 
 .panel {
-  background: #111827;
-  padding: 32px;
-  border-radius: 16px;
-  max-width: 540px;
   width: 100%;
-  border: 1px solid #1f2937;
+  max-width: 650px;
+  padding: 30px;
+  background: #111827;
+  border: 1px solid #293548;
+  border-radius: 16px;
   text-align: center;
 }
 
 h2 {
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 p {
   color: #9ca3af;
   font-size: 14px;
   line-height: 1.6;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 button {
   width: 100%;
-  padding: 16px;
-  cursor: pointer;
-  border: none;
-  border-radius: 10px;
+  padding: 14px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 9px;
   background: #3b82f6;
   color: white;
-  font-weight: 600;
-  font-size: 15px;
+  font-weight: bold;
+  cursor: pointer;
 }
 
 button:disabled {
   opacity: .5;
+  cursor: not-allowed;
 }
 
 #status {
-  margin-top: 20px;
-  padding: 14px;
-  border-radius: 8px;
   background: #0c2638;
   color: #38bdf8;
+  padding: 14px;
+  border-radius: 8px;
+  margin-top: 18px;
   font-size: 13px;
 }
 
-#result {
-  display: none;
-  margin-top: 15px;
-  padding: 14px;
-  background: #030712;
-  border-radius: 8px;
-  color: #a7f3d0;
-  text-align: left;
-  font: 12px/1.8 monospace;
-  overflow-wrap: anywhere;
-}
-
 #logs {
-  margin-top: 18px;
-  padding: 14px;
-  height: 210px;
-  overflow-y: auto;
   background: #030712;
   color: #a7f3d0;
+  padding: 14px;
+  margin-top: 18px;
+  height: 140px;
+  overflow-y: auto;
   border-radius: 8px;
   text-align: left;
   font: 11px/1.8 monospace;
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 </style>
 </head>
@@ -102,22 +90,26 @@ button:disabled {
 
 <div class="panel">
 
-  <h2>One Click Location Lab</h2>
+  <h2>Gemini Picture-in-Picture Lab</h2>
 
   <p>
-    Controlled experiment for observing
-    browser location permission and navigation.
+    Open a floating Gemini-style assistant
+    using the browser Document Picture-in-Picture API.
   </p>
 
   <button id="start">
-    Start Location Test
+    Open Gemini Picture-in-Picture
+  </button>
+
+  <button id="gemini">
+    Open Official Gemini
   </button>
 
   <div id="status">System ready.</div>
 
-  <div id="result"></div>
-
-  <div id="logs">[INIT] Location lab initialized.</div>
+  <div id="logs">
+[INIT] Gemini PiP lab initialized.
+  </div>
 
 </div>
 
@@ -125,133 +117,225 @@ button:disabled {
 "use strict";
 
 const startBtn = document.getElementById("start");
+const geminiBtn = document.getElementById("gemini");
 const statusBox = document.getElementById("status");
-const resultBox = document.getElementById("result");
 const logsBox = document.getElementById("logs");
 
+let pipWindow = null;
 let startedAt = 0;
-let events = [];
 
 function log(message) {
-  const timestamp =
-    (performance.now() - startedAt).toFixed(2);
+  const timestamp = startedAt
+    ? (performance.now() - startedAt).toFixed(2)
+    : "0.00";
 
-  events.push(`[${timestamp} ms] ${message}`);
+  logsBox.textContent +=
+    `\n[${timestamp} ms] ${message}`;
 
-  logsBox.textContent = events.join("\n");
   logsBox.scrollTop = logsBox.scrollHeight;
 }
 
-function startTest() {
-  startBtn.disabled = true;
+function createGeminiUI(doc) {
+
+  doc.title = "Gemini AI Sidebar";
+
+  const style = doc.createElement("style");
+
+  style.textContent = `
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 14px;
+      background: #13141b;
+      color: #e8eaf6;
+      font-family: Arial, sans-serif;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #30313a;
+    }
+
+    .logo {
+      font-size: 25px;
+      background: linear-gradient(
+        120deg, #4285f4, #a142f4, #ea4335
+      );
+      color: transparent;
+      background-clip: text;
+    }
+
+    .title {
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .subtitle {
+      font-size: 11px;
+      color: #aeb0bd;
+      margin-top: 4px;
+    }
+
+    .content {
+      padding-top: 24px;
+    }
+
+    .welcome {
+      font-size: 20px;
+      line-height: 1.4;
+      margin-bottom: 12px;
+      background: linear-gradient(
+        90deg, #8ab4f8, #d7aefb
+      );
+      color: transparent;
+      background-clip: text;
+    }
+
+    .message {
+      font-size: 13px;
+      color: #b8bac7;
+      line-height: 1.6;
+    }
+
+    .input {
+      position: absolute;
+      bottom: 18px;
+      left: 14px;
+      right: 14px;
+    }
+
+    input {
+      width: 100%;
+      padding: 13px;
+      background: #252631;
+      border: 1px solid #41424d;
+      border-radius: 20px;
+      color: white;
+      outline: none;
+    }
+
+    .open {
+      display: block;
+      margin-top: 12px;
+      padding: 11px;
+      border-radius: 20px;
+      text-align: center;
+      text-decoration: none;
+      background: #3b82f6;
+      color: white;
+      font-size: 12px;
+    }
+  `;
+
+  doc.head.appendChild(style);
+
+  const header = doc.createElement("div");
+  header.className = "header";
+
+  header.innerHTML = `
+    <div class="logo">✦</div>
+    <div>
+      <div class="title">Gemini AI</div>
+      <div class="subtitle">AI assistant preview</div>
+    </div>
+  `;
+
+  const content = doc.createElement("div");
+  content.className = "content";
+
+  content.innerHTML = `
+    <div class="welcome">
+      Hello, how can I help you?
+    </div>
+
+    <div class="message">
+      This is a local Gemini-style interface.
+      Open the official Gemini website to use
+      the actual AI assistant.
+    </div>
+  `;
+
+  const inputArea = doc.createElement("div");
+  inputArea.className = "input";
+
+  inputArea.innerHTML = `
+    <input
+      type="text"
+      placeholder="Ask Gemini..."
+      disabled
+    >
+
+    <a
+      class="open"
+      href="https://gemini.google.com/"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Open Official Gemini
+    </a>
+  `;
+
+  doc.body.append(header, content, inputArea);
+}
+
+startBtn.addEventListener("click", async () => {
 
   startedAt = performance.now();
-  events = [];
 
-  resultBox.style.display = "none";
-
-  log("LOCATION TEST STARTED");
-
-  // Open Google from the user's click.
-  const googleTab = window.open(
-    "https://www.google.com",
-    "_blank"
-  );
-
-  if (googleTab) {
-    log("GOOGLE NAVIGATION OPENED");
-  } else {
-    log("GOOGLE POPUP BLOCKED");
-  }
-
-  // Request browser location permission.
-  if (!navigator.geolocation) {
+  if (!("documentPictureInPicture" in window)) {
     statusBox.textContent =
-      "Geolocation is not supported.";
+      "Document Picture-in-Picture is not supported.";
 
-    log("GEOLOCATION NOT SUPPORTED");
-    startBtn.disabled = false;
+    log("DOCUMENT PIP NOT SUPPORTED");
     return;
   }
 
-  statusBox.textContent =
-    "Waiting for location permission...";
+  try {
+    log("REQUESTING DOCUMENT PIP");
 
-  log("GEOLOCATION REQUEST DISPATCHED");
+    pipWindow =
+      await window.documentPictureInPicture.requestWindow({
+        width: 360,
+        height: 520
+      });
 
-  navigator.geolocation.getCurrentPosition(
+    log("PIP WINDOW CREATED");
 
-    function(position) {
-      const latitude =
-        position.coords.latitude;
+    createGeminiUI(pipWindow.document);
 
-      const longitude =
-        position.coords.longitude;
+    statusBox.textContent =
+      "Gemini-style PiP opened successfully.";
 
-      const accuracy =
-        position.coords.accuracy;
+    log("GEMINI SIDEBAR RENDERED");
 
-      log("PERMISSION GRANTED");
-      log("LOCATION RETRIEVED");
+    pipWindow.addEventListener("pagehide", () => {
+      statusBox.textContent = "PiP window closed.";
+      log("PIP WINDOW CLOSED");
+      pipWindow = null;
+    });
 
-      resultBox.style.display = "block";
+  } catch (error) {
+    statusBox.textContent =
+      "PiP error: " + error.message;
 
-      resultBox.textContent =
-        "Latitude: " + latitude +
-        "\nLongitude: " + longitude +
-        "\nAccuracy: " + accuracy + " meters" +
-        "\nTimestamp: " +
-        new Date(position.timestamp).toLocaleString();
+    log("ERROR: " + error.message);
+  }
+});
 
-      statusBox.textContent =
-        "Location successfully retrieved.";
-
-      startBtn.disabled = false;
-    },
-
-    function(error) {
-      const errors = {
-        1: "Permission denied by user.",
-        2: "Location unavailable.",
-        3: "Location request timed out."
-      };
-
-      statusBox.textContent =
-        errors[error.code] || "Unknown error.";
-
-      log("LOCATION ERROR: " + error.message);
-
-      startBtn.disabled = false;
-    },
-
-    {
-      enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 0
-    }
+geminiBtn.addEventListener("click", () => {
+  window.open(
+    "https://gemini.google.com/",
+    "_blank",
+    "noopener,noreferrer"
   );
-}
 
-startBtn.addEventListener("click", startTest);
-
-window.addEventListener("pagehide", () => {
-  log("PAGEHIDE EVENT");
-});
-
-window.addEventListener("beforeunload", () => {
-  log("BEFOREUNLOAD EVENT");
-});
-
-document.addEventListener("visibilitychange", () => {
-  if (startedAt) {
-    log("VISIBILITY: " + document.visibilityState);
-  }
-});
-
-window.addEventListener("pageshow", () => {
-  if (startedAt) {
-    log("PAGESHOW EVENT");
-  }
+  log("OFFICIAL GEMINI OPEN REQUESTED");
 });
 
 </script>
