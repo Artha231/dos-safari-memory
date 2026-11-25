@@ -1,17 +1,169 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Redirect Speed PoC</title>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Contact Picker Security PoC</title>
+    <meta charset="UTF-8">
 
-    <script>
-        onclick = () => {
-            window.location.replace("https://www.google.com");
-        };
-    </script>
+    <meta name="viewport"
+          content="width=device-width,initial-scale=1">
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 35px 20px;
+        }
+
+        button {
+            padding: 13px 22px;
+            border: none;
+            border-radius: 8px;
+            background: #1677ff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #result {
+            display: none;
+            margin: 25px auto;
+            padding: 20px;
+            max-width: 400px;
+            border-radius: 12px;
+            background: #f4f4f4;
+            overflow-wrap: anywhere;
+        }
+
+        .name {
+            font-size: 22px;
+            color: #1677ff;
+            font-weight: bold;
+        }
+
+        .phone {
+            font-size: 18px;
+            color: #d32f2f;
+        }
+
+        .notice {
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
 </head>
+
 <body>
-    <h1>Click anywhere to test fast redirect</h1>
+
+    <h1>Contact Picker PoC</h1>
+
+    <p>
+        Select a contact to start the security test.
+    </p>
+
+    <button id="selectButton">
+        Select Contact
+    </button>
+
+    <div id="result">
+
+        <h2>Contact Information</h2>
+
+        <p class="notice">
+            Locally displayed selected contact
+        </p>
+
+        <p>Contact Name:</p>
+        <div class="name" id="contactName"></div>
+
+        <p>Phone Number:</p>
+        <div class="phone" id="contactPhone"></div>
+
+        <br>
+
+        <button id="redirectButton">
+            Continue to Google
+        </button>
+
+    </div>
+
+<script>
+const selectButton =
+    document.getElementById("selectButton");
+
+selectButton.addEventListener("click", async () => {
+
+    if (!("contacts" in navigator)) {
+        alert("Contact Picker API is not supported.");
+        return;
+    }
+
+    if (!window.isSecureContext) {
+        alert("HTTPS is required.");
+        return;
+    }
+
+    selectButton.disabled = true;
+
+    try {
+
+        const contacts = await navigator.contacts.select(
+            ["name", "tel"],
+            { multiple: false }
+        );
+
+        if (!contacts.length) {
+            return;
+        }
+
+        const contact = contacts[0];
+
+        const name =
+            contact.name?.[0] || "Unknown";
+
+        const phone =
+            contact.tel?.[0] || "Unavailable";
+
+        document.getElementById("contactName")
+            .textContent = name;
+
+        document.getElementById("contactPhone")
+            .textContent = phone;
+
+        document.getElementById("result")
+            .style.display = "block";
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert("Contact selection cancelled or failed.");
+
+    } finally {
+
+        selectButton.disabled = false;
+    }
+});
+
+document.getElementById("redirectButton")
+    .addEventListener("click", () => {
+
+        const newTab = window.open(
+            "about:blank",
+            "_blank"
+        );
+
+        if (newTab) {
+            newTab.location.replace(
+                "https://www.google.com"
+            );
+        } else {
+            window.location.assign(
+                "https://www.google.com"
+            );
+        }
+    });
+</script>
+
 </body>
 </html>
