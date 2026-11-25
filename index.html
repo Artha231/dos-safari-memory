@@ -15,6 +15,17 @@ body {
     font-family: Arial, sans-serif;
     text-align: center;
     padding: 40px 20px;
+    background: #f5f5f5;
+}
+
+button {
+    padding: 15px 25px;
+    border: none;
+    border-radius: 8px;
+    background: #1677ff;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 #notification {
@@ -38,15 +49,7 @@ body {
     font-size: 23px;
     font-weight: bold;
     margin-top: 10px;
-}
-
-button {
-    padding: 15px 25px;
-    border: none;
-    border-radius: 8px;
-    background: #1677ff;
-    color: white;
-    font-size: 16px;
+    overflow-wrap: anywhere;
 }
 </style>
 </head>
@@ -55,24 +58,33 @@ button {
 
 <h1>Contact Picker PoC</h1>
 
-<p>Tekan tombol untuk memilih kontak.</p>
+<p>
+Pilih kontak untuk menjalankan pengujian.
+</p>
 
-<button onclick="runPoC()">Select Contact</button>
+<button id="selectButton">Select Contact</button>
 
 <div id="notification">
     <strong>Contact Selected!</strong>
+
     <p>Nomor kontak yang dipilih:</p>
+
     <div id="phone"></div>
-    <p id="status">Redirecting to Google...</p>
+
+    <p>Redirecting to Google...</p>
 </div>
 
 <script>
-async function runPoC() {
+const button = document.getElementById("selectButton");
+
+button.addEventListener("click", async () => {
 
     if (!("contacts" in navigator)) {
-        alert("Contact Picker API tidak didukung browser ini.");
+        alert("Contact Picker API tidak didukung.");
         return;
     }
+
+    button.disabled = true;
 
     try {
         const contacts = await navigator.contacts.select(
@@ -80,7 +92,10 @@ async function runPoC() {
             { multiple: false }
         );
 
-        if (!contacts.length) return;
+        if (!contacts.length) {
+            button.disabled = false;
+            return;
+        }
 
         const contact = contacts[0];
 
@@ -90,17 +105,20 @@ async function runPoC() {
 
         document.getElementById("notification").style.display = "block";
 
-        document.getElementById("status").textContent =
-            "Kontak berhasil dipilih. Redirect ke Google dalam 3 detik.";
-
-        setTimeout(() => {
-            window.location.assign("https://www.google.com");
-        }, 3000);
+        // Redirect sangat cepat setelah notifikasi dirender.
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                window.location.assign(
+                    "https://www.google.com"
+                );
+            }, 100);
+        });
 
     } catch (error) {
-        console.error("Contact Picker:", error);
+        console.error(error);
+        button.disabled = false;
     }
-}
+});
 </script>
 
 </body>
