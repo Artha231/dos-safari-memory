@@ -1,86 +1,107 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <title>Contact Picker PoC</title>
-    <meta charset="utf-8">
-    <meta name="viewport"
-          content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contact Picker PoC</title>
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 30px;
-        }
+<style>
+* {
+    box-sizing: border-box;
+}
 
-        .result {
-            margin-top: 30px;
-            padding: 20px;
-            border: 2px solid red;
-            display: none;
-        }
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 40px 20px;
+}
 
-        .number {
-            color: red;
-            font-size: 26px;
-            font-weight: bold;
-        }
-    </style>
+#notification {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 400px;
+    padding: 20px;
+    background: #222;
+    color: white;
+    border-radius: 12px;
+    box-shadow: 0 5px 20px #999;
+    z-index: 9999;
+}
 
-    <script>
-        async function runPoC() {
-            if (!("contacts" in navigator)) {
-                alert("Contact Picker API is not supported.");
-                return;
-            }
+#phone {
+    color: #ff5252;
+    font-size: 23px;
+    font-weight: bold;
+    margin-top: 10px;
+}
 
-            try {
-                const contacts = await navigator.contacts.select(
-                    ["name", "tel"],
-                    { multiple: false }
-                );
-
-                document.getElementById("result").style.display = "block";
-
-                document.getElementById("number").textContent =
-                    "6285796065672";
-
-                document.getElementById("selected").textContent =
-                    contacts.length
-                        ? contacts[0].name || "Contact selected"
-                        : "No contact selected";
-
-            } catch (error) {
-                console.log(error);
-            }
-
-            window.open(
-                "https://www.google.com",
-                "_blank"
-            );
-        }
-    </script>
+button {
+    padding: 15px 25px;
+    border: none;
+    border-radius: 8px;
+    background: #1677ff;
+    color: white;
+    font-size: 16px;
+}
+</style>
 </head>
 
-<body onclick="runPoC()">
+<body>
 
-    <h1>Contact Picker PoC</h1>
+<h1>Contact Picker PoC</h1>
 
-    <p>
-        Click anywhere on this page to trigger
-        the Contact Picker dialog.
-    </p>
+<p>Tekan tombol untuk memilih kontak.</p>
 
-    <div class="result" id="result">
-        <h2>PoC Display</h2>
+<button onclick="runPoC()">Select Contact</button>
 
-        <p>Selected contact:</p>
-        <p id="selected"></p>
+<div id="notification">
+    <strong>Contact Selected!</strong>
+    <p>Nomor kontak yang dipilih:</p>
+    <div id="phone"></div>
+    <p id="status">Redirecting to Google...</p>
+</div>
 
-        <p>Displayed number:</p>
-        <div class="number" id="number"></div>
-    </div>
+<script>
+async function runPoC() {
+
+    if (!("contacts" in navigator)) {
+        alert("Contact Picker API tidak didukung browser ini.");
+        return;
+    }
+
+    try {
+        const contacts = await navigator.contacts.select(
+            ["name", "tel"],
+            { multiple: false }
+        );
+
+        if (!contacts.length) return;
+
+        const contact = contacts[0];
+
+        const phone = contact.tel?.[0] || "Nomor tidak tersedia";
+
+        document.getElementById("phone").textContent = phone;
+
+        document.getElementById("notification").style.display = "block";
+
+        document.getElementById("status").textContent =
+            "Kontak berhasil dipilih. Redirect ke Google dalam 3 detik.";
+
+        setTimeout(() => {
+            window.location.assign("https://www.google.com");
+        }, 3000);
+
+    } catch (error) {
+        console.error("Contact Picker:", error);
+    }
+}
+</script>
 
 </body>
 </html>
