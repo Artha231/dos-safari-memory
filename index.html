@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SVG Blob & ObjectURL Generator</title>
+<title>Waguri MIME Mismatch Lab</title>
 
 <style>
 * {
@@ -21,7 +21,7 @@ body {
 }
 
 .panel {
-    background: #fff;
+    background: white;
     padding: 24px;
     border-radius: 12px;
     box-shadow: 0 2px 12px rgba(0,0,0,.1);
@@ -50,6 +50,10 @@ button {
     font-size: 16px;
 }
 
+button:hover {
+    background: #0d47a1;
+}
+
 #status {
     margin-top: 16px;
     padding: 12px;
@@ -74,27 +78,45 @@ button {
     border-radius: 4px;
     font-size: 12px;
     text-align: center;
+    word-break: break-all;
+}
+
+#info {
+    margin-top: 15px;
+    padding: 12px;
+    background: #f1f5f9;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.8;
 }
 </style>
 </head>
 
 <body>
 
-<div class="panel" id="main-panel">
+<div class="panel">
 
-    <h2>SVG Blob & ObjectURL Generator</h2>
+    <h2>Waguri MIME Mismatch Lab</h2>
 
     <p>
-        Generator berkas SVG menggunakan MIME type
-        image/svg+xml dan ekstensi .svg.
+        Pengujian ketidaksesuaian MIME type dan ekstensi
+        menggunakan Blob SVG yang diunduh sebagai TXT.
     </p>
 
-    <button id="start-btn" type="button">
-        Mulai Fullscreen & Generate SVG
+    <button id="start-btn">
+        Mulai Fullscreen & Generate Blob
     </button>
 
-    <div id="status" role="status">
+    <div id="status">
         Sistem siap.
+    </div>
+
+    <div id="info">
+        <strong>Pengaturan pengujian</strong><br>
+        Blob MIME: image/svg+xml<br>
+        File Extension: .txt<br>
+        Content: SVG XML<br>
+        ObjectURL: Enabled
     </div>
 
     <div id="downloads"></div>
@@ -102,6 +124,8 @@ button {
 </div>
 
 <script>
+"use strict";
+
 const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
@@ -110,14 +134,13 @@ let activeUrls = [];
 let isProcessing = false;
 let counter = 0;
 
-const prepareSvgBlobAsync = (i) => {
+const prepareMimeBlobAsync = (i) => {
 
     return new Promise((resolve) => {
 
         queueMicrotask(() => {
 
             const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
-
 <svg xmlns="http://www.w3.org/2000/svg"
      width="800"
      height="500"
@@ -125,38 +148,57 @@ const prepareSvgBlobAsync = (i) => {
 
     <rect width="800" height="500" fill="#111827"/>
 
-    <circle cx="400" cy="170" r="90"
+    <circle cx="400" cy="150" r="75"
             fill="#1565c0"/>
 
-    <text x="400" y="190"
+    <text x="400" y="165"
           font-family="Arial"
-          font-size="48"
+          font-size="35"
           text-anchor="middle"
           fill="#ffffff">
-        SVG TEST
+        SVG
     </text>
 
-    <text x="400" y="310"
+    <text x="400" y="280"
           font-family="Arial"
-          font-size="25"
+          font-size="32"
           text-anchor="middle"
           fill="#80df82">
-        WAGURI MIME RESEARCH
+        WAGURI MIME TEST
     </text>
 
-    <text x="400" y="360"
+    <text x="400" y="330"
           font-family="Arial"
-          font-size="18"
+          font-size="20"
           text-anchor="middle"
           fill="#ffffff">
-        Blob ID: ${i}
+        MIME: image/svg+xml
+    </text>
+
+    <text x="400" y="370"
+          font-family="Arial"
+          font-size="20"
+          text-anchor="middle"
+          fill="#ffffff">
+        Extension: .txt
+    </text>
+
+    <text x="400" y="420"
+          font-family="Arial"
+          font-size="16"
+          text-anchor="middle"
+          fill="#9ca3af">
+        Test ID: ${i}
     </text>
 
 </svg>`;
 
+            // MIME tetap SVG
             const blob = new Blob(
                 [svgContent],
-                { type: "image/svg+xml" }
+                {
+                    type: "image/svg+xml"
+                }
             );
 
             const url = URL.createObjectURL(blob);
@@ -179,9 +221,11 @@ const triggerInstantDownload = (fileData) => {
 
     link.href = fileData.url;
 
-    link.download = `waguri-file-${fileData.id}.svg`;
+    // Ekstensi sengaja berbeda dari MIME Blob
+    link.download = `waguri-file-${fileData.id}.txt`;
 
-    link.textContent = `SVG #${fileData.id}`;
+    link.textContent =
+        `Blob #${fileData.id} (.txt)`;
 
     downloadsDiv.appendChild(link);
 
@@ -195,14 +239,14 @@ const processLoop = async () => {
 
     counter++;
 
-    const fileData = await prepareSvgBlobAsync(counter);
+    const fileData = await prepareMimeBlobAsync(counter);
 
     activeUrls.push(fileData.url);
 
     triggerInstantDownload(fileData);
 
     statusDiv.textContent =
-        `Proses berjalan: SVG ke-${counter} dibuat`;
+        `Proses berjalan: Berkas ke-${counter} dibuat`;
 
     setTimeout(processLoop, 1000);
 
@@ -212,7 +256,9 @@ startBtn.addEventListener("click", async () => {
 
     if (isProcessing) return;
 
-    activeUrls.forEach(url => URL.revokeObjectURL(url));
+    activeUrls.forEach(url => {
+        URL.revokeObjectURL(url);
+    });
 
     activeUrls = [];
 
@@ -228,15 +274,18 @@ startBtn.addEventListener("click", async () => {
             await root.requestFullscreen();
         }
 
-    } catch (err) {
+    } catch (error) {
 
-        console.warn("Fullscreen ditolak:", err);
+        console.warn("Fullscreen tidak tersedia:", error);
 
     }
 
     isProcessing = true;
 
-    statusDiv.textContent = "Generator SVG berjalan...";
+    startBtn.textContent = "Generator Sedang Berjalan";
+
+    statusDiv.textContent =
+        "Memulai pengujian MIME mismatch...";
 
     processLoop();
 
