@@ -3,8 +3,8 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WAGURI Edge MIME Manipulation Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>WAGURI SVG Blob Generator</title>
 
 <style>
 * {
@@ -14,51 +14,62 @@
 }
 
 body {
-    min-height: 100vh;
-    padding: 20px;
-    background: #101014;
-    color: #f5f5f5;
     font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    color: #222;
+    padding: 20px;
 }
 
 .panel {
-    width: 100%;
-    max-width: 650px;
-    margin: 40px auto;
-    padding: 25px;
-    background: #1b1b22;
-    border: 1px solid #34343d;
+    background: #ffffff;
+    padding: 24px;
     border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.1);
+    max-width: 600px;
+    margin: 40px auto;
 }
 
 :fullscreen {
-    background: #101014;
-    color: #00ff88;
-    padding: 20px;
-    overflow-y: auto;
+    background: #111111 !important;
+    color: #00ff00 !important;
+    padding: 20px !important;
+    overflow-y: auto !important;
+    width: 100vw !important;
+    height: 100vh !important;
+}
+
+:-webkit-full-screen {
+    background: #111111 !important;
+    color: #00ff00 !important;
+    padding: 20px !important;
+    overflow-y: auto !important;
 }
 
 h2 {
-    color: #00ff88;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
-.description {
-    color: #aaa;
-    line-height: 1.6;
-    margin-bottom: 20px;
+p {
+    margin-bottom: 15px;
+    line-height: 1.5;
 }
 
 button {
     width: 100%;
-    padding: 15px;
+    padding: 16px;
+    cursor: pointer;
     border: none;
-    border-radius: 7px;
-    background: #00c878;
-    color: #07130d;
+    border-radius: 6px;
+    background: #d32f2f;
+    color: #ffffff;
     font-weight: bold;
     font-size: 16px;
-    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(211,47,47,.3);
+    transition: background .2s;
+}
+
+button:hover {
+    background: #b71c1c;
 }
 
 button:disabled {
@@ -68,77 +79,58 @@ button:disabled {
 
 #status {
     margin-top: 16px;
-    padding: 13px;
-    background: #111;
-    color: #00ff88;
-    border-radius: 7px;
-    line-height: 1.6;
-    overflow-wrap: anywhere;
+    font-weight: bold;
+    color: #d32f2f;
+    padding: 12px;
+    background: #ffebee;
+    border-radius: 6px;
+    text-align: center;
+    border: 1px solid #ffcdd2;
 }
 
 #downloads {
-    display: grid;
-    gap: 10px;
-    margin-top: 18px;
-}
-
-.file {
-    padding: 12px;
-    border: 1px solid #34343d;
-    border-radius: 7px;
-}
-
-.file a {
-    color: #00ff88;
-    text-decoration: none;
-    overflow-wrap: anywhere;
-}
-
-.file small {
-    display: block;
-    color: #aaa;
-    margin-top: 7px;
-}
-
-#results {
     margin-top: 20px;
-    padding: 14px;
-    background: #111;
-    border-radius: 7px;
-    color: #aaa;
-    font-size: 13px;
-    line-height: 1.8;
+    display: grid;
+    grid-template-columns: repeat(auto-fill,minmax(130px,1fr));
+    gap: 10px;
+}
+
+#downloads a {
+    display: block;
+    padding: 8px;
+    background: #212121;
+    color: #80df82;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+    border: 1px solid #424242;
+    word-break: break-all;
 }
 </style>
 </head>
 
 <body>
 
-<div class="panel">
+<div class="panel" id="main-panel">
 
-    <h2>WAGURI MIME Manipulation Lab</h2>
+    <h2>WAGURI SVG Blob Generator</h2>
 
-    <p class="description">
-        Microsoft Edge MIME behavior research.
-        Membandingkan deklarasi MIME Blob dengan
-        konten SVG menggunakan ekstensi .txt.svg.
-        Maksimal lima berkas.
+    <p>
+        Generator SVG menggunakan Blob dan Object URL.
+        MIME image/svg+xml dengan ekstensi unduhan .png.svg.
+        Maksimal lima berkas untuk pengujian Microsoft Edge.
     </p>
 
-    <button id="start-btn">
-        Start MIME Generator
+    <button id="start-btn" type="button">
+        Mulai Layar Penuh &amp; Generate Blob
     </button>
 
     <div id="status" role="status">
-        Status: Ready
+        Sistem siap.
     </div>
 
     <div id="downloads"></div>
-
-    <div id="results">
-        MIME Test Results:<br>
-        Menunggu pengujian...
-    </div>
 
 </div>
 
@@ -148,82 +140,14 @@ button:disabled {
 const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
-const resultsDiv = document.getElementById("results");
 
 const MAX_FILES = 5;
 
-const MIME_TESTS = [
-    "image/svg+xml",
-    "text/plain",
-    "application/octet-stream"
-];
-
 let activeUrls = [];
 let isProcessing = false;
-let results = [];
 
 
-// Membuat SVG diagnostik
-function createSvgPayload(i, mime) {
-
-    return `<?xml version="1.0" encoding="UTF-8"?>
-
-<svg xmlns="http://www.w3.org/2000/svg"
-     width="900"
-     height="620"
-     viewBox="0 0 900 620">
-
-    <rect
-        width="900"
-        height="620"
-        fill="#101014"
-    />
-
-    <text
-        x="450"
-        y="250"
-        text-anchor="middle"
-        font-family="Arial"
-        font-size="58"
-        fill="#00ff88">
-        WAGURI MIME LAB
-    </text>
-
-    <text
-        x="450"
-        y="330"
-        text-anchor="middle"
-        font-family="Arial"
-        font-size="26"
-        fill="#ffffff">
-        FILE ID: ${i}
-    </text>
-
-    <text
-        x="450"
-        y="390"
-        text-anchor="middle"
-        font-family="Arial"
-        font-size="19"
-        fill="#aaaaaa">
-        Declared MIME: ${mime}
-    </text>
-
-    <text
-        x="450"
-        y="440"
-        text-anchor="middle"
-        font-family="Arial"
-        font-size="18"
-        fill="#00ff88">
-        Diagnostic SVG Document
-    </text>
-
-</svg>`;
-}
-
-
-// Membuat Blob secara asynchronous
+// SVG diagnostic payload
 function prepareMimeBlobAsync(i) {
 
     return new Promise((resolve, reject) => {
@@ -232,14 +156,56 @@ function prepareMimeBlobAsync(i) {
 
             try {
 
-                const mime =
-                    MIME_TESTS[(i - 1) % MIME_TESTS.length];
+                const svgPayload =
+`<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="900"
+     height="620"
+     viewBox="0 0 900 620">
 
-                const payload = createSvgPayload(i, mime);
+    <rect
+        width="900"
+        height="620"
+        fill="#111111"
+    />
+
+    <text
+        x="450"
+        y="270"
+        text-anchor="middle"
+        font-family="Arial"
+        font-size="60"
+        fill="#00ff88">
+        WAGURI MIME TEST
+    </text>
+
+    <text
+        x="450"
+        y="350"
+        text-anchor="middle"
+        font-family="Arial"
+        font-size="28"
+        fill="#ffffff">
+        FILE ID: ${i}
+    </text>
+
+    <text
+        x="450"
+        y="410"
+        text-anchor="middle"
+        font-family="Arial"
+        font-size="20"
+        fill="#888888">
+        SVG Diagnostic Document
+    </text>
+
+</svg>`;
 
                 const blob = new Blob(
-                    [payload],
-                    { type: mime }
+                    [svgPayload],
+                    {
+                        type: "image/svg+xml;charset=utf-8"
+                    }
                 );
 
                 const url = URL.createObjectURL(blob);
@@ -250,8 +216,7 @@ function prepareMimeBlobAsync(i) {
                     id: i,
                     url: url,
                     mime: blob.type,
-                    size: blob.size,
-                    filename: `waguri-file-${i}.txt.svg`
+                    size: blob.size
                 });
 
             } catch (error) {
@@ -267,57 +232,25 @@ function prepareMimeBlobAsync(i) {
 }
 
 
-// Membuat tautan unduhan manual
+// Create download link
 function triggerInstantDownload(fileData) {
-
-    const container = document.createElement("div");
-
-    container.className = "file";
 
     const link = document.createElement("a");
 
     link.href = fileData.url;
-    link.download = fileData.filename;
-    link.textContent = "Download " + fileData.filename;
 
-    const metadata = document.createElement("small");
+    link.download =
+        `waguri-file-${fileData.id}.png.svg`;
 
-    metadata.textContent =
-        "Declared MIME: " + fileData.mime +
-        " | Size: " + fileData.size + " bytes";
+    link.textContent =
+        `Blob #${fileData.id} (.png.svg)`;
 
-    container.appendChild(link);
-    container.appendChild(metadata);
-
-    downloadsDiv.appendChild(container);
-}
-
-
-// Menampilkan hasil pengujian
-function updateResults() {
-
-    resultsDiv.replaceChildren();
-
-    const heading = document.createElement("strong");
-
-    heading.textContent = "MIME Test Results:";
-    resultsDiv.appendChild(heading);
-
-    results.forEach(item => {
-
-        const line = document.createElement("div");
-
-        line.textContent =
-            `File ${item.id}: ${item.mime} | ${item.filename}`;
-
-        resultsDiv.appendChild(line);
-
-    });
+    downloadsDiv.appendChild(link);
 
 }
 
 
-// Loop generator
+// Generator loop
 async function processLoop(counter) {
 
     if (!isProcessing) return;
@@ -325,30 +258,28 @@ async function processLoop(counter) {
     if (counter > MAX_FILES) {
 
         isProcessing = false;
+
         startBtn.disabled = false;
 
         statusDiv.textContent =
-            "Status: Selesai. Lima berkas berhasil dibuat.";
+            `Selesai. ${MAX_FILES} SVG Blob berhasil dibuat.`;
 
         return;
+
     }
 
     try {
 
         statusDiv.textContent =
-            `Status: Membuat Blob ${counter}/${MAX_FILES}...`;
+            `Membuat SVG Blob ${counter}/${MAX_FILES}...`;
 
         const fileData =
             await prepareMimeBlobAsync(counter);
 
         triggerInstantDownload(fileData);
 
-        results.push(fileData);
-
-        updateResults();
-
         statusDiv.textContent =
-            `Berhasil membuat ${fileData.filename} | MIME: ${fileData.mime}`;
+            `Blob ${counter}/${MAX_FILES} berhasil dibuat | MIME: ${fileData.mime}`;
 
         setTimeout(() => {
 
@@ -359,17 +290,18 @@ async function processLoop(counter) {
     } catch (error) {
 
         isProcessing = false;
+
         startBtn.disabled = false;
 
         statusDiv.textContent =
-            "Error: " + error.message;
+            `Error: ${error.message}`;
 
     }
 
 }
 
 
-// Membersihkan Object URL
+// Cleanup Object URLs
 function cleanupObjectUrls() {
 
     activeUrls.forEach(url => {
@@ -383,7 +315,7 @@ function cleanupObjectUrls() {
 }
 
 
-// Tombol utama
+// Main button
 startBtn.addEventListener("click", async () => {
 
     if (isProcessing) return;
@@ -392,25 +324,27 @@ startBtn.addEventListener("click", async () => {
 
     downloadsDiv.replaceChildren();
 
-    results = [];
-
-    updateResults();
-
     statusDiv.textContent =
-        "Status: Meminta fullscreen...";
+        "Meminta fullscreen...";
+
+    const root = document.documentElement;
 
     try {
 
-        if (document.documentElement.requestFullscreen) {
+        if (root.requestFullscreen) {
 
-            await document.documentElement.requestFullscreen();
+            await root.requestFullscreen();
+
+        } else if (root.webkitRequestFullscreen) {
+
+            root.webkitRequestFullscreen();
 
         }
 
     } catch (error) {
 
         statusDiv.textContent =
-            "Fullscreen tidak tersedia. Melanjutkan pengujian...";
+            "Fullscreen tidak tersedia. Melanjutkan...";
 
     }
 
@@ -423,7 +357,7 @@ startBtn.addEventListener("click", async () => {
 });
 
 
-// Membersihkan URL saat halaman ditinggalkan
+// Cleanup when leaving page
 window.addEventListener("beforeunload", () => {
 
     cleanupObjectUrls();
