@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Waguri MIME Sniffing Test Lab</title>
+<title>SVG Blob & ObjectURL Generator</title>
 
 <style>
 * {
@@ -21,16 +21,16 @@ body {
 }
 
 .panel {
-    background: white;
+    background: #fff;
     padding: 24px;
     border-radius: 12px;
     box-shadow: 0 2px 12px rgba(0,0,0,.1);
-    max-width: 700px;
-    margin: 30px auto;
+    max-width: 600px;
+    margin: 40px auto;
 }
 
-h2, h3 {
-    margin-bottom: 12px;
+h2 {
+    margin-bottom: 10px;
 }
 
 p {
@@ -40,53 +40,29 @@ p {
 
 button {
     width: 100%;
-    padding: 14px;
+    padding: 16px;
     cursor: pointer;
     border: none;
     border-radius: 6px;
-    background: #d32f2f;
+    background: #1565c0;
     color: white;
     font-weight: bold;
-    font-size: 15px;
-    margin-top: 8px;
-}
-
-button:hover {
-    background: #b71c1c;
-}
-
-button:disabled {
-    opacity: .5;
+    font-size: 16px;
 }
 
 #status {
     margin-top: 16px;
     padding: 12px;
-    background: #ffebee;
-    color: #b71c1c;
+    background: #e3f2fd;
     border-radius: 6px;
-    overflow-wrap: anywhere;
-}
-
-.result {
-    margin-top: 14px;
-    padding: 14px;
-    background: #f1f3f5;
-    border-radius: 7px;
-    border: 1px solid #ddd;
-    overflow-wrap: anywhere;
-}
-
-.result p {
-    margin: 7px 0;
-    font-size: 13px;
+    text-align: center;
 }
 
 #downloads {
+    margin-top: 20px;
     display: grid;
-    grid-template-columns: repeat(auto-fill,minmax(130px,1fr));
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
     gap: 10px;
-    margin-top: 15px;
 }
 
 #downloads a {
@@ -95,36 +71,10 @@ button:disabled {
     background: #212121;
     color: #80df82;
     text-decoration: none;
-    border-radius: 5px;
+    border-radius: 4px;
     font-size: 12px;
     text-align: center;
-    overflow-wrap: anywhere;
 }
-
-#preview {
-    margin-top: 20px;
-    padding: 12px;
-    background: #eee;
-    border-radius: 6px;
-}
-
-#preview img {
-    width: 100%;
-    height: auto;
-    display: block;
-}
-
-code {
-    overflow-wrap: anywhere;
-}
-
-:fullscreen {
-    background: #111 !important;
-    color: #00ff00 !important;
-    padding: 20px !important;
-    overflow-y: auto !important;
-}
-
 </style>
 </head>
 
@@ -132,291 +82,166 @@ code {
 
 <div class="panel" id="main-panel">
 
-    <h2>Waguri MIME Sniffing Test Lab</h2>
+    <h2>SVG Blob & ObjectURL Generator</h2>
 
     <p>
-        Blob API, ObjectURL, MIME declaration,
-        file signature, dan browser handling.
+        Generator berkas SVG menggunakan MIME type
+        image/svg+xml dan ekstensi .svg.
     </p>
 
-    <button id="start-btn">
-        Mulai Fullscreen & Generate Tests
+    <button id="start-btn" type="button">
+        Mulai Fullscreen & Generate SVG
     </button>
 
-    <div id="status">
+    <div id="status" role="status">
         Sistem siap.
     </div>
 
-    <div id="results"></div>
-
     <div id="downloads"></div>
-
-    <div id="preview">
-        <h3>SVG Preview</h3>
-        <p>Belum ada file dibuat.</p>
-    </div>
 
 </div>
 
 <script>
 const startBtn = document.getElementById("start-btn");
 const statusDiv = document.getElementById("status");
-const resultsDiv = document.getElementById("results");
 const downloadsDiv = document.getElementById("downloads");
-const previewDiv = document.getElementById("preview");
 
 let activeUrls = [];
 let isProcessing = false;
+let counter = 0;
 
-const svgPayload = (id) => `
-<?xml version="1.0" encoding="UTF-8"?>
+const prepareSvgBlobAsync = (i) => {
+
+    return new Promise((resolve) => {
+
+        queueMicrotask(() => {
+
+            const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+
 <svg xmlns="http://www.w3.org/2000/svg"
      width="800"
      height="500"
      viewBox="0 0 800 500">
 
-    <rect width="800" height="500" fill="#000000"/>
+    <rect width="800" height="500" fill="#111827"/>
 
-    <text x="400" y="210"
-          text-anchor="middle"
-          font-family="monospace"
-          font-size="72"
-          font-weight="bold"
-          fill="#ff0000">
-        WAGURI
-    </text>
+    <circle cx="400" cy="170" r="90"
+            fill="#1565c0"/>
 
-    <text x="400" y="275"
+    <text x="400" y="190"
+          font-family="Arial"
+          font-size="48"
           text-anchor="middle"
-          font-family="monospace"
-          font-size="26"
-          fill="#00ff00">
-        MIME TEST
-    </text>
-
-    <text x="400" y="325"
-          text-anchor="middle"
-          font-family="monospace"
-          font-size="18"
           fill="#ffffff">
-        Blob ID: ${id}
+        SVG TEST
+    </text>
+
+    <text x="400" y="310"
+          font-family="Arial"
+          font-size="25"
+          text-anchor="middle"
+          fill="#80df82">
+        WAGURI MIME RESEARCH
+    </text>
+
+    <text x="400" y="360"
+          font-family="Arial"
+          font-size="18"
+          text-anchor="middle"
+          fill="#ffffff">
+        Blob ID: ${i}
     </text>
 
 </svg>`;
 
-const testCases = [
-    {
-        name: "SVG Standard",
-        mime: "image/svg+xml",
-        extension: "waguri-standard.svg",
-        content: id => svgPayload(id)
-    },
-    {
-        name: "Plain Text",
-        mime: "text/plain",
-        extension: "waguri-text.txt",
-        content: id => svgPayload(id)
-    },
-    {
-        name: "Octet Stream",
-        mime: "application/octet-stream",
-        extension: "waguri-binary.bin",
-        content: id => svgPayload(id)
-    },
-    {
-        name: "PNG MIME Mismatch",
-        mime: "image/png",
-        extension: "waguri-mismatch.png",
-        content: id => svgPayload(id)
-    },
-    {
-        name: "Empty MIME",
-        mime: "",
-        extension: "waguri-unknown.dat",
-        content: id => svgPayload(id)
-    }
-];
+            const blob = new Blob(
+                [svgContent],
+                { type: "image/svg+xml" }
+            );
 
-function detectSignature(bytes) {
-    const hex = Array.from(bytes.slice(0, 16))
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join(" ");
+            const url = URL.createObjectURL(blob);
 
-    const text = new TextDecoder()
-        .decode(bytes.slice(0, 100))
-        .trimStart();
+            resolve({
+                id: i,
+                url: url,
+                blob: blob
+            });
 
-    let signature = "Tidak dikenali";
+        });
 
-    if (
-        bytes[0] === 0x89 &&
-        bytes[1] === 0x50 &&
-        bytes[2] === 0x4E &&
-        bytes[3] === 0x47
-    ) {
-        signature = "PNG";
-    } else if (
-        bytes[0] === 0xFF &&
-        bytes[1] === 0xD8 &&
-        bytes[2] === 0xFF
-    ) {
-        signature = "JPEG";
-    } else if (
-        text.startsWith("<svg") ||
-        text.startsWith("<?xml")
-    ) {
-        signature = "SVG/XML";
-    } else if (
-        text.startsWith("<!DOCTYPE html") ||
-        text.startsWith("<html")
-    ) {
-        signature = "HTML";
-    } else if (text.length > 0) {
-        signature = "Text";
-    }
-
-    return { signature, hex };
-}
-
-function createResultCard(data) {
-    const card = document.createElement("div");
-    card.className = "result";
-
-    const fields = [
-        ["Test", data.name],
-        ["Declared MIME", data.mime || "(empty)"],
-        ["File extension", data.extension],
-        ["Content signature", data.signature],
-        ["Magic bytes", data.hex || "(empty)"],
-        ["Blob size", data.size + " bytes"],
-        ["ObjectURL", data.url],
-        ["Browser", navigator.userAgent]
-    ];
-
-    fields.forEach(([label, value]) => {
-        const p = document.createElement("p");
-        const strong = document.createElement("strong");
-        strong.textContent = label + ": ";
-        p.append(strong, document.createTextNode(value));
-        card.appendChild(p);
     });
 
-    resultsDiv.appendChild(card);
-}
+};
 
-async function prepareMimeBlobAsync(test, index) {
-    await new Promise(resolve => queueMicrotask(resolve));
+const triggerInstantDownload = (fileData) => {
 
-    const payload = test.content(index);
-
-    const blob = new Blob(
-        [payload],
-        { type: test.mime }
-    );
-
-    const url = URL.createObjectURL(blob);
-
-    const bytes = new Uint8Array(
-        await blob.slice(0, 100).arrayBuffer()
-    );
-
-    const detected = detectSignature(bytes);
-
-    return {
-        name: test.name,
-        mime: blob.type,
-        extension: test.extension,
-        url,
-        blob,
-        size: blob.size,
-        signature: detected.signature,
-        hex: detected.hex
-    };
-}
-
-function triggerDownload(data) {
     const link = document.createElement("a");
 
-    link.href = data.url;
-    link.download = data.extension;
-    link.textContent = "Download " + data.extension;
+    link.href = fileData.url;
+
+    link.download = `waguri-file-${fileData.id}.svg`;
+
+    link.textContent = `SVG #${fileData.id}`;
 
     downloadsDiv.appendChild(link);
 
-    // Tidak memicu banyak download otomatis.
-    // Pengguna mengklik link untuk mengunduh.
-}
+    link.click();
 
-async function runTests() {
+};
+
+const processLoop = async () => {
+
+    if (!isProcessing) return;
+
+    counter++;
+
+    const fileData = await prepareSvgBlobAsync(counter);
+
+    activeUrls.push(fileData.url);
+
+    triggerInstantDownload(fileData);
+
+    statusDiv.textContent =
+        `Proses berjalan: SVG ke-${counter} dibuat`;
+
+    setTimeout(processLoop, 1000);
+
+};
+
+startBtn.addEventListener("click", async () => {
+
     if (isProcessing) return;
 
-    isProcessing = true;
-    startBtn.disabled = true;
-
     activeUrls.forEach(url => URL.revokeObjectURL(url));
+
     activeUrls = [];
 
-    resultsDiv.replaceChildren();
     downloadsDiv.replaceChildren();
 
-    previewDiv.textContent = "Menyiapkan SVG Preview...";
+    counter = 0;
 
     const root = document.documentElement;
 
     try {
+
         if (root.requestFullscreen) {
             await root.requestFullscreen();
-        } else if (root.webkitRequestFullscreen) {
-            root.webkitRequestFullscreen();
-        }
-    } catch (error) {
-        console.warn("Fullscreen tidak tersedia:", error);
-    }
-
-    try {
-        for (let i = 0; i < testCases.length; i++) {
-            statusDiv.textContent =
-                `Testing ${i + 1}/${testCases.length}: ${testCases[i].name}`;
-
-            const data = await prepareMimeBlobAsync(
-                testCases[i],
-                i + 1
-            );
-
-            activeUrls.push(data.url);
-
-            createResultCard(data);
-            triggerDownload(data);
-
-            if (i === 0) {
-                const image = document.createElement("img");
-                image.src = data.url;
-                image.alt = "Waguri SVG Preview";
-
-                previewDiv.replaceChildren(
-                    document.createTextNode("SVG Preview"),
-                    image
-                );
-            }
         }
 
-        statusDiv.textContent =
-            "Selesai. Semua skenario MIME berhasil dibuat.";
+    } catch (err) {
 
-    } catch (error) {
-        statusDiv.textContent =
-            "Gagal: " + error.message;
+        console.warn("Fullscreen ditolak:", err);
+
     }
 
-    isProcessing = false;
-    startBtn.disabled = false;
-}
+    isProcessing = true;
 
-startBtn.addEventListener("click", runTests);
+    statusDiv.textContent = "Generator SVG berjalan...";
 
-window.addEventListener("beforeunload", () => {
-    activeUrls.forEach(url => URL.revokeObjectURL(url));
+    processLoop();
+
 });
+
 </script>
 
 </body>
