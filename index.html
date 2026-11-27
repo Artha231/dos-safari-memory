@@ -58,6 +58,7 @@ button {
   font-weight: bold;
   font-size: 16px;
   box-shadow: 0 4px 12px rgba(211,47,47,.3);
+  transition: background .2s;
 }
 
 button:hover {
@@ -110,13 +111,13 @@ button:disabled {
 
   <p>
     Klik tombol untuk masuk ke layar penuh dan membuat
-    berkas SVG melalui Blob dan ObjectURL.
+    berkas SVG menggunakan Blob dan ObjectURL.
     Nama berkas menggunakan ekstensi .txt.svg.
     Maksimal 5 berkas per sesi.
   </p>
 
   <button id="start-btn" type="button">
-    Mulai Layar Penuh &amp; Generate SVG
+    Mulai Layar Penuh &amp; Generate Blob
   </button>
 
   <div id="status" role="status">
@@ -140,7 +141,7 @@ let isProcessing = false;
 const MAX_FILES = 5;
 
 
-/* SVG payload berada langsung di dalam fungsi Blob. */
+/* Membuat SVG Blob secara asynchronous. */
 const prepareMimeBlobAsync = (i) => {
 
   return new Promise((resolve) => {
@@ -217,14 +218,15 @@ const prepareMimeBlobAsync = (i) => {
 };
 
 
-/* Membuat tautan unduhan. */
+/* Membuat tautan download yang terlihat. */
 const triggerInstantDownload = (fileData) => {
 
   const link = document.createElement("a");
 
   link.href = fileData.url;
 
-  link.download = `waguri-file-${fileData.id}.txt.svg`;
+  link.download =
+    `waguri-file-${fileData.id}.txt.svg`;
 
   link.textContent =
     `Blob #${fileData.id} (.txt.svg)`;
@@ -236,7 +238,7 @@ const triggerInstantDownload = (fileData) => {
 };
 
 
-/* Proses pembuatan maksimal 5 berkas. */
+/* Proses pembuatan berkas. */
 const processLoop = async (counter) => {
 
   if (!isProcessing) return;
@@ -256,7 +258,8 @@ const processLoop = async (counter) => {
 
   try {
 
-    const fileData = await prepareMimeBlobAsync(counter);
+    const fileData =
+      await prepareMimeBlobAsync(counter);
 
     activeUrls.push(fileData.url);
 
@@ -310,7 +313,7 @@ startBtn.addEventListener("click", async () => {
   } catch (err) {
 
     statusDiv.textContent =
-      "Fullscreen tidak tersedia atau ditolak. Melanjutkan pembuatan Blob SVG.";
+      "Fullscreen tidak tersedia atau ditolak. Melanjutkan proses.";
 
   }
 
@@ -323,7 +326,7 @@ startBtn.addEventListener("click", async () => {
 });
 
 
-/* Cleanup ObjectURL ketika halaman ditutup. */
+/* Membersihkan ObjectURL saat halaman ditutup. */
 window.addEventListener("beforeunload", () => {
 
   activeUrls.forEach(url => {
