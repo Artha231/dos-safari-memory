@@ -3,186 +3,336 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SVG Blob Download Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Generator Berkas Blob &amp; ObjectURL</title>
+
 <style>
-* { box-sizing: border-box; }
-body {
+* {
+  box-sizing: border-box;
   margin: 0;
-  padding: 24px;
+  padding: 0;
+}
+
+body {
   font-family: Arial, sans-serif;
-  background: #101820;
-  color: #f2f5f7;
+  background: #f4f6f8;
+  color: #222;
+  padding: 20px;
 }
-main {
-  max-width: 760px;
-  margin: auto;
+
+.panel {
+  background: #ffffff;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.1);
+  max-width: 600px;
+  margin: 40px auto;
 }
+
+:fullscreen {
+  background: #111111 !important;
+  color: #00ff00 !important;
+  padding: 20px !important;
+  overflow-y: auto !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+h2 {
+  margin-bottom: 10px;
+}
+
+p {
+  margin-bottom: 15px;
+  line-height: 1.5;
+}
+
 button {
-  padding: 12px 16px;
-  margin: 5px;
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
-}
-#log {
-  background: #080d12;
-  padding: 14px;
-  border-radius: 8px;
-  min-height: 130px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-iframe {
   width: 100%;
-  height: 220px;
+  padding: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  background: #d32f2f;
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 16px;
+  box-shadow: 0 4px 12px rgba(211,47,47,.3);
+}
+
+button:hover {
+  background: #b71c1c;
+}
+
+button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+#status {
   margin-top: 16px;
-  background: white;
-  border: 0;
-  border-radius: 8px;
+  font-weight: bold;
+  color: #d32f2f;
+  padding: 12px;
+  background: #ffebee;
+  border-radius: 6px;
+  text-align: center;
+  border: 1px solid #ffcdd2;
+}
+
+#downloads {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(130px,1fr));
+  gap: 10px;
+}
+
+#downloads a {
+  display: block;
+  padding: 8px;
+  background: #212121;
+  color: #80df82;
+  text-decoration: none;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+  border: 1px solid #424242;
+  word-break: break-all;
 }
 </style>
 </head>
+
 <body>
-<main>
-  <h2>SVG Blob Download Lab</h2>
-  <p>Pengujian pembuatan SVG Blob dan nama file berakhiran
-    <code>.txt.svg</code>.</p>
 
-  <button id="start">Mulai pengujian</button>
-  <button id="download">Unduh SVG</button>
-  <button id="fullscreen">Fullscreen</button>
-  <button id="speak">Tes TTS</button>
-  <button id="stop">Hentikan TTS</button>
+<div class="panel" id="main-panel">
 
-  <p id="status">Status: menunggu</p>
-  <iframe id="preview" title="SVG preview"></iframe>
+  <h2>Generator Berkas Blob &amp; ObjectURL</h2>
 
-  <h3>Log aktivitas</h3>
-  <pre id="log"></pre>
-</main>
+  <p>
+    Klik tombol untuk masuk ke layar penuh dan membuat
+    berkas SVG melalui Blob dan ObjectURL.
+    Nama berkas menggunakan ekstensi .txt.svg.
+    Maksimal 5 berkas per sesi.
+  </p>
+
+  <button id="start-btn" type="button">
+    Mulai Layar Penuh &amp; Generate SVG
+  </button>
+
+  <div id="status" role="status">
+    Sistem siap.
+  </div>
+
+  <div id="downloads"></div>
+
+</div>
 
 <script>
-const logBox = document.getElementById("log");
-const statusBox = document.getElementById("status");
-const preview = document.getElementById("preview");
+"use strict";
 
-let count = 0;
-const maxDownloads = 5;
-let currentUrl = null;
+const startBtn = document.getElementById("start-btn");
+const statusDiv = document.getElementById("status");
+const downloadsDiv = document.getElementById("downloads");
 
-function log(message) {
-  logBox.textContent +=
-    `[${new Date().toLocaleTimeString()}] ${message}\n`;
-}
+let activeUrls = [];
+let isProcessing = false;
 
-function createSVG(id) {
-  return `
+const MAX_FILES = 5;
+
+
+/* SVG payload berada langsung di dalam fungsi Blob. */
+const prepareMimeBlobAsync = (i) => {
+
+  return new Promise((resolve) => {
+
+    queueMicrotask(() => {
+
+      const svgPayload = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
-     width="600" height="300"
-     viewBox="0 0 600 300">
-  <rect width="600" height="300" fill="#172b4d"/>
-  <circle cx="300" cy="105" r="55" fill="#36b37e"/>
-  <text x="300" y="205"
-        text-anchor="middle"
-        font-family="Arial"
-        font-size="25"
-        fill="white">
-    WAGURI SVG TEST #${id}
+     width="900"
+     height="620"
+     viewBox="0 0 900 620">
+
+  <title>WAGURI SVG MIME Test</title>
+
+  <rect
+    width="900"
+    height="620"
+    fill="#000000"/>
+
+  <text
+    x="450"
+    y="260"
+    text-anchor="middle"
+    font-family="monospace"
+    font-size="80"
+    font-weight="bold"
+    letter-spacing="8"
+    fill="#ff0000">
+    HACKED BY
   </text>
-  <text x="300" y="240"
-        text-anchor="middle"
-        font-family="Arial"
-        font-size="14"
-        fill="#dfe1e6">
-    Safe Blob download test
+
+  <text
+    x="450"
+    y="340"
+    text-anchor="middle"
+    font-family="monospace"
+    font-size="38"
+    letter-spacing="4"
+    fill="#00ff00">
+    WAGURI
   </text>
+
+  <text
+    x="450"
+    y="420"
+    text-anchor="middle"
+    font-family="monospace"
+    font-size="18"
+    fill="#00ff00">
+    SVG MIME / Rendering Test
+  </text>
+
 </svg>`;
-}
 
-function createBlob(id) {
-  const svg = createSVG(id);
-  return new Blob([svg], {
-    type: "image/svg+xml"
+      const blob = new Blob(
+        [svgPayload],
+        {
+          type: "image/svg+xml;charset=utf-8"
+        }
+      );
+
+      const url = URL.createObjectURL(blob);
+
+      resolve({
+        id: i,
+        url: url,
+        blob: blob
+      });
+
+    });
+
   });
-}
 
-function downloadSVG() {
-  if (count >= maxDownloads) {
-    log("Batas unduhan pengujian tercapai.");
-    statusBox.textContent = "Status: batas tercapai";
-    return;
-  }
+};
 
-  count++;
 
-  const blob = createBlob(count);
-  const url = URL.createObjectURL(blob);
+/* Membuat tautan unduhan. */
+const triggerInstantDownload = (fileData) => {
 
   const link = document.createElement("a");
-  link.href = url;
-  link.download = `waguri-file-${count}.txt.svg`;
-  link.textContent = `Blob #${count} (.txt.svg)`;
 
-  document.body.appendChild(link);
+  link.href = fileData.url;
+
+  link.download = `waguri-file-${fileData.id}.txt.svg`;
+
+  link.textContent =
+    `Blob #${fileData.id} (.txt.svg)`;
+
+  downloadsDiv.appendChild(link);
+
   link.click();
-  link.remove();
 
-  if (currentUrl) URL.revokeObjectURL(currentUrl);
-  currentUrl = url;
+};
 
-  preview.src = url;
 
-  log(`Unduhan #${count} dibuat: waguri-file-${count}.txt.svg`);
-  statusBox.textContent = `Status: ${count}/${maxDownloads} unduhan`;
-}
+/* Proses pembuatan maksimal 5 berkas. */
+const processLoop = async (counter) => {
 
-document.getElementById("start").addEventListener("click", () => {
-  count = 0;
-  log("Pengujian dimulai.");
-  downloadSVG();
-});
+  if (!isProcessing) return;
 
-document.getElementById("download").addEventListener("click", () => {
-  downloadSVG();
-});
+  if (counter > MAX_FILES) {
 
-document.getElementById("fullscreen").addEventListener("click", async () => {
-  try {
-    await document.documentElement.requestFullscreen();
-    log("Fullscreen diaktifkan.");
-  } catch (error) {
-    log(`Fullscreen gagal: ${error.message}`);
-  }
-});
+    isProcessing = false;
 
-document.getElementById("speak").addEventListener("click", () => {
-  if (!("speechSynthesis" in window)) {
-    log("Speech Synthesis tidak didukung browser.");
+    startBtn.disabled = false;
+
+    statusDiv.textContent =
+      `Selesai: ${MAX_FILES} berkas SVG dibuat.`;
+
     return;
+
   }
 
-  speechSynthesis.cancel();
+  try {
 
-  const utterance = new SpeechSynthesisUtterance(
-    "Waguri SVG Blob test."
-  );
+    const fileData = await prepareMimeBlobAsync(counter);
 
-  utterance.onstart = () => log("TTS dimulai.");
-  utterance.onend = () => log("TTS selesai.");
-  utterance.onerror = event => log(`TTS error: ${event.error}`);
+    activeUrls.push(fileData.url);
 
-  speechSynthesis.speak(utterance);
+    triggerInstantDownload(fileData);
+
+    statusDiv.textContent =
+      `Proses berjalan: berkas ke-${counter} dari ${MAX_FILES}`;
+
+    setTimeout(() => {
+      processLoop(counter + 1);
+    }, 250);
+
+  } catch (err) {
+
+    isProcessing = false;
+
+    startBtn.disabled = false;
+
+    statusDiv.textContent =
+      "Gagal membuat Blob: " + err.message;
+
+  }
+
+};
+
+
+/* Tombol utama dan Fullscreen. */
+startBtn.addEventListener("click", async () => {
+
+  if (isProcessing) return;
+
+  activeUrls.forEach(url => {
+    URL.revokeObjectURL(url);
+  });
+
+  activeUrls = [];
+
+  downloadsDiv.replaceChildren();
+
+  const root = document.documentElement;
+
+  try {
+
+    if (root.requestFullscreen) {
+      await root.requestFullscreen();
+    }
+
+    statusDiv.textContent =
+      "Mode layar penuh aktif. Menyiapkan Blob SVG...";
+
+  } catch (err) {
+
+    statusDiv.textContent =
+      "Fullscreen tidak tersedia atau ditolak. Melanjutkan pembuatan Blob SVG.";
+
+  }
+
+  isProcessing = true;
+
+  startBtn.disabled = true;
+
+  processLoop(1);
+
 });
 
-document.getElementById("stop").addEventListener("click", () => {
-  speechSynthesis.cancel();
-  log("TTS dihentikan.");
+
+/* Cleanup ObjectURL ketika halaman ditutup. */
+window.addEventListener("beforeunload", () => {
+
+  activeUrls.forEach(url => {
+    URL.revokeObjectURL(url);
+  });
+
 });
 
-window.addEventListener("pagehide", () => {
-  if (currentUrl) URL.revokeObjectURL(currentUrl);
-});
 </script>
+
 </body>
 </html>
