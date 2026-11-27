@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Waguri MIME Sniffing Lab</title>
+<title>Waguri Blob MIME Test</title>
 
 <style>
 * {
@@ -65,7 +65,6 @@ button {
     font-weight: bold;
     font-size: 16px;
     box-shadow: 0 4px 12px rgba(211,47,47,.3);
-    transition: background .2s;
     margin-top: 8px;
 }
 
@@ -99,7 +98,7 @@ button:disabled {
 
 #downloads a {
     display: block;
-    padding: 10px;
+    padding: 8px;
     background: #212121;
     color: #80df82;
     text-decoration: none;
@@ -112,16 +111,15 @@ button:disabled {
 
 #preview {
     margin-top: 20px;
-    padding: 15px;
+    padding: 12px;
     background: #eeeeee;
     border-radius: 6px;
 }
 
-#preview iframe {
+#preview img {
     width: 100%;
-    height: 220px;
-    border: 1px solid #ccc;
-    background: white;
+    height: auto;
+    display: block;
 }
 </style>
 </head>
@@ -130,19 +128,15 @@ button:disabled {
 
 <div class="panel" id="main-panel">
 
-    <h2>Waguri MIME Sniffing Lab</h2>
+    <h2>Waguri Blob &amp; MIME Test</h2>
 
     <p>
-        Pengujian Blob HTML dan ObjectURL dengan
-        ekstensi file waguri.png.svg.
+        Pengujian Blob API dan ObjectURL menggunakan
+        MIME text/svg dengan nama file waguri.png.svg.
     </p>
 
     <button id="start-btn" type="button">
         Mulai Fullscreen &amp; Generate Blob
-    </button>
-
-    <button id="stop-btn" type="button" disabled>
-        Hentikan Proses
     </button>
 
     <div id="status" role="status">
@@ -152,22 +146,20 @@ button:disabled {
     <div id="downloads"></div>
 
     <div id="preview">
-        <h3>Preview Payload</h3>
-        <p>Belum ada payload dibuat.</p>
+        <h3>SVG Preview</h3>
+        <p>Belum ada file dibuat.</p>
     </div>
 
 </div>
 
 <script>
 const startBtn = document.getElementById("start-btn");
-const stopBtn = document.getElementById("stop-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
 const previewDiv = document.getElementById("preview");
 
 let activeUrls = [];
 let isProcessing = false;
-let counter = 0;
 
 const prepareMimeBlobAsync = (i) => {
 
@@ -176,54 +168,49 @@ const prepareMimeBlobAsync = (i) => {
         queueMicrotask(() => {
 
             const payloadText =
-"<!DOCTYPE html>" +
-"<html lang='id'>" +
-"<head>" +
-"<meta charset='UTF-8'>" +
-"<title>Waguri MIME Test</title>" +
-"</head>" +
+`<?xml version="1.0" encoding="UTF-8"?>
 
-"<body style='" +
-"margin:0;" +
-"padding:0;" +
-"background:#000;" +
-"color:#0f0;" +
-"font-family:monospace;" +
-"text-align:center;" +
-"'>" +
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="800"
+     height="500"
+     viewBox="0 0 800 500">
 
-"<div style='" +
-"display:flex;" +
-"flex-direction:column;" +
-"align-items:center;" +
-"justify-content:center;" +
-"height:100vh;" +
-"'>" +
+    <rect width="800" height="500" fill="#000000"/>
 
-"<h1 style='font-size:60px;color:#f00'>" +
-"WAGURI" +
-"</h1>" +
+    <text x="400"
+          y="210"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="72"
+          font-weight="bold"
+          fill="#ff0000">
+        WAGURI
+    </text>
 
-"<h2 style='color:#0f0'>" +
-"MIME SNIFFING TEST" +
-"</h2>" +
+    <text x="400"
+          y="275"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="26"
+          fill="#00ff00">
+        MIME TEST
+    </text>
 
-"<p>HTML Blob Payload</p>" +
+    <text x="400"
+          y="325"
+          text-anchor="middle"
+          font-family="monospace"
+          font-size="18"
+          fill="#ffffff">
+        Blob ID: ${i}
+    </text>
 
-"<p>File ID: " + i + "</p>" +
-
-"<p>Declared MIME: text/html</p>" +
-
-"<p>Filename: waguri.png.svg</p>" +
-
-"</div>" +
-"</body>" +
-"</html>";
+</svg>`;
 
             const blob = new Blob(
                 [payloadText],
                 {
-                    type: "text/html"
+                    type: "text/svg"
                 }
             );
 
@@ -251,8 +238,7 @@ const triggerInstantDownload = (fileData) => {
 
     link.download = "waguri.png.svg";
 
-    link.textContent =
-        "Download waguri.png.svg";
+    link.textContent = "Download waguri.png.svg";
 
     downloadsDiv.appendChild(link);
 
@@ -260,11 +246,9 @@ const triggerInstantDownload = (fileData) => {
 
 };
 
-const processLoop = async () => {
+const processLoop = async (counter) => {
 
     if (!isProcessing) return;
-
-    counter++;
 
     try {
 
@@ -280,49 +264,31 @@ const processLoop = async () => {
 
         triggerInstantDownload(fileData);
 
-        statusDiv.textContent =
-            "Blob #" + fileData.id +
-            " | MIME: " + fileData.mime +
-            " | Size: " + fileData.size + " bytes";
+        const image = document.createElement("img");
 
-        const frame = document.createElement("iframe");
+        image.src = fileData.url;
 
-        frame.title = "HTML Blob Preview";
-
-        frame.src = fileData.url;
+        image.alt = "Waguri SVG Preview";
 
         previewDiv.replaceChildren(
-            document.createTextNode("Preview HTML Blob"),
-            frame
+            document.createTextNode("SVG Preview"),
+            image
         );
+
+        statusDiv.textContent =
+            `Selesai | File: waguri.png.svg | MIME: ${fileData.mime} | Size: ${fileData.size} bytes`;
 
     } catch (error) {
 
         statusDiv.textContent =
-            "Error: " + error.message;
+            "Gagal: " + error.message;
 
-        stopProcess();
-
-        return;
     }
 
     isProcessing = false;
     startBtn.disabled = false;
-    stopBtn.disabled = true;
 
 };
-
-function stopProcess() {
-
-    isProcessing = false;
-
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-
-    statusDiv.textContent =
-        "Pengujian dihentikan.";
-
-}
 
 startBtn.addEventListener("click", async () => {
 
@@ -336,7 +302,9 @@ startBtn.addEventListener("click", async () => {
 
     downloadsDiv.replaceChildren();
 
-    counter = 0;
+    previewDiv.replaceChildren(
+        document.createTextNode("Menyiapkan preview...")
+    );
 
     const root = document.documentElement;
 
@@ -348,28 +316,21 @@ startBtn.addEventListener("click", async () => {
             root.webkitRequestFullscreen();
         }
 
-    } catch (error) {
+    } catch (err) {
 
-        console.warn(
-            "Fullscreen tidak tersedia:",
-            error
-        );
+        console.warn("Fullscreen tidak tersedia:", err);
 
     }
 
     isProcessing = true;
-
     startBtn.disabled = true;
-    stopBtn.disabled = false;
 
     statusDiv.textContent =
-        "Menyiapkan pengujian MIME dan Blob...";
+        "Menyiapkan Blob dan ObjectURL...";
 
-    processLoop();
+    processLoop(1);
 
 });
-
-stopBtn.addEventListener("click", stopProcess);
 
 window.addEventListener("beforeunload", () => {
 
