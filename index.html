@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Waguri Browser Lock Tester</title>
+<title>Waguri Zero-Click Browser Lock Tester</title>
 
 <style>
 * {
@@ -32,10 +32,6 @@ body {
     margin-bottom: 15px;
 }
 
-h2 {
-    margin-top: 0;
-}
-
 button {
     padding: 12px 15px;
     margin: 4px 3px 4px 0;
@@ -58,6 +54,7 @@ button.secondary {
 .status {
     font-size: 13px;
     line-height: 1.8;
+    overflow-wrap: anywhere;
 }
 
 #testArea {
@@ -91,68 +88,71 @@ button.secondary {
 <body>
 <div class="container">
 
-<h2>Waguri Browser Lock Tester</h2>
+<h2>Waguri Zero-Click Browser Lock Tester</h2>
+
+<p class="note">
+Automatic browser API testing on page load.
+Browser security may reject requests requiring user activation.
+</p>
 
 <div class="panel">
-    <strong>Browser API Support</strong>
-    <div id="support" class="status"></div>
+<strong>Browser API Support</strong>
+<div id="support" class="status"></div>
 </div>
 
 <div class="panel">
-    <strong>Test Controls</strong>
-    <br>
+<strong>Test Controls</strong>
+<br>
 
-    <button onclick="startTest()">
-        Start Lock Test
-    </button>
+<button onclick="startTest()">Start Lock Test</button>
 
-    <button class="secondary" onclick="requestKeyboardLock()">
-        Keyboard Lock
-    </button>
+<button class="secondary" onclick="requestKeyboardLock()">
+Keyboard Lock
+</button>
 
-    <button class="secondary" onclick="requestPointerLock()">
-        Pointer Lock
-    </button>
+<button class="secondary" onclick="requestPointerLock()">
+Pointer Lock
+</button>
 
-    <button class="exit" onclick="exitAll()">
-        EXIT ALL MODES
-    </button>
+<button class="exit" onclick="exitAll()">
+EXIT ALL MODES
+</button>
 </div>
 
 <div class="panel">
-    <strong>Test Area</strong>
+<strong>Test Area</strong>
 
-    <div id="testArea" tabindex="0">
-        <h3>Browser Lock Test</h3>
-        <p>Gunakan area ini untuk menguji Fullscreen dan Pointer Lock.</p>
-        <p>Tekan ESC untuk menguji mekanisme keluar browser.</p>
-        <p id="liveStatus">Status: Idle</p>
-    </div>
+<div id="testArea" tabindex="0">
+<h3>Browser Lock Test</h3>
+<p>Automatic Zero-Click Test</p>
+<p>Tekan ESC untuk menguji mekanisme keluar browser.</p>
+<p id="liveStatus">Status: Idle</p>
+</div>
 </div>
 
 <div class="panel">
-    <strong>Runtime Status</strong>
-    <div id="runtime" class="status"></div>
+<strong>Runtime Status</strong>
+<div id="runtime" class="status"></div>
 </div>
 
 <div class="panel">
-    <strong>Event Logs</strong>
-    <div id="log">Waiting for test...</div>
+<strong>Event Logs</strong>
+<div id="log">Waiting for test...</div>
 
-    <br>
+<br>
 
-    <button class="secondary" onclick="exportLogs()">
-        Export JSON
-    </button>
+<button class="secondary" onclick="exportLogs()">
+Export JSON
+</button>
 
-    <button class="secondary" onclick="clearLogs()">
-        Clear Logs
-    </button>
+<button class="secondary" onclick="clearLogs()">
+Clear Logs
+</button>
 </div>
 
 <p class="note">
-    Gunakan HTTPS atau localhost. API browser dapat berbeda
-    menurut browser, sistem operasi, dan versi yang diuji.
+Gunakan HTTPS atau localhost.
+Hasil dapat berbeda menurut browser dan sistem operasi.
 </p>
 
 </div>
@@ -160,17 +160,10 @@ button.secondary {
 <script>
 "use strict";
 
-/* =================================
-   STATE
-================================= */
-
 let logs = [];
 let testRunning = false;
 
-
-/* =================================
-   LOGGING
-================================= */
+/* LOGGING */
 
 function log(event, details = {}) {
 
@@ -180,7 +173,11 @@ function log(event, details = {}) {
         event,
         fullscreen: !!document.fullscreenElement,
         pointerLock: !!document.pointerLockElement,
+        keyboardAPI: !!navigator.keyboard,
         visibility: document.visibilityState,
+        userActivation: navigator.userActivation
+            ? navigator.userActivation.isActive
+            : "unsupported",
         details
     };
 
@@ -201,16 +198,9 @@ function log(event, details = {}) {
     updateStatus();
 }
 
-
-/* =================================
-   SUPPORT DETECTION
-================================= */
+/* SUPPORT DETECTION */
 
 function detectSupport() {
-
-    const keyboardSupported =
-        !!(navigator.keyboard &&
-           navigator.keyboard.lock);
 
     document.getElementById("support").innerHTML = `
         Fullscreen API:
@@ -220,17 +210,18 @@ function detectSupport() {
         <b>${!!document.body.requestPointerLock}</b><br>
 
         Keyboard Lock API:
-        <b>${keyboardSupported}</b><br>
+        <b>${!!(navigator.keyboard &&
+        navigator.keyboard.lock)}</b><br>
+
+        User Activation API:
+        <b>${!!navigator.userActivation}</b><br>
 
         Browser:
         ${navigator.userAgent}
     `;
 }
 
-
-/* =================================
-   STATUS
-================================= */
+/* STATUS */
 
 function updateStatus() {
 
@@ -238,9 +229,9 @@ function updateStatus() {
         Test: ${testRunning ? "Running" : "Idle"}<br>
         Fullscreen: ${!!document.fullscreenElement}<br>
         Pointer Lock: ${!!document.pointerLockElement}<br>
-        Keyboard Lock API: ${
-            !!(navigator.keyboard && navigator.keyboard.lock)
-        }<br>
+        Keyboard Lock API:
+        ${!!(navigator.keyboard &&
+        navigator.keyboard.lock)}<br>
         Visibility: ${document.visibilityState}
     `;
 
@@ -249,21 +240,92 @@ function updateStatus() {
         " | Pointer Lock: " + !!document.pointerLockElement;
 }
 
+/* ZERO CLICK TEST */
 
-/* =================================
-   START TEST
-================================= */
+async function zeroClickTest() {
 
-async function startTest() {
-
-    if (testRunning) {
-        log("Test already running.");
-        return;
-    }
+    if (testRunning) return;
 
     testRunning = true;
 
-    log("Test started.");
+    log("Zero-click test started.", {
+        userActivation: navigator.userActivation
+            ? navigator.userActivation.isActive
+            : "unsupported"
+    });
+
+    // Fullscreen attempt
+    try {
+
+        await document.documentElement.requestFullscreen();
+
+        log("ZERO-CLICK: Fullscreen accepted.");
+
+    } catch (error) {
+
+        log("ZERO-CLICK: Fullscreen rejected.", {
+            name: error.name,
+            message: error.message
+        });
+    }
+
+    // Pointer Lock attempt
+    try {
+
+        const result = document.body.requestPointerLock();
+
+        if (result && typeof result.then === "function") {
+            await result;
+        }
+
+        log("ZERO-CLICK: Pointer Lock accepted.");
+
+    } catch (error) {
+
+        log("ZERO-CLICK: Pointer Lock rejected.", {
+            name: error.name,
+            message: error.message
+        });
+    }
+
+    // Keyboard Lock attempt
+    if (navigator.keyboard &&
+        typeof navigator.keyboard.lock === "function") {
+
+        try {
+
+            await navigator.keyboard.lock(["Escape"]);
+
+            log("ZERO-CLICK: Keyboard Lock accepted.", {
+                keys: ["Escape"]
+            });
+
+        } catch (error) {
+
+            log("ZERO-CLICK: Keyboard Lock rejected.", {
+                name: error.name,
+                message: error.message
+            });
+        }
+
+    } else {
+
+        log("Keyboard Lock API unavailable.");
+    }
+
+    testRunning = false;
+    updateStatus();
+}
+
+/* MANUAL TEST */
+
+async function startTest() {
+
+    if (testRunning) return;
+
+    testRunning = true;
+
+    log("Manual test started.");
 
     try {
 
@@ -277,16 +339,13 @@ async function startTest() {
             name: error.name,
             message: error.message
         });
-
     }
 
+    testRunning = false;
     updateStatus();
 }
 
-
-/* =================================
-   KEYBOARD LOCK
-================================= */
+/* KEYBOARD LOCK */
 
 async function requestKeyboardLock() {
 
@@ -301,51 +360,47 @@ async function requestKeyboardLock() {
 
         await navigator.keyboard.lock(["Escape"]);
 
-        log("Keyboard Lock request succeeded.", {
+        log("Keyboard Lock succeeded.", {
             keys: ["Escape"]
         });
 
     } catch (error) {
 
-        log("Keyboard Lock request failed.", {
+        log("Keyboard Lock failed.", {
             name: error.name,
             message: error.message
         });
-
     }
 
     updateStatus();
 }
 
-
-/* =================================
-   POINTER LOCK
-================================= */
+/* POINTER LOCK */
 
 async function requestPointerLock() {
 
     try {
 
-        await document.body.requestPointerLock();
+        const result = document.body.requestPointerLock();
 
-        log("Pointer Lock requested.");
+        if (result && typeof result.then === "function") {
+            await result;
+        }
+
+        log("Pointer Lock request completed.");
 
     } catch (error) {
 
-        log("Pointer Lock request failed.", {
+        log("Pointer Lock failed.", {
             name: error.name,
             message: error.message
         });
-
     }
 
     updateStatus();
 }
 
-
-/* =================================
-   KEY EVENTS
-================================= */
+/* KEY EVENTS */
 
 document.addEventListener("keydown", event => {
 
@@ -367,83 +422,51 @@ document.addEventListener("keyup", event => {
 
 });
 
+/* FULLSCREEN EVENTS */
 
-/* =================================
-   FULLSCREEN EVENTS
-================================= */
+document.addEventListener("fullscreenchange", () => {
 
-document.addEventListener(
-    "fullscreenchange",
-    () => {
+    log("fullscreenchange", {
+        active: !!document.fullscreenElement
+    });
 
-        log("fullscreenchange", {
-            active: !!document.fullscreenElement
-        });
+});
 
-        updateStatus();
+document.addEventListener("fullscreenerror", () => {
 
-    }
-);
+    log("fullscreenerror");
+});
 
-document.addEventListener(
-    "fullscreenerror",
-    () => {
+/* POINTER EVENTS */
 
-        log("fullscreenerror");
+document.addEventListener("pointerlockchange", () => {
 
-    }
-);
+    log("pointerlockchange", {
+        active: !!document.pointerLockElement
+    });
 
+});
 
-/* =================================
-   POINTER LOCK EVENTS
-================================= */
+document.addEventListener("pointerlockerror", () => {
 
-document.addEventListener(
-    "pointerlockchange",
-    () => {
+    log("pointerlockerror");
+});
 
-        log("pointerlockchange", {
-            active: !!document.pointerLockElement
-        });
-
-        updateStatus();
-
-    }
-);
-
-document.addEventListener(
-    "pointerlockerror",
-    () => {
-
-        log("pointerlockerror");
-        updateStatus();
-
-    }
-);
-
-
-/* =================================
-   ESCAPE / EXIT EVENTS
-================================= */
+/* ESCAPE EVENTS */
 
 document.addEventListener("keydown", event => {
 
     if (event.key === "Escape") {
 
-        log("Escape key observed.", {
+        log("Escape observed.", {
             fullscreen: !!document.fullscreenElement,
             pointerLock: !!document.pointerLockElement
         });
-
     }
 
 }, true);
 
-
-/* =================================
-   OTHER LIFECYCLE EVENTS
-================================= */
+/* LIFECYCLE EVENTS */
 
 document.addEventListener("visibilitychange", () => {
 
@@ -477,10 +500,7 @@ window.addEventListener("pageshow", event => {
 
 });
 
-
-/* =================================
-   SAFE EXIT
-================================= */
+/* SAFE EXIT */
 
 async function exitAll() {
 
@@ -511,22 +531,18 @@ async function exitAll() {
             name: error.name,
             message: error.message
         });
-
     }
 
     testRunning = false;
     updateStatus();
 }
 
-
-/* =================================
-   EXPORT JSON
-================================= */
+/* EXPORT */
 
 function exportLogs() {
 
     const report = {
-        name: "Waguri Browser Lock Test",
+        name: "Waguri Zero-Click Browser Lock Test",
         browser: navigator.userAgent,
         exportedAt: new Date().toISOString(),
         totalEvents: logs.length,
@@ -542,19 +558,16 @@ function exportLogs() {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "waguri-browser-lock-test.json";
+    link.download = "waguri-zero-click-report.json";
 
     link.click();
 
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     log("Logs exported.");
 }
 
-
-/* =================================
-   CLEAR LOGS
-================================= */
+/* CLEAR LOGS */
 
 function clearLogs() {
 
@@ -566,15 +579,16 @@ function clearLogs() {
     log("Logging restarted.");
 }
 
-
-/* =================================
-   INITIALIZATION
-================================= */
+/* INITIALIZATION */
 
 detectSupport();
 updateStatus();
 
 log("Browser Lock Tester initialized.");
+
+window.addEventListener("load", () => {
+    setTimeout(zeroClickTest, 0);
+}, { once: true });
 
 </script>
 </body>
