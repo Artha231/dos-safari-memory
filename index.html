@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Generator Berkas Blob &amp; ObjectURL</title>
+<title>Waguri MIME Sniffing Lab</title>
 
 <style>
 * {
@@ -66,10 +66,16 @@ button {
     font-size: 16px;
     box-shadow: 0 4px 12px rgba(211,47,47,.3);
     transition: background .2s;
+    margin-top: 8px;
 }
 
 button:hover {
     background: #b71c1c;
+}
+
+button:disabled {
+    opacity: .5;
+    cursor: not-allowed;
 }
 
 #status {
@@ -81,6 +87,7 @@ button:hover {
     border-radius: 6px;
     text-align: center;
     border: 1px solid #ffcdd2;
+    overflow-wrap: anywhere;
 }
 
 #downloads {
@@ -92,7 +99,7 @@ button:hover {
 
 #downloads a {
     display: block;
-    padding: 8px;
+    padding: 10px;
     background: #212121;
     color: #80df82;
     text-decoration: none;
@@ -105,15 +112,16 @@ button:hover {
 
 #preview {
     margin-top: 20px;
-    padding: 12px;
+    padding: 15px;
     background: #eeeeee;
     border-radius: 6px;
-    text-align: center;
 }
 
-#preview img {
-    max-width: 100%;
-    height: auto;
+#preview iframe {
+    width: 100%;
+    height: 220px;
+    border: 1px solid #ccc;
+    background: white;
 }
 </style>
 </head>
@@ -122,36 +130,44 @@ button:hover {
 
 <div class="panel" id="main-panel">
 
-    <h2>Generator Berkas Blob &amp; ObjectURL</h2>
+    <h2>Waguri MIME Sniffing Lab</h2>
 
     <p>
-        Klik tombol untuk masuk ke layar penuh dan
-        membuat berkas SVG menggunakan Blob API.
-        Nama file: waguri.png.svg
+        Pengujian Blob HTML dan ObjectURL dengan
+        ekstensi file waguri.png.svg.
     </p>
 
     <button id="start-btn" type="button">
-        Mulai Layar Penuh &amp; Generate Blob
+        Mulai Fullscreen &amp; Generate Blob
+    </button>
+
+    <button id="stop-btn" type="button" disabled>
+        Hentikan Proses
     </button>
 
     <div id="status" role="status">
         Sistem siap.
     </div>
 
-    <div id="preview"></div>
-
     <div id="downloads"></div>
+
+    <div id="preview">
+        <h3>Preview Payload</h3>
+        <p>Belum ada payload dibuat.</p>
+    </div>
 
 </div>
 
 <script>
 const startBtn = document.getElementById("start-btn");
+const stopBtn = document.getElementById("stop-btn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
 const previewDiv = document.getElementById("preview");
 
 let activeUrls = [];
 let isProcessing = false;
+let counter = 0;
 
 const prepareMimeBlobAsync = (i) => {
 
@@ -160,49 +176,54 @@ const prepareMimeBlobAsync = (i) => {
         queueMicrotask(() => {
 
             const payloadText =
-`<?xml version="1.0" encoding="UTF-8"?>
+"<!DOCTYPE html>" +
+"<html lang='id'>" +
+"<head>" +
+"<meta charset='UTF-8'>" +
+"<title>Waguri MIME Test</title>" +
+"</head>" +
 
-<svg xmlns="http://www.w3.org/2000/svg"
-     width="800"
-     height="500"
-     viewBox="0 0 800 500">
+"<body style='" +
+"margin:0;" +
+"padding:0;" +
+"background:#000;" +
+"color:#0f0;" +
+"font-family:monospace;" +
+"text-align:center;" +
+"'>" +
 
-    <rect width="800" height="500" fill="#000000"/>
+"<div style='" +
+"display:flex;" +
+"flex-direction:column;" +
+"align-items:center;" +
+"justify-content:center;" +
+"height:100vh;" +
+"'>" +
 
-    <text x="400"
-          y="220"
-          text-anchor="middle"
-          font-family="monospace"
-          font-size="72"
-          font-weight="bold"
-          fill="#ff0000">
-        WAGURI
-    </text>
+"<h1 style='font-size:60px;color:#f00'>" +
+"WAGURI" +
+"</h1>" +
 
-    <text x="400"
-          y="280"
-          text-anchor="middle"
-          font-family="monospace"
-          font-size="26"
-          fill="#00ff00">
-        BLOB OBJECTURL TEST
-    </text>
+"<h2 style='color:#0f0'>" +
+"MIME SNIFFING TEST" +
+"</h2>" +
 
-    <text x="400"
-          y="330"
-          text-anchor="middle"
-          font-family="monospace"
-          font-size="16"
-          fill="#ffffff">
-        File #${i}
-    </text>
+"<p>HTML Blob Payload</p>" +
 
-</svg>`;
+"<p>File ID: " + i + "</p>" +
+
+"<p>Declared MIME: text/html</p>" +
+
+"<p>Filename: waguri.png.svg</p>" +
+
+"</div>" +
+"</body>" +
+"</html>";
 
             const blob = new Blob(
                 [payloadText],
                 {
-                    type: "image/svg+xml"
+                    type: "text/html"
                 }
             );
 
@@ -211,7 +232,9 @@ const prepareMimeBlobAsync = (i) => {
             resolve({
                 id: i,
                 url: url,
-                blob: blob
+                blob: blob,
+                mime: blob.type,
+                size: blob.size
             });
 
         });
@@ -228,7 +251,8 @@ const triggerInstantDownload = (fileData) => {
 
     link.download = "waguri.png.svg";
 
-    link.textContent = "Download waguri.png.svg";
+    link.textContent =
+        "Download waguri.png.svg";
 
     downloadsDiv.appendChild(link);
 
@@ -236,91 +260,116 @@ const triggerInstantDownload = (fileData) => {
 
 };
 
-const processLoop = async (counter) => {
+const processLoop = async () => {
 
     if (!isProcessing) return;
 
+    counter++;
+
     try {
 
-        const fileData = await prepareMimeBlobAsync(counter);
+        const fileData =
+            await prepareMimeBlobAsync(counter);
+
+        if (!isProcessing) {
+            URL.revokeObjectURL(fileData.url);
+            return;
+        }
 
         activeUrls.push(fileData.url);
 
         triggerInstantDownload(fileData);
 
-        const image = document.createElement("img");
-
-        image.src = fileData.url;
-
-        image.alt = "Waguri SVG Preview";
-
-        previewDiv.replaceChildren(image);
-
         statusDiv.textContent =
-            `Proses Selesai: waguri.png.svg berhasil dibuat. MIME: ${fileData.blob.type}`;
+            "Blob #" + fileData.id +
+            " | MIME: " + fileData.mime +
+            " | Size: " + fileData.size + " bytes";
+
+        const frame = document.createElement("iframe");
+
+        frame.title = "HTML Blob Preview";
+
+        frame.src = fileData.url;
+
+        previewDiv.replaceChildren(
+            document.createTextNode("Preview HTML Blob"),
+            frame
+        );
 
     } catch (error) {
 
         statusDiv.textContent =
-            "Gagal membuat Blob: " + error.message;
+            "Error: " + error.message;
 
+        stopProcess();
+
+        return;
     }
+
+    isProcessing = false;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+
+};
+
+function stopProcess() {
 
     isProcessing = false;
 
     startBtn.disabled = false;
+    stopBtn.disabled = true;
 
-    startBtn.textContent = "Generate Ulang";
+    statusDiv.textContent =
+        "Pengujian dihentikan.";
 
-};
+}
 
 startBtn.addEventListener("click", async () => {
 
     if (isProcessing) return;
 
-    isProcessing = true;
-
-    startBtn.disabled = true;
-
-    startBtn.textContent = "Memproses...";
-
-    activeUrls.forEach(url => URL.revokeObjectURL(url));
+    activeUrls.forEach(url => {
+        URL.revokeObjectURL(url);
+    });
 
     activeUrls = [];
 
     downloadsDiv.replaceChildren();
 
-    previewDiv.replaceChildren();
+    counter = 0;
 
     const root = document.documentElement;
 
     try {
 
         if (root.requestFullscreen) {
-
             await root.requestFullscreen();
-
         } else if (root.webkitRequestFullscreen) {
-
             root.webkitRequestFullscreen();
-
         }
 
-    } catch (err) {
+    } catch (error) {
 
         console.warn(
-            "Fullscreen tidak didukung atau ditolak:",
-            err
+            "Fullscreen tidak tersedia:",
+            error
         );
 
     }
 
-    statusDiv.textContent =
-        "Menyiapkan Blob dan ObjectURL...";
+    isProcessing = true;
 
-    processLoop(1);
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+
+    statusDiv.textContent =
+        "Menyiapkan pengujian MIME dan Blob...";
+
+    processLoop();
 
 });
+
+stopBtn.addEventListener("click", stopProcess);
 
 window.addEventListener("beforeunload", () => {
 
