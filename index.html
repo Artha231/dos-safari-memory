@@ -3,338 +3,293 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Generator Berkas Blob &amp; ObjectURL</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SVG Blob Generator - WAGURI</title>
 
 <style>
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 body {
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
-  color: #222;
-  padding: 20px;
+    min-height: 100vh;
+    padding: 24px;
+    background: #101014;
+    color: #f5f5f5;
+    font-family: Arial, sans-serif;
 }
 
-.panel {
-  background: #ffffff;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,.1);
-  max-width: 600px;
-  margin: 40px auto;
-}
-
-:fullscreen {
-  background: #111111 !important;
-  color: #00ff00 !important;
-  padding: 20px !important;
-  overflow-y: auto !important;
-  width: 100vw !important;
-  height: 100vh !important;
+.container {
+    width: 100%;
+    max-width: 650px;
+    margin: 50px auto;
+    padding: 25px;
+    background: #1b1b22;
+    border: 1px solid #34343d;
+    border-radius: 14px;
 }
 
 h2 {
-  margin-bottom: 10px;
+    margin-bottom: 12px;
+    color: #00ff88;
 }
 
-p {
-  margin-bottom: 15px;
-  line-height: 1.5;
+.description {
+    margin-bottom: 22px;
+    color: #aaa;
+    line-height: 1.6;
 }
 
 button {
-  width: 100%;
-  padding: 16px;
-  cursor: pointer;
-  border: none;
-  border-radius: 6px;
-  background: #d32f2f;
-  color: #ffffff;
-  font-weight: bold;
-  font-size: 16px;
-  box-shadow: 0 4px 12px rgba(211,47,47,.3);
-  transition: background .2s;
-}
-
-button:hover {
-  background: #b71c1c;
+    width: 100%;
+    padding: 14px;
+    border: 0;
+    border-radius: 8px;
+    background: #00c878;
+    color: #07130d;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
 button:disabled {
-  opacity: .6;
-  cursor: not-allowed;
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 #status {
-  margin-top: 16px;
-  font-weight: bold;
-  color: #d32f2f;
-  padding: 12px;
-  background: #ffebee;
-  border-radius: 6px;
-  text-align: center;
-  border: 1px solid #ffcdd2;
+    margin-top: 20px;
+    padding: 14px;
+    background: #111;
+    border-radius: 8px;
+    color: #00ff88;
+    line-height: 1.5;
 }
 
 #downloads {
-  margin-top: 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill,minmax(130px,1fr));
-  gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 18px;
 }
 
 #downloads a {
-  display: block;
-  padding: 8px;
-  background: #212121;
-  color: #80df82;
-  text-decoration: none;
-  border-radius: 4px;
-  font-size: 12px;
-  text-align: center;
-  border: 1px solid #424242;
-  word-break: break-all;
+    display: block;
+    padding: 12px;
+    border: 1px solid #34343d;
+    border-radius: 7px;
+    color: #00ff88;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+#downloads a:hover {
+    background: #292932;
 }
 </style>
 </head>
 
 <body>
 
-<div class="panel" id="main-panel">
+<div class="container">
+    <h2>WAGURI SVG Blob Generator</h2>
 
-  <h2>Generator Berkas Blob &amp; ObjectURL</h2>
+    <p class="description">
+        Generator berkas SVG menggunakan Blob dan Object URL.
+        Maksimal 5 berkas dalam satu proses.
+    </p>
 
-  <p>
-    Klik tombol untuk masuk ke layar penuh dan membuat
-    berkas SVG menggunakan Blob dan ObjectURL.
-    Nama berkas menggunakan ekstensi .txt.svg.
-    Maksimal 5 berkas per sesi.
-  </p>
+    <button id="startBtn">Start Generator</button>
 
-  <button id="start-btn" type="button">
-    Mulai Layar Penuh &amp; Generate Blob
-  </button>
+    <div id="status">Status: Ready</div>
 
-  <div id="status" role="status">
-    Sistem siap.
-  </div>
-
-  <div id="downloads"></div>
-
+    <div id="downloads"></div>
 </div>
 
 <script>
-"use strict";
-
-const startBtn = document.getElementById("start-btn");
+const startBtn = document.getElementById("startBtn");
 const statusDiv = document.getElementById("status");
 const downloadsDiv = document.getElementById("downloads");
+
+const MAX_FILES = 5;
 
 let activeUrls = [];
 let isProcessing = false;
 
-const MAX_FILES = 5;
 
+// Membuat SVG Blob secara asynchronous
+function prepareMimeBlobAsync(i) {
+    return new Promise((resolve, reject) => {
 
-/* Membuat SVG Blob secara asynchronous. */
-const prepareMimeBlobAsync = (i) => {
-
-  return new Promise((resolve) => {
-
-    queueMicrotask(() => {
-
-      const svgPayload = `<?xml version="1.0" encoding="UTF-8"?>
+        queueMicrotask(() => {
+            try {
+                const svgPayload = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg"
-     width="900"
-     height="620"
+     width="900" height="620"
      viewBox="0 0 900 620">
 
-  <title>WAGURI SVG MIME Test</title>
+    <rect width="900" height="620" fill="#000"/>
 
-  <rect
-    width="900"
-    height="620"
-    fill="#000000"/>
+    <text x="450" y="300"
+          text-anchor="middle"
+          font-size="60"
+          fill="#00ff00">
+        WAGURI MIME TEST
+    </text>
 
-  <text
-    x="450"
-    y="260"
-    text-anchor="middle"
-    font-family="monospace"
-    font-size="80"
-    font-weight="bold"
-    letter-spacing="8"
-    fill="#ff0000">
-    HACKED BY
-  </text>
-
-  <text
-    x="450"
-    y="340"
-    text-anchor="middle"
-    font-family="monospace"
-    font-size="38"
-    letter-spacing="4"
-    fill="#00ff00">
-    WAGURI
-  </text>
-
-  <text
-    x="450"
-    y="420"
-    text-anchor="middle"
-    font-family="monospace"
-    font-size="18"
-    fill="#00ff00">
-    SVG MIME / Rendering Test
-  </text>
+    <text x="450" y="370"
+          text-anchor="middle"
+          font-size="24"
+          fill="#ffffff">
+        FILE ID: ${i}
+    </text>
 
 </svg>`;
 
-      const blob = new Blob(
-        [svgPayload],
-        {
-          type: "image/svg+xml;charset=utf-8"
-        }
-      );
+                const blob = new Blob(
+                    [svgPayload],
+                    {
+                        type: "image/svg+xml;charset=utf-8"
+                    }
+                );
 
-      const url = URL.createObjectURL(blob);
+                const url = URL.createObjectURL(blob);
 
-      resolve({
-        id: i,
-        url: url,
-        blob: blob
-      });
+                activeUrls.push(url);
 
+                resolve({
+                    id: i,
+                    url: url
+                });
+
+            } catch (error) {
+                reject(error);
+            }
+        });
     });
-
-  });
-
-};
+}
 
 
-/* Membuat tautan download yang terlihat. */
-const triggerInstantDownload = (fileData) => {
+// Membuat tautan unduhan
+function triggerInstantDownload(fileData) {
 
-  const link = document.createElement("a");
+    const link = document.createElement("a");
 
-  link.href = fileData.url;
+    link.href = fileData.url;
+    link.download = `waguri-file-${fileData.id}.txt.svg`;
+    link.textContent =
+        `Download waguri-file-${fileData.id}.txt.svg`;
 
-  link.download =
-    `waguri-file-${fileData.id}.txt.svg`;
+    downloadsDiv.appendChild(link);
 
-  link.textContent =
-    `Blob #${fileData.id} (.txt.svg)`;
-
-  downloadsDiv.appendChild(link);
-
-  link.click();
-
-};
+    // Memicu unduhan dari interaksi pengguna
+    link.click();
+}
 
 
-/* Proses pembuatan berkas. */
-const processLoop = async (counter) => {
+// Loop proses generator
+async function processLoop(counter) {
 
-  if (!isProcessing) return;
+    if (!isProcessing) return;
 
-  if (counter > MAX_FILES) {
+    if (counter > MAX_FILES) {
 
-    isProcessing = false;
+        isProcessing = false;
+        startBtn.disabled = false;
 
-    startBtn.disabled = false;
+        statusDiv.textContent =
+            `Status: Selesai. ${MAX_FILES} berkas berhasil diproses.`;
 
-    statusDiv.textContent =
-      `Selesai: ${MAX_FILES} berkas SVG dibuat.`;
-
-    return;
-
-  }
-
-  try {
-
-    const fileData =
-      await prepareMimeBlobAsync(counter);
-
-    activeUrls.push(fileData.url);
-
-    triggerInstantDownload(fileData);
-
-    statusDiv.textContent =
-      `Proses berjalan: berkas ke-${counter} dari ${MAX_FILES}`;
-
-    setTimeout(() => {
-      processLoop(counter + 1);
-    }, 250);
-
-  } catch (err) {
-
-    isProcessing = false;
-
-    startBtn.disabled = false;
-
-    statusDiv.textContent =
-      "Gagal membuat Blob: " + err.message;
-
-  }
-
-};
-
-
-/* Tombol utama dan Fullscreen. */
-startBtn.addEventListener("click", async () => {
-
-  if (isProcessing) return;
-
-  activeUrls.forEach(url => {
-    URL.revokeObjectURL(url);
-  });
-
-  activeUrls = [];
-
-  downloadsDiv.replaceChildren();
-
-  const root = document.documentElement;
-
-  try {
-
-    if (root.requestFullscreen) {
-      await root.requestFullscreen();
+        return;
     }
 
+    try {
+
+        statusDiv.textContent =
+            `Status: Membuat SVG Blob ${counter}/${MAX_FILES}...`;
+
+        const fileData = await prepareMimeBlobAsync(counter);
+
+        triggerInstantDownload(fileData);
+
+        statusDiv.textContent =
+            `Status: SVG Blob ${counter}/${MAX_FILES} berhasil dibuat.`;
+
+        setTimeout(() => {
+            processLoop(counter + 1);
+        }, 250);
+
+    } catch (error) {
+
+        isProcessing = false;
+        startBtn.disabled = false;
+
+        statusDiv.textContent =
+            `Error: ${error.message}`;
+    }
+}
+
+
+// Membersihkan Object URL
+function cleanupObjectUrls() {
+
+    activeUrls.forEach(url => {
+        URL.revokeObjectURL(url);
+    });
+
+    activeUrls = [];
+}
+
+
+// Tombol utama
+startBtn.addEventListener("click", async () => {
+
+    if (isProcessing) return;
+
+    cleanupObjectUrls();
+
+    downloadsDiv.replaceChildren();
+
     statusDiv.textContent =
-      "Mode layar penuh aktif. Menyiapkan Blob SVG...";
+        "Status: Meminta fullscreen...";
 
-  } catch (err) {
+    const root = document.documentElement;
 
-    statusDiv.textContent =
-      "Fullscreen tidak tersedia atau ditolak. Melanjutkan proses.";
+    try {
 
-  }
+        if (root.requestFullscreen) {
+            await root.requestFullscreen();
 
-  isProcessing = true;
+        } else if (root.webkitRequestFullscreen) {
+            root.webkitRequestFullscreen();
 
-  startBtn.disabled = true;
+        } else if (root.mozRequestFullScreen) {
+            root.mozRequestFullScreen();
+        }
 
-  processLoop(1);
+    } catch (error) {
+        statusDiv.textContent =
+            "Status: Fullscreen tidak tersedia. Melanjutkan proses...";
+    }
+
+    setTimeout(() => {
+
+        isProcessing = true;
+        startBtn.disabled = true;
+
+        processLoop(1);
+
+    }, 300);
 
 });
 
 
-/* Membersihkan ObjectURL saat halaman ditutup. */
+// Bersihkan URL ketika halaman ditinggalkan
 window.addEventListener("beforeunload", () => {
-
-  activeUrls.forEach(url => {
-    URL.revokeObjectURL(url);
-  });
-
+    cleanupObjectUrls();
 });
-
 </script>
 
 </body>
