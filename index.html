@@ -4,13 +4,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Waguri Direct Navigation Tester</title>
-
+<title>Waguri Sandbox Popup Tester</title>
 <style>
-* {
-    box-sizing: border-box;
-}
-
 body {
     margin: 0;
     padding: 20px;
@@ -18,12 +13,10 @@ body {
     color: #e5e7eb;
     font-family: Arial, sans-serif;
 }
-
 .container {
     max-width: 750px;
     margin: auto;
 }
-
 .panel {
     background: #1e293b;
     border: 1px solid #334155;
@@ -31,36 +24,31 @@ body {
     padding: 18px;
     margin-bottom: 15px;
 }
-
-button, input {
+input, button {
     padding: 12px;
-    border: 0;
     border-radius: 7px;
-    margin: 5px 0;
+    border: 0;
 }
-
+input {
+    width: 100%;
+    background: #0f172a;
+    color: white;
+    box-sizing: border-box;
+}
 button {
     background: #2563eb;
     color: white;
     font-weight: bold;
     cursor: pointer;
+    margin-top: 10px;
 }
-
-input {
-    width: 100%;
-    background: #0f172a;
-    color: white;
-    border: 1px solid #475569;
-}
-
 iframe {
     width: 100%;
-    height: 180px;
+    height: 190px;
     border: 2px dashed #64748b;
-    border-radius: 8px;
     background: white;
+    border-radius: 8px;
 }
-
 #log {
     height: 220px;
     overflow-y: auto;
@@ -73,52 +61,42 @@ iframe {
 }
 </style>
 </head>
-
 <body>
+
 <div class="container">
 
-<h2>Waguri Direct Navigation Tester</h2>
+<h2>Waguri Sandbox Popup Tester</h2>
 
 <div class="panel">
     <h3>Target URL</h3>
-
     <input
         id="target"
         type="url"
         value="https://example.com"
-        placeholder="https://example.com"
-    >
-
-    <p>Navigation mode: Same Tab</p>
-    <p>Popup: Disabled</p>
+        placeholder="https://example.com">
 </div>
 
 <div class="panel">
-    <h3>Sandbox Configuration</h3>
+    <h3>Iframe Sandbox</h3>
 
     <p>
         allow-scripts<br>
-        allow-top-navigation-by-user-activation
+        allow-popups<br>
+        allow-popups-to-escape-sandbox
     </p>
 
     <iframe
         id="testFrame"
-        sandbox="allow-scripts allow-top-navigation-by-user-activation"
-        title="Sandbox navigation test">
+        sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+        title="Sandbox popup test">
     </iframe>
 </div>
 
 <div class="panel">
-    <h3>Direct Navigation</h3>
-
-    <button onclick="navigateFromParent()">
-        Navigate from Parent
+    <h3>Manual Popup</h3>
+    <button onclick="openDirectPopup()">
+        Open Test Popup
     </button>
-
-    <p>
-        Tombol di dalam iframe akan melakukan
-        navigasi langsung pada tab yang sama.
-    </p>
 </div>
 
 <div class="panel">
@@ -132,7 +110,7 @@ iframe {
 const frame = document.getElementById("testFrame");
 const targetInput = document.getElementById("target");
 
-function writeLog(event, details = {}) {
+function log(event, details = {}) {
     const output = document.getElementById("log");
 
     output.textContent +=
@@ -147,116 +125,94 @@ function getTarget() {
         const url = new URL(targetInput.value);
 
         if (!["http:", "https:"].includes(url.protocol)) {
-            throw new Error("Only HTTP and HTTPS URLs are allowed.");
+            throw new Error("Only HTTP/HTTPS URLs allowed");
         }
 
         return url.href;
     } catch (error) {
-        writeLog("Invalid target", {
-            message: error.message
-        });
-
+        log("Invalid URL", {message: error.message});
         return null;
     }
 }
 
 function loadFrame() {
+
     const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {
-                    font-family: Arial;
-                    padding: 15px;
-                    text-align: center;
-                    color: #111827;
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family:Arial;padding:15px;text-align:center">
+
+        <h3>Sandbox Popup Test</h3>
+        <p>Click to open the configured destination.</p>
+
+        <button id="open">
+            OPEN DESTINATION
+        </button>
+
+        <script>
+        document.getElementById("open")
+            .addEventListener("click", function() {
+
+                const target =
+                    new URLSearchParams(location.search)
+                    .get("target");
+
+                if (!target) return;
+
+                const url = new URL(target);
+
+                if (!["https:", "http:"].includes(url.protocol)) {
+                    return;
                 }
 
-                button {
-                    padding: 13px 18px;
-                    background: #2563eb;
-                    color: white;
-                    border: 0;
-                    border-radius: 7px;
-                    font-weight: bold;
-                }
-            </style>
-        </head>
-        <body>
-            <h3>Sandbox Navigation Test</h3>
-            <p>Click to navigate the current tab.</p>
+                const popup = window.open(
+                    url.href,
+                    "_blank",
+                    "noopener"
+                );
 
-            <button id="navigate">
-                DIRECT NAVIGATE
-            </button>
+                parent.postMessage({
+                    type: "popup-result",
+                    opened: !!popup,
+                    target: url.href
+                }, "*");
+            });
+        <\/script>
 
-            <script>
-                document.getElementById("navigate")
-                    .addEventListener("click", function() {
+    </body>
+    </html>`;
 
-                        const target =
-                            new URLSearchParams(location.search)
-                            .get("target");
-
-                        if (!target) return;
-
-                        try {
-                            const url = new URL(target);
-
-                            if (!["http:", "https:"].includes(url.protocol)) {
-                                throw new Error("Invalid protocol");
-                            }
-
-                            parent.postMessage({
-                                type: "navigation-request",
-                                target: url.href
-                            }, location.origin);
-
-                            location.href = url.href;
-
-                        } catch(error) {
-                            parent.postMessage({
-                                type: "navigation-error",
-                                message: error.message
-                            }, location.origin);
-                        }
-                    });
-            <\/script>
-        </body>
-        </html>
-    `;
-
-    frame.srcdoc = html;
-}
-
-function navigateFromParent() {
     const target = getTarget();
 
     if (!target) return;
 
-    writeLog("Parent navigation requested", {
-        target
-    });
+    frame.srcdoc = html;
+}
 
-    location.assign(target);
+function openDirectPopup() {
+
+    const target = getTarget();
+
+    if (!target) return;
+
+    const popup = window.open(
+        target,
+        "_blank",
+        "noopener"
+    );
+
+    log("Manual popup requested", {
+        opened: !!popup,
+        target: target
+    });
 }
 
 window.addEventListener("message", event => {
 
     if (event.source !== frame.contentWindow) return;
 
-    if (event.data?.type === "navigation-request") {
-        writeLog("Iframe navigation requested", {
-            target: event.data.target
-        });
-    }
-
-    if (event.data?.type === "navigation-error") {
-        writeLog("Navigation error", {
-            message: event.data.message
-        });
+    if (event.data?.type === "popup-result") {
+        log("Iframe popup result", event.data);
     }
 });
 
@@ -264,10 +220,9 @@ targetInput.addEventListener("change", loadFrame);
 
 loadFrame();
 
-writeLog("Sandbox initialized", {
+log("Sandbox initialized", {
     sandbox: frame.getAttribute("sandbox"),
-    popup: false,
-    navigation: "same-tab"
+    popup: true
 });
 </script>
 
