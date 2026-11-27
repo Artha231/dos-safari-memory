@@ -3,8 +3,8 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Waguri Zero-Size PiP Research</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waguri Browser Lock Tester</title>
 
 <style>
 * {
@@ -13,845 +13,569 @@
 
 body {
     margin: 0;
-    padding: 18px;
-    background: #080b12;
+    padding: 20px;
+    background: #101827;
     color: #e5e7eb;
     font-family: Arial, sans-serif;
 }
 
 .container {
-    max-width: 720px;
+    max-width: 750px;
     margin: auto;
 }
 
 .panel {
-    background: #111827;
-    border: 1px solid #293548;
-    border-radius: 13px;
-    padding: 20px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 15px;
 }
 
-h1 {
-    color: #60a5fa;
-    font-size: 23px;
+h2 {
+    margin-top: 0;
 }
 
-h3 {
-    margin-bottom: 12px;
+button {
+    padding: 12px 15px;
+    margin: 4px 3px 4px 0;
+    border: 0;
+    border-radius: 7px;
+    background: #2563eb;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
 }
 
-.description {
-    color: #9ca3af;
-    font-size: 13px;
-    line-height: 1.6;
+button.exit {
+    background: #dc2626;
 }
 
-.section {
-    background: #080b12;
-    border: 1px solid #293548;
-    border-radius: 9px;
-    padding: 15px;
-    margin-top: 15px;
+button.secondary {
+    background: #475569;
 }
 
 .status {
     font-size: 13px;
-    line-height: 2;
+    line-height: 1.8;
 }
 
-.status span {
-    color: #4ade80;
+#testArea {
+    min-height: 180px;
+    border: 2px dashed #64748b;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    background: #0f172a;
 }
 
-button, select {
-    padding: 12px;
-    margin: 5px 2px;
-    border-radius: 7px;
-    border: none;
-}
-
-button {
-    cursor: pointer;
-    font-weight: bold;
-}
-
-.primary {
-    background: #2563eb;
-    color: white;
-}
-
-.secondary {
-    background: #374151;
-    color: white;
-}
-
-.danger {
-    background: #991b1b;
-    color: white;
-}
-
-select {
-    width: 100%;
-    background: #172033;
-    color: white;
-    border: 1px solid #374151;
-}
-
-button:disabled {
-    opacity: .4;
-}
-
-progress {
-    width: 100%;
-    height: 12px;
-    accent-color: #22c55e;
-}
-
-.metric {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 12px;
-}
-
-.metric div {
-    background: #172033;
-    padding: 12px;
-    border-radius: 7px;
-}
-
-.metric small {
-    color: #9ca3af;
-}
-
-.metric strong {
-    display: block;
-    color: #4ade80;
-    margin-top: 7px;
-    font-size: 17px;
-}
-
-.log {
-    height: 230px;
+#log {
+    height: 260px;
     overflow-y: auto;
-    background: #03050a;
-    border: 1px solid #293548;
-    border-radius: 7px;
-    padding: 12px;
-    font-family: monospace;
-    font-size: 11px;
-}
-
-.log div {
-    margin-bottom: 7px;
+    white-space: pre-wrap;
     overflow-wrap: anywhere;
+    padding: 12px;
+    border-radius: 8px;
+    background: #020617;
+    color: #a7f3d0;
+    font: 12px monospace;
 }
 
-.ok {
-    color: #4ade80;
-}
-
-.warning {
-    color: #fbbf24;
-}
-
-.error {
-    color: #f87171;
-}
-
-.footer {
-    color: #6b7280;
-    font-size: 11px;
-    margin-top: 18px;
-    line-height: 1.6;
+.note {
+    color: #94a3b8;
+    font-size: 12px;
 }
 </style>
 </head>
 
 <body>
-
 <div class="container">
 
+<h2>Waguri Browser Lock Tester</h2>
+
 <div class="panel">
+    <strong>Browser API Support</strong>
+    <div id="support" class="status"></div>
+</div>
 
-<h1>Waguri PiP Research</h1>
+<div class="panel">
+    <strong>Test Controls</strong>
+    <br>
 
-<p class="description">
-Android Edge - Document Picture-in-Picture
-<br>
-Zero-Size Boundary & Background Lifecycle Tester
+    <button onclick="startTest()">
+        Start Lock Test
+    </button>
+
+    <button class="secondary" onclick="requestKeyboardLock()">
+        Keyboard Lock
+    </button>
+
+    <button class="secondary" onclick="requestPointerLock()">
+        Pointer Lock
+    </button>
+
+    <button class="exit" onclick="exitAll()">
+        EXIT ALL MODES
+    </button>
+</div>
+
+<div class="panel">
+    <strong>Test Area</strong>
+
+    <div id="testArea" tabindex="0">
+        <h3>Browser Lock Test</h3>
+        <p>Gunakan area ini untuk menguji Fullscreen dan Pointer Lock.</p>
+        <p>Tekan ESC untuk menguji mekanisme keluar browser.</p>
+        <p id="liveStatus">Status: Idle</p>
+    </div>
+</div>
+
+<div class="panel">
+    <strong>Runtime Status</strong>
+    <div id="runtime" class="status"></div>
+</div>
+
+<div class="panel">
+    <strong>Event Logs</strong>
+    <div id="log">Waiting for test...</div>
+
+    <br>
+
+    <button class="secondary" onclick="exportLogs()">
+        Export JSON
+    </button>
+
+    <button class="secondary" onclick="clearLogs()">
+        Clear Logs
+    </button>
+</div>
+
+<p class="note">
+    Gunakan HTTPS atau localhost. API browser dapat berbeda
+    menurut browser, sistem operasi, dan versi yang diuji.
 </p>
 
-<div class="section status">
-
-Browser:
-<span id="browser">Detecting...</span><br>
-
-Platform:
-<span id="platform">Detecting...</span><br>
-
-Document PiP:
-<span id="support">Checking...</span><br>
-
-Page Visibility:
-<span id="visibility">Visible</span><br>
-
-PiP State:
-<span id="pipState">Closed</span><br>
-
-Background Timer:
-<span id="timerState">Running</span>
-
-</div>
-
-<div class="section">
-
-<h3>PiP Size Configuration</h3>
-
-<p class="description">
-Pilih ukuran positif untuk menguji batas ukuran jendela.
-Ukuran nol tidak dipaksakan karena bukan ukuran viewport
-yang valid.
-</p>
-
-<select id="sizeSelect">
-
-<option value="300,200">
-300 × 200 px
-</option>
-
-<option value="240,160">
-240 × 160 px
-</option>
-
-<option value="160,120">
-160 × 120 px
-</option>
-
-</select>
-
-<button class="primary" id="openButton">
-Open Document PiP
-</button>
-
-<button class="secondary" id="closeButton">
-Close PiP
-</button>
-
-</div>
-
-<div class="section">
-
-<h3>Live Measurements</h3>
-
-<div class="metric">
-
-<div>
-<small>PiP Width</small>
-<strong id="pipWidth">-</strong>
-</div>
-
-<div>
-<small>PiP Height</small>
-<strong id="pipHeight">-</strong>
-</div>
-
-<div>
-<small>Requested Size</small>
-<strong id="requestedSize">-</strong>
-</div>
-
-<div>
-<small>Timer Drift</small>
-<strong id="timerDrift">0 ms</strong>
-</div>
-
-</div>
-
-</div>
-
-<div class="section">
-
-<h3>Background Timer Test</h3>
-
-<p class="description">
-Timer mencatat selisih waktu aktual untuk mengamati
-throttling ketika tab berada di background.
-</p>
-
-<p>
-Elapsed:
-<strong id="elapsed">0 s</strong>
-</p>
-
-<p>
-Expected ticks:
-<strong id="expected">0</strong>
-</p>
-
-<p>
-Actual ticks:
-<strong id="actual">0</strong>
-</p>
-
-<progress id="progress" max="100" value="0"></progress>
-
-<button class="primary" id="startTimer">
-Start Timer
-</button>
-
-<button class="danger" id="stopTimer">
-Stop Timer
-</button>
-
-</div>
-
-<div class="section">
-
-<h3>Lifecycle Monitor</h3>
-
-<p class="description">
-Event dari opener dan PiP window dicatat secara terpisah.
-</p>
-
-<div class="log" id="log"></div>
-
-<button class="secondary" id="clearLog">
-Clear Logs
-</button>
-
-<button class="secondary" id="exportLog">
-Export JSON
-</button>
-
-</div>
-
-<p class="footer">
-Waguri Research Environment<br>
-No video · No audio · No TTS<br>
-Uses standard Document Picture-in-Picture API.
-</p>
-
-</div>
 </div>
 
 <script>
 "use strict";
 
-// ==========================================
-// ELEMENT REFERENCES
-// ==========================================
-
-const $ = id => document.getElementById(id);
-
-let pipWindow = null;
-
-let timerInterval = null;
-
-let timerStart = 0;
-
-let expectedTicks = 0;
-
-let actualTicks = 0;
-
-let lastTick = 0;
+/* =================================
+   STATE
+================================= */
 
 let logs = [];
+let testRunning = false;
 
-let requestedWidth = 0;
 
-let requestedHeight = 0;
+/* =================================
+   LOGGING
+================================= */
 
-// ==========================================
-// BROWSER DETECTION
-// ==========================================
+function log(event, details = {}) {
 
-function detectBrowser() {
-
-    const ua = navigator.userAgent;
-
-    if (/EdgA/i.test(ua)) {
-        return "Microsoft Edge Android";
-    }
-
-    if (/Edg/i.test(ua)) {
-        return "Microsoft Edge";
-    }
-
-    if (/Android/i.test(ua) && /Chrome/i.test(ua)) {
-        return "Chromium Android";
-    }
-
-    return "Other Browser";
-}
-
-$("browser").textContent = detectBrowser();
-
-$("platform").textContent =
-    navigator.userAgentData?.platform ||
-    navigator.platform ||
-    "Unknown";
-
-// ==========================================
-// DOCUMENT PIP SUPPORT
-// ==========================================
-
-const pipSupported =
-    "documentPictureInPicture" in window;
-
-$("support").textContent =
-    pipSupported ? "Available" : "Unavailable";
-
-if (!pipSupported) {
-    log("DOCUMENT_PIP_API_UNAVAILABLE", "error");
-}
-
-// ==========================================
-// LOGGING
-// ==========================================
-
-function log(message, type = "ok") {
-
-    const timestamp = new Date().toISOString();
-
-    const item = {
-        timestamp,
-        event: message,
-        visibility: document.visibilityState
+    const entry = {
+        timestamp: new Date().toISOString(),
+        elapsed: performance.now().toFixed(2),
+        event,
+        fullscreen: !!document.fullscreenElement,
+        pointerLock: !!document.pointerLockElement,
+        visibility: document.visibilityState,
+        details
     };
 
-    logs.push(item);
+    logs.push(entry);
 
-    const line = document.createElement("div");
+    const output = document.getElementById("log");
 
-    line.className = type;
-
-    line.textContent =
-        "[" + timestamp + "] " + message;
-
-    $("log").appendChild(line);
-
-    $("log").scrollTop =
-        $("log").scrollHeight;
-
-    console.log("[WAGURI]", item);
-}
-
-// ==========================================
-// VISIBILITY EVENTS
-// ==========================================
-
-document.addEventListener(
-    "visibilitychange",
-    () => {
-
-        const state = document.visibilityState;
-
-        $("visibility").textContent = state;
-
-        log("OPENER_VISIBILITY: " + state);
-    }
-);
-
-window.addEventListener("focus", () => {
-    log("OPENER_FOCUS");
-});
-
-window.addEventListener("blur", () => {
-    log("OPENER_BLUR", "warning");
-});
-
-window.addEventListener("pagehide", () => {
-    log("OPENER_PAGEHIDE", "warning");
-});
-
-window.addEventListener("pageshow", () => {
-    log("OPENER_PAGESHOW");
-});
-
-window.addEventListener("resize", () => {
-    log(
-        "OPENER_RESIZE: " +
-        innerWidth + "x" + innerHeight
-    );
-});
-
-// ==========================================
-// PIP WINDOW EVENTS
-// ==========================================
-
-function attachPipEvents(win) {
-
-    win.addEventListener("pagehide", () => {
-
-        log("PIP_PAGEHIDE", "warning");
-
-        pipWindow = null;
-
-        $("pipState").textContent = "Closed";
-
-        $("pipWidth").textContent = "-";
-
-        $("pipHeight").textContent = "-";
-    });
-
-    win.addEventListener("resize", () => {
-
-        updateMeasurements();
-
-        log(
-            "PIP_RESIZE: " +
-            win.innerWidth + "x" + win.innerHeight
-        );
-    });
-
-    win.addEventListener("focus", () => {
-        log("PIP_FOCUS");
-    });
-
-    win.addEventListener("blur", () => {
-        log("PIP_BLUR", "warning");
-    });
-}
-
-// ==========================================
-// MEASUREMENTS
-// ==========================================
-
-function updateMeasurements() {
-
-    if (!pipWindow || pipWindow.closed) {
-        return;
+    if (logs.length === 1) {
+        output.textContent = "";
     }
 
-    const width = pipWindow.innerWidth;
+    output.textContent +=
+        `[${entry.timestamp}] ${event} ` +
+        JSON.stringify(details) + "\n";
 
-    const height = pipWindow.innerHeight;
+    output.scrollTop = output.scrollHeight;
 
-    $("pipWidth").textContent =
-        width + " px";
-
-    $("pipHeight").textContent =
-        height + " px";
-
-    $("requestedSize").textContent =
-        requestedWidth + "x" + requestedHeight;
-
-    log(
-        "PIP_MEASURED: " +
-        width + "x" + height
-    );
+    updateStatus();
 }
 
-// ==========================================
-// PIP CONTENT
-// ==========================================
 
-function createPipContent(win) {
+/* =================================
+   SUPPORT DETECTION
+================================= */
 
-    const doc = win.document;
+function detectSupport() {
 
-    doc.documentElement.style.background = "#080b12";
+    const keyboardSupported =
+        !!(navigator.keyboard &&
+           navigator.keyboard.lock);
 
-    doc.body.style.cssText = `
-        margin:0;
-        padding:18px;
-        background:#080b12;
-        color:#e5e7eb;
-        font-family:Arial,sans-serif;
+    document.getElementById("support").innerHTML = `
+        Fullscreen API:
+        <b>${!!document.documentElement.requestFullscreen}</b><br>
+
+        Pointer Lock API:
+        <b>${!!document.body.requestPointerLock}</b><br>
+
+        Keyboard Lock API:
+        <b>${keyboardSupported}</b><br>
+
+        Browser:
+        ${navigator.userAgent}
+    `;
+}
+
+
+/* =================================
+   STATUS
+================================= */
+
+function updateStatus() {
+
+    document.getElementById("runtime").innerHTML = `
+        Test: ${testRunning ? "Running" : "Idle"}<br>
+        Fullscreen: ${!!document.fullscreenElement}<br>
+        Pointer Lock: ${!!document.pointerLockElement}<br>
+        Keyboard Lock API: ${
+            !!(navigator.keyboard && navigator.keyboard.lock)
+        }<br>
+        Visibility: ${document.visibilityState}
     `;
 
-    const title = doc.createElement("h3");
-
-    title.textContent = "Waguri PiP Monitor";
-
-    title.style.color = "#60a5fa";
-
-    const description = doc.createElement("p");
-
-    description.textContent =
-        "Document PiP lifecycle active.";
-
-    description.style.fontSize = "13px";
-
-    const dimensions = doc.createElement("p");
-
-    dimensions.style.color = "#4ade80";
-
-    dimensions.style.marginTop = "15px";
-
-    const state = doc.createElement("p");
-
-    state.textContent = "Window: Active";
-
-    state.style.marginTop = "10px";
-
-    function refresh() {
-
-        dimensions.textContent =
-            "Viewport: " +
-            win.innerWidth + " × " +
-            win.innerHeight;
-    }
-
-    win.addEventListener("resize", refresh);
-
-    refresh();
-
-    doc.body.append(
-        title,
-        description,
-        dimensions,
-        state
-    );
+    document.getElementById("liveStatus").textContent =
+        "Fullscreen: " + !!document.fullscreenElement +
+        " | Pointer Lock: " + !!document.pointerLockElement;
 }
 
-// ==========================================
-// OPEN DOCUMENT PIP
-// ==========================================
 
-async function openPiP() {
+/* =================================
+   START TEST
+================================= */
 
-    if (!pipSupported) {
+async function startTest() {
 
-        log("PIP_UNSUPPORTED", "error");
-
+    if (testRunning) {
+        log("Test already running.");
         return;
     }
 
-    if (pipWindow && !pipWindow.closed) {
+    testRunning = true;
 
-        log("PIP_ALREADY_OPEN", "warning");
+    log("Test started.");
 
-        return;
+    try {
+
+        await document.documentElement.requestFullscreen();
+
+        log("Fullscreen request succeeded.");
+
+    } catch (error) {
+
+        log("Fullscreen request failed.", {
+            name: error.name,
+            message: error.message
+        });
+
     }
 
-    const selected =
-        $("sizeSelect").value.split(",").map(Number);
+    updateStatus();
+}
 
-    requestedWidth = selected[0];
 
-    requestedHeight = selected[1];
+/* =================================
+   KEYBOARD LOCK
+================================= */
 
-    if (
-        !Number.isFinite(requestedWidth) ||
-        !Number.isFinite(requestedHeight) ||
-        requestedWidth <= 0 ||
-        requestedHeight <= 0
-    ) {
+async function requestKeyboardLock() {
 
-        log("INVALID_SIZE_CONFIGURATION", "error");
+    if (!navigator.keyboard ||
+        typeof navigator.keyboard.lock !== "function") {
 
+        log("Keyboard Lock API unavailable.");
         return;
     }
 
     try {
 
-        log(
-            "PIP_REQUEST: " +
-            requestedWidth + "x" +
-            requestedHeight
-        );
+        await navigator.keyboard.lock(["Escape"]);
 
-        const win =
-            await documentPictureInPicture.requestWindow({
-
-                width: requestedWidth,
-
-                height: requestedHeight
-
-            });
-
-        pipWindow = win;
-
-        $("pipState").textContent = "Open";
-
-        log("PIP_REQUEST_RESOLVED");
-
-        attachPipEvents(win);
-
-        createPipContent(win);
-
-        updateMeasurements();
+        log("Keyboard Lock request succeeded.", {
+            keys: ["Escape"]
+        });
 
     } catch (error) {
 
-        log(
-            "PIP_REQUEST_REJECTED: " +
-            error.name + " / " +
-            error.message,
-            "error"
-        );
-    }
-}
+        log("Keyboard Lock request failed.", {
+            name: error.name,
+            message: error.message
+        });
 
-// ==========================================
-// CLOSE PIP
-// ==========================================
-
-function closePiP() {
-
-    const current =
-        documentPictureInPicture?.window;
-
-    if (current && !current.closed) {
-
-        log("PIP_CLOSE_REQUESTED", "warning");
-
-        current.close();
-
-    } else {
-
-        log("NO_ACTIVE_PIP", "warning");
-    }
-}
-
-$("openButton").addEventListener(
-    "click",
-    openPiP
-);
-
-$("closeButton").addEventListener(
-    "click",
-    closePiP
-);
-
-// ==========================================
-// BACKGROUND TIMER
-// ==========================================
-
-function startBackgroundTimer() {
-
-    if (timerInterval) {
-
-        log("TIMER_ALREADY_RUNNING", "warning");
-
-        return;
     }
 
-    timerStart = performance.now();
-
-    lastTick = timerStart;
-
-    expectedTicks = 0;
-
-    actualTicks = 0;
-
-    log("BACKGROUND_TIMER_STARTED");
-
-    timerInterval = setInterval(() => {
-
-        const now = performance.now();
-
-        const elapsed = now - timerStart;
-
-        const drift = now - lastTick - 1000;
-
-        expectedTicks = Math.floor(elapsed / 1000);
-
-        actualTicks++;
-
-        lastTick = now;
-
-        $("elapsed").textContent =
-            Math.floor(elapsed / 1000) + " s";
-
-        $("expected").textContent =
-            expectedTicks;
-
-        $("actual").textContent =
-            actualTicks;
-
-        $("timerDrift").textContent =
-            Math.round(drift) + " ms";
-
-        $("progress").value =
-            (elapsed % 10000) / 100;
-
-        if (Math.abs(drift) > 500) {
-
-            log(
-                "TIMER_DELAY: " +
-                Math.round(drift) + " ms",
-                "warning"
-            );
-
-        }
-
-    }, 1000);
+    updateStatus();
 }
 
-function stopBackgroundTimer() {
 
-    if (timerInterval) {
+/* =================================
+   POINTER LOCK
+================================= */
 
-        clearInterval(timerInterval);
+async function requestPointerLock() {
 
-        timerInterval = null;
+    try {
 
-        log("BACKGROUND_TIMER_STOPPED");
+        await document.body.requestPointerLock();
+
+        log("Pointer Lock requested.");
+
+    } catch (error) {
+
+        log("Pointer Lock request failed.", {
+            name: error.name,
+            message: error.message
+        });
+
     }
+
+    updateStatus();
 }
 
-$("startTimer").addEventListener(
-    "click",
-    startBackgroundTimer
-);
 
-$("stopTimer").addEventListener(
-    "click",
-    stopBackgroundTimer
-);
+/* =================================
+   KEY EVENTS
+================================= */
 
-// ==========================================
-// LOG EXPORT
-// ==========================================
+document.addEventListener("keydown", event => {
 
-$("clearLog").addEventListener("click", () => {
+    log("keydown", {
+        key: event.key,
+        code: event.code,
+        repeat: event.repeat,
+        defaultPrevented: event.defaultPrevented
+    });
 
-    logs = [];
-
-    $("log").replaceChildren();
-
-    log("LOG_CLEARED");
 });
 
-$("exportLog").addEventListener("click", () => {
+document.addEventListener("keyup", event => {
+
+    log("keyup", {
+        key: event.key,
+        code: event.code
+    });
+
+});
+
+
+/* =================================
+   FULLSCREEN EVENTS
+================================= */
+
+document.addEventListener(
+    "fullscreenchange",
+    () => {
+
+        log("fullscreenchange", {
+            active: !!document.fullscreenElement
+        });
+
+        updateStatus();
+
+    }
+);
+
+document.addEventListener(
+    "fullscreenerror",
+    () => {
+
+        log("fullscreenerror");
+
+    }
+);
+
+
+/* =================================
+   POINTER LOCK EVENTS
+================================= */
+
+document.addEventListener(
+    "pointerlockchange",
+    () => {
+
+        log("pointerlockchange", {
+            active: !!document.pointerLockElement
+        });
+
+        updateStatus();
+
+    }
+);
+
+document.addEventListener(
+    "pointerlockerror",
+    () => {
+
+        log("pointerlockerror");
+        updateStatus();
+
+    }
+);
+
+
+/* =================================
+   ESCAPE / EXIT EVENTS
+================================= */
+
+document.addEventListener("keydown", event => {
+
+    if (event.key === "Escape") {
+
+        log("Escape key observed.", {
+            fullscreen: !!document.fullscreenElement,
+            pointerLock: !!document.pointerLockElement
+        });
+
+    }
+
+}, true);
+
+
+/* =================================
+   OTHER LIFECYCLE EVENTS
+================================= */
+
+document.addEventListener("visibilitychange", () => {
+
+    log("visibilitychange", {
+        state: document.visibilityState
+    });
+
+});
+
+window.addEventListener("focus", () => {
+    log("window focus");
+});
+
+window.addEventListener("blur", () => {
+    log("window blur");
+});
+
+window.addEventListener("pagehide", event => {
+
+    log("pagehide", {
+        persisted: event.persisted
+    });
+
+});
+
+window.addEventListener("pageshow", event => {
+
+    log("pageshow", {
+        persisted: event.persisted
+    });
+
+});
+
+
+/* =================================
+   SAFE EXIT
+================================= */
+
+async function exitAll() {
+
+    log("Manual exit initiated.");
+
+    try {
+
+        if (document.pointerLockElement) {
+            document.exitPointerLock();
+            log("Pointer Lock exit requested.");
+        }
+
+        if (document.fullscreenElement) {
+            await document.exitFullscreen();
+            log("Fullscreen exit requested.");
+        }
+
+        if (navigator.keyboard &&
+            typeof navigator.keyboard.unlock === "function") {
+
+            navigator.keyboard.unlock();
+            log("Keyboard Lock released.");
+        }
+
+    } catch (error) {
+
+        log("Exit error.", {
+            name: error.name,
+            message: error.message
+        });
+
+    }
+
+    testRunning = false;
+    updateStatus();
+}
+
+
+/* =================================
+   EXPORT JSON
+================================= */
+
+function exportLogs() {
+
+    const report = {
+        name: "Waguri Browser Lock Test",
+        browser: navigator.userAgent,
+        exportedAt: new Date().toISOString(),
+        totalEvents: logs.length,
+        events: logs
+    };
 
     const blob = new Blob(
-        [JSON.stringify(logs, null, 2)],
-        {type: "application/json"}
+        [JSON.stringify(report, null, 2)],
+        { type: "application/json" }
     );
 
     const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
 
-    const anchor = document.createElement("a");
+    link.href = url;
+    link.download = "waguri-browser-lock-test.json";
 
-    anchor.href = url;
+    link.click();
 
-    anchor.download =
-        "waguri-pip-" + Date.now() + ".json";
+    URL.revokeObjectURL(url);
 
-    anchor.click();
+    log("Logs exported.");
+}
 
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-    log("LOG_EXPORTED");
-});
+/* =================================
+   CLEAR LOGS
+================================= */
 
-// ==========================================
-// INITIALIZATION
-// ==========================================
+function clearLogs() {
 
-log("WAGURI_PIP_RESEARCH_INITIALIZED");
+    logs = [];
 
-log("BROWSER: " + detectBrowser());
+    document.getElementById("log").textContent =
+        "Logs cleared.";
 
-log("PIP_SUPPORT: " + pipSupported);
+    log("Logging restarted.");
+}
 
-log("USER_AGENT: " + navigator.userAgent);
+
+/* =================================
+   INITIALIZATION
+================================= */
+
+detectSupport();
+updateStatus();
+
+log("Browser Lock Tester initialized.");
 
 </script>
-
 </body>
 </html>
