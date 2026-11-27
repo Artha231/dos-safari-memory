@@ -4,80 +4,73 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Waguri - Document PiP Lifecycle Tester</title>
+<title>Waguri Zero-Size PiP Research</title>
 
 <style>
 * {
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
 }
 
 body {
+    margin: 0;
+    padding: 18px;
     background: #080b12;
     color: #e5e7eb;
     font-family: Arial, sans-serif;
-    padding: 20px;
 }
 
 .container {
-    max-width: 750px;
-    margin: 25px auto;
+    max-width: 720px;
+    margin: auto;
 }
 
 .panel {
     background: #111827;
     border: 1px solid #293548;
-    padding: 22px;
-    border-radius: 14px;
+    border-radius: 13px;
+    padding: 20px;
 }
 
 h1 {
     color: #60a5fa;
-    margin-bottom: 8px;
+    font-size: 23px;
 }
 
 h3 {
     margin-bottom: 12px;
 }
 
-.subtitle {
+.description {
     color: #9ca3af;
     font-size: 13px;
-    margin-bottom: 20px;
-}
-
-.badge {
-    display: inline-block;
-    background: #1e3a5f;
-    color: #93c5fd;
-    border-radius: 20px;
-    padding: 6px 10px;
-    font-size: 11px;
+    line-height: 1.6;
 }
 
 .section {
     background: #080b12;
     border: 1px solid #293548;
-    padding: 15px;
     border-radius: 9px;
-    margin-top: 16px;
+    padding: 15px;
+    margin-top: 15px;
 }
 
 .status {
-    line-height: 2;
     font-size: 13px;
+    line-height: 2;
 }
 
 .status span {
     color: #4ade80;
 }
 
-button {
-    border: 0;
-    padding: 12px 15px;
+button, select {
+    padding: 12px;
+    margin: 5px 2px;
     border-radius: 7px;
-    margin: 5px 3px;
+    border: none;
+}
+
+button {
     cursor: pointer;
     font-weight: bold;
 }
@@ -97,34 +90,53 @@ button {
     color: white;
 }
 
-button:disabled {
-    opacity: .4;
-    cursor: not-allowed;
+select {
+    width: 100%;
+    background: #172033;
+    color: white;
+    border: 1px solid #374151;
 }
 
-input, select {
-    width: 100%;
-    padding: 12px;
-    border-radius: 7px;
-    border: 1px solid #374151;
-    background: #080b12;
-    color: white;
-    margin: 10px 0;
+button:disabled {
+    opacity: .4;
 }
 
 progress {
     width: 100%;
     height: 12px;
     accent-color: #22c55e;
-    margin: 12px 0;
+}
+
+.metric {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.metric div {
+    background: #172033;
+    padding: 12px;
+    border-radius: 7px;
+}
+
+.metric small {
+    color: #9ca3af;
+}
+
+.metric strong {
+    display: block;
+    color: #4ade80;
+    margin-top: 7px;
+    font-size: 17px;
 }
 
 .log {
-    background: #03050a;
     height: 230px;
     overflow-y: auto;
+    background: #03050a;
     border: 1px solid #293548;
-    border-radius: 8px;
+    border-radius: 7px;
     padding: 12px;
     font-family: monospace;
     font-size: 11px;
@@ -135,49 +147,23 @@ progress {
     overflow-wrap: anywhere;
 }
 
-.good {
+.ok {
     color: #4ade80;
 }
 
-.warn {
+.warning {
     color: #fbbf24;
 }
 
-.bad {
+.error {
     color: #f87171;
-}
-
-.stage {
-    background: #172033;
-    padding: 13px;
-    border-left: 3px solid #374151;
-    margin: 8px 0;
-    border-radius: 5px;
-}
-
-.stage.active {
-    border-color: #22c55e;
-    color: #4ade80;
-}
-
-.stage.done {
-    border-color: #2563eb;
-}
-
-#testFrame {
-    width: 100%;
-    height: 75px;
-    border: 1px solid #374151;
-    background: white;
-    border-radius: 5px;
-    margin-top: 10px;
 }
 
 .footer {
     color: #6b7280;
     font-size: 11px;
     margin-top: 18px;
-    line-height: 1.7;
+    line-height: 1.6;
 }
 </style>
 </head>
@@ -188,13 +174,13 @@ progress {
 
 <div class="panel">
 
-<h1>Waguri Lifecycle Tester</h1>
+<h1>Waguri PiP Research</h1>
 
-<p class="subtitle">
-Document Picture-in-Picture / Opener / DOM Lifecycle
+<p class="description">
+Android Edge - Document Picture-in-Picture
+<br>
+Zero-Size Boundary & Background Lifecycle Tester
 </p>
-
-<span class="badge">Browser Research PoC</span>
 
 <div class="section status">
 
@@ -207,151 +193,143 @@ Platform:
 Document PiP:
 <span id="support">Checking...</span><br>
 
-PiP Window:
-<span id="pipStatus">Closed</span><br>
-
 Page Visibility:
 <span id="visibility">Visible</span><br>
 
-Test State:
-<span id="testState">Idle</span>
+PiP State:
+<span id="pipState">Closed</span><br>
+
+Background Timer:
+<span id="timerState">Running</span>
 
 </div>
 
 <div class="section">
 
-<h3>Lifecycle Controls</h3>
+<h3>PiP Size Configuration</h3>
 
-<button class="primary" id="openPip">
-Open Document PiP
-</button>
+<p class="description">
+Pilih ukuran positif untuk menguji batas ukuran jendela.
+Ukuran nol tidak dipaksakan karena bukan ukuran viewport
+yang valid.
+</p>
 
-<button class="secondary" id="closePip">
-Close PiP
-</button>
+<select id="sizeSelect">
 
-<button class="danger" id="removeElement">
-Remove Test Element
-</button>
-
-<button class="secondary" id="restoreElement">
-Restore Element
-</button>
-
-</div>
-
-<div class="section">
-
-<h3>Test Configuration</h3>
-
-<label>Lifecycle scenario</label>
-
-<select id="scenario">
-
-<option value="normal">
-Normal PiP lifecycle
+<option value="300,200">
+300 × 200 px
 </option>
 
-<option value="dom">
-Remove DOM after PiP resolves
+<option value="240,160">
+240 × 160 px
 </option>
 
-<option value="iframe">
-Remove iframe after PiP resolves
+<option value="160,120">
+160 × 120 px
 </option>
 
 </select>
 
-<button class="primary" id="runTest">
-Run Test
+<button class="primary" id="openButton">
+Open Document PiP
 </button>
 
-<button class="danger" id="stopTest">
-Stop Test
+<button class="secondary" id="closeButton">
+Close PiP
 </button>
 
 </div>
 
 <div class="section">
 
-<h3>Test Object</h3>
+<h3>Live Measurements</h3>
 
-<div id="testElement"
-style="background:#172033;padding:20px;border-radius:8px">
+<div class="metric">
 
-<h3>Waguri Test Object</h3>
-
-<p style="color:#9ca3af">
-This element can be moved into the PiP window.
-</p>
-
-<p id="elementState" style="color:#4ade80">
-DOM: Attached
-</p>
-
+<div>
+<small>PiP Width</small>
+<strong id="pipWidth">-</strong>
 </div>
 
-<iframe
-id="testFrame"
-title="Lifecycle test frame"
-srcdoc="<p style='padding:15px;font-family:Arial'>Lifecycle iframe test</p>">
-</iframe>
+<div>
+<small>PiP Height</small>
+<strong id="pipHeight">-</strong>
+</div>
+
+<div>
+<small>Requested Size</small>
+<strong id="requestedSize">-</strong>
+</div>
+
+<div>
+<small>Timer Drift</small>
+<strong id="timerDrift">0 ms</strong>
+</div>
+
+</div>
 
 </div>
 
 <div class="section">
 
-<h3>Lifecycle Timeline</h3>
+<h3>Background Timer Test</h3>
+
+<p class="description">
+Timer mencatat selisih waktu aktual untuk mengamati
+throttling ketika tab berada di background.
+</p>
+
+<p>
+Elapsed:
+<strong id="elapsed">0 s</strong>
+</p>
+
+<p>
+Expected ticks:
+<strong id="expected">0</strong>
+</p>
+
+<p>
+Actual ticks:
+<strong id="actual">0</strong>
+</p>
 
 <progress id="progress" max="100" value="0"></progress>
 
-<p id="progressText" style="font-size:12px;color:#9ca3af">
-Waiting for test...
-</p>
+<button class="primary" id="startTimer">
+Start Timer
+</button>
 
-<div id="stages">
-
-<div class="stage" data-stage="0">
-01 — Request PiP
-</div>
-
-<div class="stage" data-stage="1">
-02 — PiP Window Initialized
-</div>
-
-<div class="stage" data-stage="2">
-03 — DOM Lifecycle Operation
-</div>
-
-<div class="stage" data-stage="3">
-04 — Observe Window State
-</div>
-
-</div>
+<button class="danger" id="stopTimer">
+Stop Timer
+</button>
 
 </div>
 
 <div class="section">
 
-<h3>Event Monitor</h3>
+<h3>Lifecycle Monitor</h3>
+
+<p class="description">
+Event dari opener dan PiP window dicatat secara terpisah.
+</p>
 
 <div class="log" id="log"></div>
-
-<br>
 
 <button class="secondary" id="clearLog">
 Clear Logs
 </button>
 
 <button class="secondary" id="exportLog">
-Export Logs
+Export JSON
 </button>
 
 </div>
 
 <p class="footer">
 Waguri Research Environment<br>
-No video playback. No TTS. No automatic tab closure.
+No video · No audio · No TTS<br>
+Uses standard Document Picture-in-Picture API.
 </p>
 
 </div>
@@ -360,64 +338,51 @@ No video playback. No TTS. No automatic tab closure.
 <script>
 "use strict";
 
-// =====================================
-// REFERENCES
-// =====================================
+// ==========================================
+// ELEMENT REFERENCES
+// ==========================================
 
 const $ = id => document.getElementById(id);
 
 let pipWindow = null;
-let testRunning = false;
-let testObject = null;
-let originalParent = null;
-let originalNextSibling = null;
-let activeRun = 0;
 
-const logs = [];
+let timerInterval = null;
 
-// =====================================
-// LOGGING
-// =====================================
+let timerStart = 0;
 
-function log(message, type = "good") {
+let expectedTicks = 0;
 
-    const time = new Date().toISOString();
+let actualTicks = 0;
 
-    const entry = {
-        timestamp: time,
-        event: message
-    };
+let lastTick = 0;
 
-    logs.push(entry);
+let logs = [];
 
-    const row = document.createElement("div");
+let requestedWidth = 0;
 
-    row.className = type;
+let requestedHeight = 0;
 
-    row.textContent =
-        "[" + time.split("T")[1] + "] " + message;
-
-    $("log").appendChild(row);
-
-    $("log").scrollTop = $("log").scrollHeight;
-
-    console.log("[WAGURI]", entry);
-}
-
-// =====================================
-// ENVIRONMENT
-// =====================================
+// ==========================================
+// BROWSER DETECTION
+// ==========================================
 
 function detectBrowser() {
 
     const ua = navigator.userAgent;
 
-    if (/Edg/i.test(ua)) return "Microsoft Edge";
-    if (/Firefox/i.test(ua)) return "Firefox";
-    if (/Chrome/i.test(ua)) return "Chrome";
-    if (/Safari/i.test(ua)) return "Safari";
+    if (/EdgA/i.test(ua)) {
+        return "Microsoft Edge Android";
+    }
 
-    return "Unknown";
+    if (/Edg/i.test(ua)) {
+        return "Microsoft Edge";
+    }
+
+    if (/Android/i.test(ua) && /Chrome/i.test(ua)) {
+        return "Chromium Android";
+    }
+
+    return "Other Browser";
 }
 
 $("browser").textContent = detectBrowser();
@@ -427,451 +392,424 @@ $("platform").textContent =
     navigator.platform ||
     "Unknown";
 
-const supported =
+// ==========================================
+// DOCUMENT PIP SUPPORT
+// ==========================================
+
+const pipSupported =
     "documentPictureInPicture" in window;
 
 $("support").textContent =
-    supported ? "Supported" : "Not Supported";
+    pipSupported ? "Available" : "Unavailable";
 
-// =====================================
-// STATUS
-// =====================================
-
-function updateStatus() {
-
-    const current =
-        window.documentPictureInPicture?.window;
-
-    $("pipStatus").textContent =
-        current && !current.closed ? "Open" : "Closed";
+if (!pipSupported) {
+    log("DOCUMENT_PIP_API_UNAVAILABLE", "error");
 }
+
+// ==========================================
+// LOGGING
+// ==========================================
+
+function log(message, type = "ok") {
+
+    const timestamp = new Date().toISOString();
+
+    const item = {
+        timestamp,
+        event: message,
+        visibility: document.visibilityState
+    };
+
+    logs.push(item);
+
+    const line = document.createElement("div");
+
+    line.className = type;
+
+    line.textContent =
+        "[" + timestamp + "] " + message;
+
+    $("log").appendChild(line);
+
+    $("log").scrollTop =
+        $("log").scrollHeight;
+
+    console.log("[WAGURI]", item);
+}
+
+// ==========================================
+// VISIBILITY EVENTS
+// ==========================================
 
 document.addEventListener(
     "visibilitychange",
     () => {
 
-        $("visibility").textContent =
-            document.visibilityState;
+        const state = document.visibilityState;
 
-        log(
-            "VISIBILITY_CHANGE: " +
-            document.visibilityState
-        );
+        $("visibility").textContent = state;
+
+        log("OPENER_VISIBILITY: " + state);
     }
 );
 
+window.addEventListener("focus", () => {
+    log("OPENER_FOCUS");
+});
+
+window.addEventListener("blur", () => {
+    log("OPENER_BLUR", "warning");
+});
+
 window.addEventListener("pagehide", () => {
-    log("OPENER_PAGEHIDE", "warn");
+    log("OPENER_PAGEHIDE", "warning");
 });
 
 window.addEventListener("pageshow", () => {
     log("OPENER_PAGESHOW");
 });
 
-window.addEventListener("blur", () => {
-    log("OPENER_BLUR");
+window.addEventListener("resize", () => {
+    log(
+        "OPENER_RESIZE: " +
+        innerWidth + "x" + innerHeight
+    );
 });
 
-window.addEventListener("focus", () => {
-    log("OPENER_FOCUS");
-});
+// ==========================================
+// PIP WINDOW EVENTS
+// ==========================================
 
-// =====================================
-// DOCUMENT PIP EVENTS
-// =====================================
+function attachPipEvents(win) {
 
-if (supported) {
+    win.addEventListener("pagehide", () => {
 
-    documentPictureInPicture.addEventListener(
-        "enter",
-        event => {
+        log("PIP_PAGEHIDE", "warning");
 
-            pipWindow = event.window;
+        pipWindow = null;
 
-            log("DOCUMENT_PIP_ENTER");
+        $("pipState").textContent = "Closed";
 
-            updateStatus();
+        $("pipWidth").textContent = "-";
 
-            pipWindow.addEventListener(
-                "pagehide",
-                () => {
+        $("pipHeight").textContent = "-";
+    });
 
-                    log("DOCUMENT_PIP_PAGEHIDE", "warn");
+    win.addEventListener("resize", () => {
 
-                    pipWindow = null;
+        updateMeasurements();
 
-                    updateStatus();
-                }
-            );
-        }
+        log(
+            "PIP_RESIZE: " +
+            win.innerWidth + "x" + win.innerHeight
+        );
+    });
+
+    win.addEventListener("focus", () => {
+        log("PIP_FOCUS");
+    });
+
+    win.addEventListener("blur", () => {
+        log("PIP_BLUR", "warning");
+    });
+}
+
+// ==========================================
+// MEASUREMENTS
+// ==========================================
+
+function updateMeasurements() {
+
+    if (!pipWindow || pipWindow.closed) {
+        return;
+    }
+
+    const width = pipWindow.innerWidth;
+
+    const height = pipWindow.innerHeight;
+
+    $("pipWidth").textContent =
+        width + " px";
+
+    $("pipHeight").textContent =
+        height + " px";
+
+    $("requestedSize").textContent =
+        requestedWidth + "x" + requestedHeight;
+
+    log(
+        "PIP_MEASURED: " +
+        width + "x" + height
     );
 }
 
-// =====================================
-// CREATE PIP CONTENT
-// =====================================
+// ==========================================
+// PIP CONTENT
+// ==========================================
 
-function createPipContent(targetWindow) {
+function createPipContent(win) {
 
-    const doc = targetWindow.document;
+    const doc = win.document;
 
     doc.documentElement.style.background = "#080b12";
 
     doc.body.style.cssText = `
         margin:0;
-        padding:20px;
+        padding:18px;
         background:#080b12;
         color:#e5e7eb;
         font-family:Arial,sans-serif;
     `;
 
-    const heading = doc.createElement("h2");
+    const title = doc.createElement("h3");
 
-    heading.textContent = "Waguri PiP Monitor";
+    title.textContent = "Waguri PiP Monitor";
 
-    heading.style.color = "#60a5fa";
+    title.style.color = "#60a5fa";
 
     const description = doc.createElement("p");
 
     description.textContent =
-        "Document Picture-in-Picture Lifecycle Test";
+        "Document PiP lifecycle active.";
 
-    description.style.marginTop = "15px";
+    description.style.fontSize = "13px";
+
+    const dimensions = doc.createElement("p");
+
+    dimensions.style.color = "#4ade80";
+
+    dimensions.style.marginTop = "15px";
 
     const state = doc.createElement("p");
 
-    state.id = "pipState";
+    state.textContent = "Window: Active";
 
-    state.textContent = "PiP Window Active";
+    state.style.marginTop = "10px";
 
-    state.style.color = "#4ade80";
-    state.style.marginTop = "20px";
+    function refresh() {
 
-    const closeButton = doc.createElement("button");
+        dimensions.textContent =
+            "Viewport: " +
+            win.innerWidth + " × " +
+            win.innerHeight;
+    }
 
-    closeButton.textContent = "Close PiP";
+    win.addEventListener("resize", refresh);
 
-    closeButton.style.cssText = `
-        margin-top:20px;
-        padding:12px;
-        border:0;
-        border-radius:7px;
-        background:#991b1b;
-        color:white;
-        cursor:pointer;
-    `;
-
-    closeButton.addEventListener("click", () => {
-        targetWindow.close();
-    });
+    refresh();
 
     doc.body.append(
-        heading,
+        title,
         description,
-        state,
-        closeButton
+        dimensions,
+        state
     );
 }
 
-// =====================================
+// ==========================================
 // OPEN DOCUMENT PIP
-// =====================================
+// ==========================================
 
 async function openPiP() {
 
-    if (!supported) {
+    if (!pipSupported) {
 
-        log("DOCUMENT_PIP_NOT_SUPPORTED", "bad");
+        log("PIP_UNSUPPORTED", "error");
 
-        return null;
+        return;
     }
 
-    if (documentPictureInPicture.window &&
-        !documentPictureInPicture.window.closed) {
+    if (pipWindow && !pipWindow.closed) {
 
-        log("PIP_ALREADY_OPEN", "warn");
+        log("PIP_ALREADY_OPEN", "warning");
 
-        return documentPictureInPicture.window;
+        return;
+    }
+
+    const selected =
+        $("sizeSelect").value.split(",").map(Number);
+
+    requestedWidth = selected[0];
+
+    requestedHeight = selected[1];
+
+    if (
+        !Number.isFinite(requestedWidth) ||
+        !Number.isFinite(requestedHeight) ||
+        requestedWidth <= 0 ||
+        requestedHeight <= 0
+    ) {
+
+        log("INVALID_SIZE_CONFIGURATION", "error");
+
+        return;
     }
 
     try {
 
-        log("REQUEST_WINDOW_STARTED");
+        log(
+            "PIP_REQUEST: " +
+            requestedWidth + "x" +
+            requestedHeight
+        );
 
-        const result =
+        const win =
             await documentPictureInPicture.requestWindow({
-                width: 380,
-                height: 260
+
+                width: requestedWidth,
+
+                height: requestedHeight
+
             });
 
-        pipWindow = result;
+        pipWindow = win;
 
-        log("REQUEST_WINDOW_RESOLVED");
+        $("pipState").textContent = "Open";
 
-        createPipContent(result);
+        log("PIP_REQUEST_RESOLVED");
 
-        updateStatus();
+        attachPipEvents(win);
 
-        return result;
+        createPipContent(win);
+
+        updateMeasurements();
 
     } catch (error) {
 
         log(
-            "REQUEST_WINDOW_REJECTED: " +
-            error.name + " - " + error.message,
-            "bad"
+            "PIP_REQUEST_REJECTED: " +
+            error.name + " / " +
+            error.message,
+            "error"
         );
-
-        return null;
     }
 }
 
-$("openPip").addEventListener("click", async () => {
-
-    await openPiP();
-
-});
-
-// =====================================
+// ==========================================
 // CLOSE PIP
-// =====================================
+// ==========================================
 
-$("closePip").addEventListener("click", () => {
+function closePiP() {
 
     const current =
         documentPictureInPicture?.window;
 
     if (current && !current.closed) {
 
+        log("PIP_CLOSE_REQUESTED", "warning");
+
         current.close();
 
-        log("PIP_CLOSE_REQUESTED", "warn");
-
     } else {
 
-        log("NO_ACTIVE_PIP", "warn");
+        log("NO_ACTIVE_PIP", "warning");
     }
-
-    updateStatus();
-});
-
-// =====================================
-// DOM MANAGEMENT
-// =====================================
-
-function removeTestElement() {
-
-    const element = $("testElement");
-
-    if (!element || !element.isConnected) {
-
-        log("TEST_ELEMENT_ALREADY_REMOVED", "warn");
-
-        return;
-    }
-
-    originalParent = element.parentNode;
-
-    originalNextSibling = element.nextSibling;
-
-    element.remove();
-
-    log("TEST_ELEMENT_REMOVED", "warn");
-
-    $("elementState").textContent =
-        "DOM: Detached";
 }
 
-function restoreTestElement() {
-
-    const element = $("testElement");
-
-    if (element.isConnected) {
-
-        log("TEST_ELEMENT_ALREADY_ATTACHED");
-
-        return;
-    }
-
-    if (originalParent) {
-
-        originalParent.insertBefore(
-            element,
-            originalNextSibling
-        );
-
-    } else {
-
-        $("testFrame").before(element);
-    }
-
-    $("elementState").textContent =
-        "DOM: Attached";
-
-    log("TEST_ELEMENT_RESTORED");
-}
-
-$("removeElement").addEventListener(
+$("openButton").addEventListener(
     "click",
-    removeTestElement
+    openPiP
 );
 
-$("restoreElement").addEventListener(
+$("closeButton").addEventListener(
     "click",
-    restoreTestElement
+    closePiP
 );
 
-// =====================================
-// CONTROLLED TEST RUNNER
-// =====================================
+// ==========================================
+// BACKGROUND TIMER
+// ==========================================
 
-function updateStage(index) {
+function startBackgroundTimer() {
 
-    document.querySelectorAll(".stage")
-    .forEach((element, i) => {
+    if (timerInterval) {
 
-        element.classList.toggle(
-            "active",
-            i === index
-        );
-
-        element.classList.toggle(
-            "done",
-            i < index
-        );
-    });
-
-    $("progress").value = (index + 1) * 25;
-
-    $("progressText").textContent =
-        "Stage " + (index + 1) + " / 4";
-}
-
-async function runTest() {
-
-    if (testRunning) {
-
-        log("TEST_ALREADY_RUNNING", "warn");
+        log("TIMER_ALREADY_RUNNING", "warning");
 
         return;
     }
 
-    if (!supported) {
+    timerStart = performance.now();
 
-        log("TEST_ABORTED: API unavailable", "bad");
+    lastTick = timerStart;
 
-        return;
-    }
+    expectedTicks = 0;
 
-    testRunning = true;
+    actualTicks = 0;
 
-    const runId = ++activeRun;
+    log("BACKGROUND_TIMER_STARTED");
 
-    $("testState").textContent = "Running";
+    timerInterval = setInterval(() => {
 
-    const scenario = $("scenario").value;
+        const now = performance.now();
 
-    log("TEST_STARTED: " + scenario);
+        const elapsed = now - timerStart;
 
-    try {
+        const drift = now - lastTick - 1000;
 
-        // Stage 1
-        updateStage(0);
+        expectedTicks = Math.floor(elapsed / 1000);
 
-        log("STAGE_1_REQUESTING_PIP");
+        actualTicks++;
 
-        const result = await openPiP();
+        lastTick = now;
 
-        if (!result) {
-            throw new Error("PiP request did not resolve");
+        $("elapsed").textContent =
+            Math.floor(elapsed / 1000) + " s";
+
+        $("expected").textContent =
+            expectedTicks;
+
+        $("actual").textContent =
+            actualTicks;
+
+        $("timerDrift").textContent =
+            Math.round(drift) + " ms";
+
+        $("progress").value =
+            (elapsed % 10000) / 100;
+
+        if (Math.abs(drift) > 500) {
+
+            log(
+                "TIMER_DELAY: " +
+                Math.round(drift) + " ms",
+                "warning"
+            );
+
         }
 
-        if (runId !== activeRun) return;
+    }, 1000);
+}
 
-        // Stage 2
-        updateStage(1);
+function stopBackgroundTimer() {
 
-        log("STAGE_2_PIP_INITIALIZED");
+    if (timerInterval) {
 
-        // Stage 3
-        updateStage(2);
+        clearInterval(timerInterval);
 
-        if (scenario === "dom") {
+        timerInterval = null;
 
-            log("DOM_REMOVAL_AFTER_RESOLUTION", "warn");
-
-            removeTestElement();
-
-        } else if (scenario === "iframe") {
-
-            log("IFRAME_REMOVAL_AFTER_RESOLUTION", "warn");
-
-            $("testFrame").remove();
-
-        } else {
-
-            log("NORMAL_LIFECYCLE_OPERATION");
-        }
-
-        // Stage 4
-        updateStage(3);
-
-        log("STAGE_4_OBSERVING_WINDOW");
-
-        await new Promise(resolve =>
-            setTimeout(resolve, 1500)
-        );
-
-        if (runId !== activeRun) return;
-
-        updateStatus();
-
-        log("TEST_COMPLETED");
-
-        $("testState").textContent = "Completed";
-
-    } catch (error) {
-
-        log(
-            "TEST_ERROR: " + error.name +
-            " - " + error.message,
-            "bad"
-        );
-
-        $("testState").textContent = "Error";
-
-    } finally {
-
-        if (runId === activeRun) {
-            testRunning = false;
-        }
+        log("BACKGROUND_TIMER_STOPPED");
     }
 }
 
-$("runTest").addEventListener("click", runTest);
+$("startTimer").addEventListener(
+    "click",
+    startBackgroundTimer
+);
 
-// =====================================
-// STOP
-// =====================================
+$("stopTimer").addEventListener(
+    "click",
+    stopBackgroundTimer
+);
 
-$("stopTest").addEventListener("click", () => {
-
-    activeRun++;
-
-    testRunning = false;
-
-    $("testState").textContent = "Stopped";
-
-    log("TEST_STOPPED_BY_USER", "warn");
-});
-
-// =====================================
+// ==========================================
 // LOG EXPORT
-// =====================================
+// ==========================================
 
 $("clearLog").addEventListener("click", () => {
 
-    logs.length = 0;
+    logs = [];
 
     $("log").replaceChildren();
 
@@ -880,15 +818,9 @@ $("clearLog").addEventListener("click", () => {
 
 $("exportLog").addEventListener("click", () => {
 
-    const content = JSON.stringify(
-        logs,
-        null,
-        2
-    );
-
     const blob = new Blob(
-        [content],
-        { type: "application/json" }
+        [JSON.stringify(logs, null, 2)],
+        {type: "application/json"}
     );
 
     const url = URL.createObjectURL(blob);
@@ -898,29 +830,26 @@ $("exportLog").addEventListener("click", () => {
     anchor.href = url;
 
     anchor.download =
-        "waguri-lifecycle-" +
-        Date.now() + ".json";
+        "waguri-pip-" + Date.now() + ".json";
 
     anchor.click();
 
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     log("LOG_EXPORTED");
 });
 
-// =====================================
+// ==========================================
 // INITIALIZATION
-// =====================================
+// ==========================================
 
-log("WAGURI_LIFECYCLE_TESTER_INITIALIZED");
+log("WAGURI_PIP_RESEARCH_INITIALIZED");
 
 log("BROWSER: " + detectBrowser());
 
-log("PLATFORM: " + navigator.platform);
+log("PIP_SUPPORT: " + pipSupported);
 
-log("DOCUMENT_PIP_SUPPORT: " + supported);
-
-updateStatus();
+log("USER_AGENT: " + navigator.userAgent);
 
 </script>
 
