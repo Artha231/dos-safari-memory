@@ -3,8 +3,8 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Waguri Zero-Click Browser Lock Tester</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waguri Direct Navigation Tester</title>
 
 <style>
 * {
@@ -28,59 +28,48 @@ body {
     background: #1e293b;
     border: 1px solid #334155;
     border-radius: 12px;
-    padding: 16px;
+    padding: 18px;
     margin-bottom: 15px;
 }
 
-button {
-    padding: 12px 15px;
-    margin: 4px 3px 4px 0;
+button, input {
+    padding: 12px;
     border: 0;
     border-radius: 7px;
+    margin: 5px 0;
+}
+
+button {
     background: #2563eb;
     color: white;
     font-weight: bold;
     cursor: pointer;
 }
 
-button.exit {
-    background: #dc2626;
-}
-
-button.secondary {
-    background: #475569;
-}
-
-.status {
-    font-size: 13px;
-    line-height: 1.8;
-    overflow-wrap: anywhere;
-}
-
-#testArea {
-    min-height: 180px;
-    border: 2px dashed #64748b;
-    border-radius: 10px;
-    padding: 20px;
-    text-align: center;
+input {
+    width: 100%;
     background: #0f172a;
+    color: white;
+    border: 1px solid #475569;
+}
+
+iframe {
+    width: 100%;
+    height: 180px;
+    border: 2px dashed #64748b;
+    border-radius: 8px;
+    background: white;
 }
 
 #log {
-    height: 260px;
+    height: 220px;
     overflow-y: auto;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    padding: 12px;
-    border-radius: 8px;
     background: #020617;
     color: #a7f3d0;
+    padding: 12px;
     font: 12px monospace;
-}
-
-.note {
-    color: #94a3b8;
-    font-size: 12px;
 }
 </style>
 </head>
@@ -88,508 +77,200 @@ button.secondary {
 <body>
 <div class="container">
 
-<h2>Waguri Zero-Click Browser Lock Tester</h2>
-
-<p class="note">
-Automatic browser API testing on page load.
-Browser security may reject requests requiring user activation.
-</p>
+<h2>Waguri Direct Navigation Tester</h2>
 
 <div class="panel">
-<strong>Browser API Support</strong>
-<div id="support" class="status"></div>
-</div>
+    <h3>Target URL</h3>
 
-<div class="panel">
-<strong>Test Controls</strong>
-<br>
+    <input
+        id="target"
+        type="url"
+        value="https://example.com"
+        placeholder="https://example.com"
+    >
 
-<button onclick="startTest()">Start Lock Test</button>
-
-<button class="secondary" onclick="requestKeyboardLock()">
-Keyboard Lock
-</button>
-
-<button class="secondary" onclick="requestPointerLock()">
-Pointer Lock
-</button>
-
-<button class="exit" onclick="exitAll()">
-EXIT ALL MODES
-</button>
+    <p>Navigation mode: Same Tab</p>
+    <p>Popup: Disabled</p>
 </div>
 
 <div class="panel">
-<strong>Test Area</strong>
+    <h3>Sandbox Configuration</h3>
 
-<div id="testArea" tabindex="0">
-<h3>Browser Lock Test</h3>
-<p>Automatic Zero-Click Test</p>
-<p>Tekan ESC untuk menguji mekanisme keluar browser.</p>
-<p id="liveStatus">Status: Idle</p>
-</div>
+    <p>
+        allow-scripts<br>
+        allow-top-navigation-by-user-activation
+    </p>
+
+    <iframe
+        id="testFrame"
+        sandbox="allow-scripts allow-top-navigation-by-user-activation"
+        title="Sandbox navigation test">
+    </iframe>
 </div>
 
 <div class="panel">
-<strong>Runtime Status</strong>
-<div id="runtime" class="status"></div>
+    <h3>Direct Navigation</h3>
+
+    <button onclick="navigateFromParent()">
+        Navigate from Parent
+    </button>
+
+    <p>
+        Tombol di dalam iframe akan melakukan
+        navigasi langsung pada tab yang sama.
+    </p>
 </div>
 
 <div class="panel">
-<strong>Event Logs</strong>
-<div id="log">Waiting for test...</div>
-
-<br>
-
-<button class="secondary" onclick="exportLogs()">
-Export JSON
-</button>
-
-<button class="secondary" onclick="clearLogs()">
-Clear Logs
-</button>
-</div>
-
-<p class="note">
-Gunakan HTTPS atau localhost.
-Hasil dapat berbeda menurut browser dan sistem operasi.
-</p>
-
+    <h3>Event Logs</h3>
+    <div id="log">Tester initialized.</div>
 </div>
 
 <script>
 "use strict";
 
-let logs = [];
-let testRunning = false;
+const frame = document.getElementById("testFrame");
+const targetInput = document.getElementById("target");
 
-/* LOGGING */
-
-function log(event, details = {}) {
-
-    const entry = {
-        timestamp: new Date().toISOString(),
-        elapsed: performance.now().toFixed(2),
-        event,
-        fullscreen: !!document.fullscreenElement,
-        pointerLock: !!document.pointerLockElement,
-        keyboardAPI: !!navigator.keyboard,
-        visibility: document.visibilityState,
-        userActivation: navigator.userActivation
-            ? navigator.userActivation.isActive
-            : "unsupported",
-        details
-    };
-
-    logs.push(entry);
-
+function writeLog(event, details = {}) {
     const output = document.getElementById("log");
 
-    if (logs.length === 1) {
-        output.textContent = "";
-    }
-
     output.textContent +=
-        `[${entry.timestamp}] ${event} ` +
-        JSON.stringify(details) + "\n";
+        "\n[" + new Date().toISOString() + "] " +
+        event + " " + JSON.stringify(details);
 
     output.scrollTop = output.scrollHeight;
-
-    updateStatus();
 }
 
-/* SUPPORT DETECTION */
+function getTarget() {
+    try {
+        const url = new URL(targetInput.value);
 
-function detectSupport() {
+        if (!["http:", "https:"].includes(url.protocol)) {
+            throw new Error("Only HTTP and HTTPS URLs are allowed.");
+        }
 
-    document.getElementById("support").innerHTML = `
-        Fullscreen API:
-        <b>${!!document.documentElement.requestFullscreen}</b><br>
+        return url.href;
+    } catch (error) {
+        writeLog("Invalid target", {
+            message: error.message
+        });
 
-        Pointer Lock API:
-        <b>${!!document.body.requestPointerLock}</b><br>
+        return null;
+    }
+}
 
-        Keyboard Lock API:
-        <b>${!!(navigator.keyboard &&
-        navigator.keyboard.lock)}</b><br>
+function loadFrame() {
+    const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {
+                    font-family: Arial;
+                    padding: 15px;
+                    text-align: center;
+                    color: #111827;
+                }
 
-        User Activation API:
-        <b>${!!navigator.userActivation}</b><br>
+                button {
+                    padding: 13px 18px;
+                    background: #2563eb;
+                    color: white;
+                    border: 0;
+                    border-radius: 7px;
+                    font-weight: bold;
+                }
+            </style>
+        </head>
+        <body>
+            <h3>Sandbox Navigation Test</h3>
+            <p>Click to navigate the current tab.</p>
 
-        Browser:
-        ${navigator.userAgent}
+            <button id="navigate">
+                DIRECT NAVIGATE
+            </button>
+
+            <script>
+                document.getElementById("navigate")
+                    .addEventListener("click", function() {
+
+                        const target =
+                            new URLSearchParams(location.search)
+                            .get("target");
+
+                        if (!target) return;
+
+                        try {
+                            const url = new URL(target);
+
+                            if (!["http:", "https:"].includes(url.protocol)) {
+                                throw new Error("Invalid protocol");
+                            }
+
+                            parent.postMessage({
+                                type: "navigation-request",
+                                target: url.href
+                            }, location.origin);
+
+                            location.href = url.href;
+
+                        } catch(error) {
+                            parent.postMessage({
+                                type: "navigation-error",
+                                message: error.message
+                            }, location.origin);
+                        }
+                    });
+            <\/script>
+        </body>
+        </html>
     `;
+
+    frame.srcdoc = html;
 }
 
-/* STATUS */
+function navigateFromParent() {
+    const target = getTarget();
 
-function updateStatus() {
+    if (!target) return;
 
-    document.getElementById("runtime").innerHTML = `
-        Test: ${testRunning ? "Running" : "Idle"}<br>
-        Fullscreen: ${!!document.fullscreenElement}<br>
-        Pointer Lock: ${!!document.pointerLockElement}<br>
-        Keyboard Lock API:
-        ${!!(navigator.keyboard &&
-        navigator.keyboard.lock)}<br>
-        Visibility: ${document.visibilityState}
-    `;
-
-    document.getElementById("liveStatus").textContent =
-        "Fullscreen: " + !!document.fullscreenElement +
-        " | Pointer Lock: " + !!document.pointerLockElement;
-}
-
-/* ZERO CLICK TEST */
-
-async function zeroClickTest() {
-
-    if (testRunning) return;
-
-    testRunning = true;
-
-    log("Zero-click test started.", {
-        userActivation: navigator.userActivation
-            ? navigator.userActivation.isActive
-            : "unsupported"
+    writeLog("Parent navigation requested", {
+        target
     });
 
-    // Fullscreen attempt
-    try {
+    location.assign(target);
+}
 
-        await document.documentElement.requestFullscreen();
+window.addEventListener("message", event => {
 
-        log("ZERO-CLICK: Fullscreen accepted.");
+    if (event.source !== frame.contentWindow) return;
 
-    } catch (error) {
-
-        log("ZERO-CLICK: Fullscreen rejected.", {
-            name: error.name,
-            message: error.message
+    if (event.data?.type === "navigation-request") {
+        writeLog("Iframe navigation requested", {
+            target: event.data.target
         });
     }
 
-    // Pointer Lock attempt
-    try {
-
-        const result = document.body.requestPointerLock();
-
-        if (result && typeof result.then === "function") {
-            await result;
-        }
-
-        log("ZERO-CLICK: Pointer Lock accepted.");
-
-    } catch (error) {
-
-        log("ZERO-CLICK: Pointer Lock rejected.", {
-            name: error.name,
-            message: error.message
+    if (event.data?.type === "navigation-error") {
+        writeLog("Navigation error", {
+            message: event.data.message
         });
     }
-
-    // Keyboard Lock attempt
-    if (navigator.keyboard &&
-        typeof navigator.keyboard.lock === "function") {
-
-        try {
-
-            await navigator.keyboard.lock(["Escape"]);
-
-            log("ZERO-CLICK: Keyboard Lock accepted.", {
-                keys: ["Escape"]
-            });
-
-        } catch (error) {
-
-            log("ZERO-CLICK: Keyboard Lock rejected.", {
-                name: error.name,
-                message: error.message
-            });
-        }
-
-    } else {
-
-        log("Keyboard Lock API unavailable.");
-    }
-
-    testRunning = false;
-    updateStatus();
-}
-
-/* MANUAL TEST */
-
-async function startTest() {
-
-    if (testRunning) return;
-
-    testRunning = true;
-
-    log("Manual test started.");
-
-    try {
-
-        await document.documentElement.requestFullscreen();
-
-        log("Fullscreen request succeeded.");
-
-    } catch (error) {
-
-        log("Fullscreen request failed.", {
-            name: error.name,
-            message: error.message
-        });
-    }
-
-    testRunning = false;
-    updateStatus();
-}
-
-/* KEYBOARD LOCK */
-
-async function requestKeyboardLock() {
-
-    if (!navigator.keyboard ||
-        typeof navigator.keyboard.lock !== "function") {
-
-        log("Keyboard Lock API unavailable.");
-        return;
-    }
-
-    try {
-
-        await navigator.keyboard.lock(["Escape"]);
-
-        log("Keyboard Lock succeeded.", {
-            keys: ["Escape"]
-        });
-
-    } catch (error) {
-
-        log("Keyboard Lock failed.", {
-            name: error.name,
-            message: error.message
-        });
-    }
-
-    updateStatus();
-}
-
-/* POINTER LOCK */
-
-async function requestPointerLock() {
-
-    try {
-
-        const result = document.body.requestPointerLock();
-
-        if (result && typeof result.then === "function") {
-            await result;
-        }
-
-        log("Pointer Lock request completed.");
-
-    } catch (error) {
-
-        log("Pointer Lock failed.", {
-            name: error.name,
-            message: error.message
-        });
-    }
-
-    updateStatus();
-}
-
-/* KEY EVENTS */
-
-document.addEventListener("keydown", event => {
-
-    log("keydown", {
-        key: event.key,
-        code: event.code,
-        repeat: event.repeat,
-        defaultPrevented: event.defaultPrevented
-    });
-
 });
 
-document.addEventListener("keyup", event => {
+targetInput.addEventListener("change", loadFrame);
 
-    log("keyup", {
-        key: event.key,
-        code: event.code
-    });
+loadFrame();
 
+writeLog("Sandbox initialized", {
+    sandbox: frame.getAttribute("sandbox"),
+    popup: false,
+    navigation: "same-tab"
 });
-
-/* FULLSCREEN EVENTS */
-
-document.addEventListener("fullscreenchange", () => {
-
-    log("fullscreenchange", {
-        active: !!document.fullscreenElement
-    });
-
-});
-
-document.addEventListener("fullscreenerror", () => {
-
-    log("fullscreenerror");
-});
-
-/* POINTER EVENTS */
-
-document.addEventListener("pointerlockchange", () => {
-
-    log("pointerlockchange", {
-        active: !!document.pointerLockElement
-    });
-
-});
-
-document.addEventListener("pointerlockerror", () => {
-
-    log("pointerlockerror");
-});
-
-/* ESCAPE EVENTS */
-
-document.addEventListener("keydown", event => {
-
-    if (event.key === "Escape") {
-
-        log("Escape observed.", {
-            fullscreen: !!document.fullscreenElement,
-            pointerLock: !!document.pointerLockElement
-        });
-    }
-
-}, true);
-
-/* LIFECYCLE EVENTS */
-
-document.addEventListener("visibilitychange", () => {
-
-    log("visibilitychange", {
-        state: document.visibilityState
-    });
-
-});
-
-window.addEventListener("focus", () => {
-    log("window focus");
-});
-
-window.addEventListener("blur", () => {
-    log("window blur");
-});
-
-window.addEventListener("pagehide", event => {
-
-    log("pagehide", {
-        persisted: event.persisted
-    });
-
-});
-
-window.addEventListener("pageshow", event => {
-
-    log("pageshow", {
-        persisted: event.persisted
-    });
-
-});
-
-/* SAFE EXIT */
-
-async function exitAll() {
-
-    log("Manual exit initiated.");
-
-    try {
-
-        if (document.pointerLockElement) {
-            document.exitPointerLock();
-            log("Pointer Lock exit requested.");
-        }
-
-        if (document.fullscreenElement) {
-            await document.exitFullscreen();
-            log("Fullscreen exit requested.");
-        }
-
-        if (navigator.keyboard &&
-            typeof navigator.keyboard.unlock === "function") {
-
-            navigator.keyboard.unlock();
-            log("Keyboard Lock released.");
-        }
-
-    } catch (error) {
-
-        log("Exit error.", {
-            name: error.name,
-            message: error.message
-        });
-    }
-
-    testRunning = false;
-    updateStatus();
-}
-
-/* EXPORT */
-
-function exportLogs() {
-
-    const report = {
-        name: "Waguri Zero-Click Browser Lock Test",
-        browser: navigator.userAgent,
-        exportedAt: new Date().toISOString(),
-        totalEvents: logs.length,
-        events: logs
-    };
-
-    const blob = new Blob(
-        [JSON.stringify(report, null, 2)],
-        { type: "application/json" }
-    );
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "waguri-zero-click-report.json";
-
-    link.click();
-
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-    log("Logs exported.");
-}
-
-/* CLEAR LOGS */
-
-function clearLogs() {
-
-    logs = [];
-
-    document.getElementById("log").textContent =
-        "Logs cleared.";
-
-    log("Logging restarted.");
-}
-
-/* INITIALIZATION */
-
-detectSupport();
-updateStatus();
-
-log("Browser Lock Tester initialized.");
-
-window.addEventListener("load", () => {
-    setTimeout(zeroClickTest, 0);
-}, { once: true });
-
 </script>
+
+</div>
 </body>
 </html>
