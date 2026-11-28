@@ -1,613 +1,125 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Media Session Navigation Policy Test</title>
+<title>Read Only Document</title>
 
 <style>
 * {
     box-sizing: border-box;
-    margin: 0;
-    padding: 0;
 }
 
 body {
-    font-family: Arial, sans-serif;
-    background: #10141c;
-    color: #e8edf5;
-    padding: 20px;
+    margin: 0;
+    padding: 0;
+    background: #f1f3f6;
+    color: #242932;
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: 1.8;
 }
 
-.container {
-    max-width: 760px;
+header {
+    background: #172235;
+    color: white;
+    padding: 25px 20px;
+}
+
+.header-inner {
+    max-width: 850px;
     margin: auto;
 }
 
-h1 {
-    font-size: 22px;
-    margin-bottom: 8px;
+.header-inner h1 {
+    font-size: 24px;
+    margin: 0;
 }
 
-.description {
-    color: #aab5c5;
-    line-height: 1.5;
-    margin-bottom: 20px;
+.header-inner p {
+    color: #c7d1df;
+    margin-bottom: 0;
 }
 
-.panel {
-    background: #1a2230;
-    border: 1px solid #303c4e;
+.container {
+    max-width: 850px;
+    margin: 35px auto;
+    padding: 0 20px;
+}
+
+.reader {
+    background: white;
+    padding: 35px;
     border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 15px;
+    box-shadow: 0 5px 25px rgba(0,0,0,.05);
 }
 
-h2 {
+.reader h2 {
+    color: #172235;
+    font-size: 23px;
+    margin-top: 0;
+}
+
+.reader-content {
     font-size: 16px;
-    margin-bottom: 12px;
+    line-height: 2;
+    overflow-wrap: anywhere;
+    user-select: text;
+    white-space: normal;
 }
 
-button {
-    border: 0;
-    border-radius: 8px;
-    padding: 12px 15px;
-    margin: 4px 3px 4px 0;
-    background: #2878e5;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-}
-
-button.secondary {
-    background: #354257;
-}
-
-button.danger {
-    background: #b83d49;
-}
-
-.status {
-    color: #70d99b;
-    font-size: 13px;
-    margin-top: 10px;
-}
-
-pre {
-    background: #0b1018;
-    color: #b9d5ff;
-    padding: 12px;
-    border-radius: 8px;
-    min-height: 180px;
-    max-height: 350px;
-    overflow: auto;
+.reader-content pre {
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 2;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
-    font-size: 12px;
-    line-height: 1.6;
+    color: #242932;
 }
 
-.info {
-    color: #aab5c5;
+footer {
+    text-align: center;
+    padding: 25px;
+    color: #77808d;
     font-size: 13px;
-    line-height: 1.5;
 }
 
-.metric {
-    display: flex;
-    justify-content: space-between;
-    padding: 8px 0;
-    border-bottom: 1px solid #303c4e;
-    font-size: 13px;
+@media(max-width:600px) {
+    .container {
+        margin: 15px auto;
+        padding: 0 10px;
+    }
+
+    .reader {
+        padding: 20px;
+    }
 }
 </style>
 </head>
 
 <body>
-<div class="container">
 
-<h1>Media Session Navigation Policy Test</h1>
-
-<p class="description">
-Pengujian interaksi Media Session API, User Activation,
-Visibility State, dan kebijakan navigasi browser.
-</p>
-
-<div class="panel">
-    <h2>1. Browser Information</h2>
-
-    <div class="metric">
-        <span>Browser Media Session</span>
-        <strong id="mediaSupport">Checking...</strong>
+<header>
+    <div class="header-inner">
+        <h1>Document Reader</h1>
+        <p>Read-only document viewing mode</p>
     </div>
+</header>
 
-    <div class="metric">
-        <span>User Activation</span>
-        <strong id="activation">-</strong>
-    </div>
+<main class="container">
+    <article class="reader">
 
-    <div class="metric">
-        <span>Visibility</span>
-        <strong id="visibility">-</strong>
-    </div>
+        <h2>Document Content</h2>
 
-    <div class="metric">
-        <span>Media Playback</span>
-        <strong id="playback">none</strong>
-    </div>
-</div>
+        <div class="reader-content">
+<pre>[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)[a](/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a/a)</pre>
+        </div>
 
-<div class="panel">
-    <h2>2. Media Session</h2>
+    </article>
+</main>
 
-    <button onclick="startMediaSession()">
-        Start Media Session
-    </button>
+<footer>
+    Document Reader — Read Only Mode
+</footer>
 
-    <button class="secondary" onclick="stopMediaSession()">
-        Stop Media Session
-    </button>
-
-    <p class="status" id="mediaStatus">
-        Media Session belum dimulai.
-    </p>
-
-    <p class="info">
-        Jika didukung browser, kontrol media dapat muncul pada
-        notifikasi atau lockscreen. Aksi kontrol akan dicatat
-        pada log pengujian.
-    </p>
-</div>
-
-<div class="panel">
-    <h2>3. Navigation Policy Tests</h2>
-
-    <button onclick="testDirectNavigation()">
-        Test Direct Click
-    </button>
-
-    <button onclick="testMediaNavigation()">
-        Test Media Action
-    </button>
-
-    <button onclick="testTimerNavigation()">
-        Test Background Timer
-    </button>
-
-    <p class="info">
-        Semua pengujian menggunakan halaman tujuan same-origin
-        yang dibuat secara lokal. Tidak ada redirect otomatis
-        ke situs eksternal.
-    </p>
-</div>
-
-<div class="panel">
-    <h2>4. Background Test</h2>
-
-    <button onclick="startBackgroundTest()">
-        Start Background Monitor
-    </button>
-
-    <button class="danger" onclick="stopBackgroundTest()">
-        Stop Monitor
-    </button>
-
-    <p class="status" id="backgroundStatus">
-        Monitor tidak aktif.
-    </p>
-</div>
-
-<div class="panel">
-    <h2>5. Event Log</h2>
-
-    <button class="secondary" onclick="clearLogs()">
-        Clear Logs
-    </button>
-
-    <button class="secondary" onclick="exportLogs()">
-        Export Logs
-    </button>
-
-    <pre id="logs">[INIT] Test harness initialized.</pre>
-</div>
-
-</div>
-
-<script>
-"use strict";
-
-const state = {
-    mediaActive: false,
-    backgroundMonitor: null,
-    timerTest: null,
-    audioContext: null,
-    oscillator: null,
-    logs: [],
-    actionCounts: {}
-};
-
-const $ = id => document.getElementById(id);
-
-function log(message, data = null) {
-    const timestamp = new Date().toISOString();
-
-    const entry = {
-        timestamp,
-        message,
-        data,
-        visibility: document.visibilityState,
-        userActivation: navigator.userActivation
-            ? {
-                active: navigator.userActivation.isActive,
-                hasBeenActive: navigator.userActivation.hasBeenActive
-            }
-            : null
-    };
-
-    state.logs.push(entry);
-
-    const output = state.logs.map(item => {
-        return `[${item.timestamp}] ${item.message}` +
-            (item.data ? "\n" + JSON.stringify(item.data) : "");
-    }).join("\n\n");
-
-    $("logs").textContent = output;
-    $("logs").scrollTop = $("logs").scrollHeight;
-
-    console.log("[Navigation Test]", entry);
-}
-
-function updateStatus() {
-    $("activation").textContent =
-        navigator.userActivation
-            ? (navigator.userActivation.isActive ? "Active" : "Inactive")
-            : "Unsupported";
-
-    $("visibility").textContent = document.visibilityState;
-
-    $("playback").textContent =
-        navigator.mediaSession?.playbackState || "none";
-}
-
-function updateActionCount(action) {
-    state.actionCounts[action] =
-        (state.actionCounts[action] || 0) + 1;
-
-    log("MEDIA ACTION RECEIVED", {
-        action,
-        count: state.actionCounts[action]
-    });
-}
-
-function createLocalDestination() {
-    const destination = new URL(location.href);
-    destination.searchParams.set("navigation_test", "destination");
-    return destination.href;
-}
-
-/*
- * Navigation is attempted only through an explicit test button.
- * The Media Session and timer tests only record whether the
- * browser reports transient user activation.
- */
-
-function testDirectNavigation() {
-    log("DIRECT CLICK TEST", {
-        active: navigator.userActivation?.isActive ?? null,
-        hasBeenActive: navigator.userActivation?.hasBeenActive ?? null
-    });
-
-    const destination = createLocalDestination();
-
-    try {
-        const result = window.open(destination, "_blank");
-
-        log("DIRECT WINDOW.OPEN RESULT", {
-            opened: result !== null,
-            destination
-        });
-
-        if (result === null) {
-            log("DIRECT NAVIGATION BLOCKED OR RESTRICTED");
-        }
-    } catch (error) {
-        log("DIRECT NAVIGATION ERROR", {
-            name: error.name,
-            message: error.message
-        });
-    }
-}
-
-function testMediaNavigation() {
-    log("MEDIA ACTION TEST", {
-        note: "This button is a direct user click, not a Media Session action.",
-        active: navigator.userActivation?.isActive ?? null
-    });
-
-    log("Use the actual media control on the notification or lockscreen to trigger the registered action.");
-}
-
-function testTimerNavigation() {
-    log("TIMER TEST STARTED");
-
-    clearTimeout(state.timerTest);
-
-    state.timerTest = setTimeout(() => {
-        log("TIMER CALLBACK EXECUTED", {
-            active: navigator.userActivation?.isActive ?? null,
-            hasBeenActive: navigator.userActivation?.hasBeenActive ?? null,
-            visibility: document.visibilityState
-        });
-
-        log("No navigation attempted by timer.");
-    }, 3000);
-}
-
-function registerMediaAction(action, callback) {
-    try {
-        navigator.mediaSession.setActionHandler(action, callback);
-        log("MEDIA ACTION REGISTERED", { action });
-    } catch (error) {
-        log("MEDIA ACTION REGISTRATION FAILED", {
-            action,
-            message: error.message
-        });
-    }
-}
-
-async function startMediaSession() {
-    if (!("mediaSession" in navigator)) {
-        $("mediaStatus").textContent =
-            "Media Session API tidak didukung browser ini.";
-
-        log("MEDIA SESSION UNSUPPORTED");
-        return;
-    }
-
-    if (state.mediaActive) {
-        log("MEDIA SESSION ALREADY ACTIVE");
-        return;
-    }
-
-    try {
-        const AudioContextClass =
-            window.AudioContext || window.webkitAudioContext;
-
-        if (AudioContextClass) {
-            state.audioContext = new AudioContextClass();
-
-            if (state.audioContext.state === "suspended") {
-                await state.audioContext.resume();
-            }
-
-            state.oscillator = state.audioContext.createOscillator();
-
-            const gain = state.audioContext.createGain();
-            gain.gain.value = 0;
-
-            state.oscillator.connect(gain);
-            gain.connect(state.audioContext.destination);
-
-            state.oscillator.start();
-        }
-
-        navigator.mediaSession.metadata =
-            new MediaMetadata({
-                title: "Navigation Policy Test",
-                artist: "Browser Security Research",
-                album: "Media Session Test",
-                artwork: []
-            });
-
-        navigator.mediaSession.playbackState = "playing";
-
-        registerMediaAction("play", () => {
-            updateActionCount("play");
-            log("PLAY ACTION USER ACTIVATION", {
-                active: navigator.userActivation?.isActive ?? null,
-                hasBeenActive: navigator.userActivation?.hasBeenActive ?? null
-            });
-        });
-
-        registerMediaAction("pause", () => {
-            updateActionCount("pause");
-            log("PAUSE ACTION USER ACTIVATION", {
-                active: navigator.userActivation?.isActive ?? null,
-                hasBeenActive: navigator.userActivation?.hasBeenActive ?? null
-            });
-        });
-
-        registerMediaAction("stop", () => {
-            updateActionCount("stop");
-            stopMediaSession();
-        });
-
-        registerMediaAction("nexttrack", () => {
-            updateActionCount("nexttrack");
-        });
-
-        registerMediaAction("previoustrack", () => {
-            updateActionCount("previoustrack");
-        });
-
-        registerMediaAction("seekbackward", () => {
-            updateActionCount("seekbackward");
-        });
-
-        registerMediaAction("seekforward", () => {
-            updateActionCount("seekforward");
-        });
-
-        state.mediaActive = true;
-
-        $("mediaStatus").textContent =
-            "Media Session aktif. Gunakan kontrol media browser.";
-
-        log("MEDIA SESSION STARTED");
-
-        updateStatus();
-
-    } catch (error) {
-        log("MEDIA SESSION START ERROR", {
-            name: error.name,
-            message: error.message
-        });
-    }
-}
-
-function stopMediaSession() {
-    if ("mediaSession" in navigator) {
-        const actions = [
-            "play",
-            "pause",
-            "stop",
-            "nexttrack",
-            "previoustrack",
-            "seekbackward",
-            "seekforward"
-        ];
-
-        actions.forEach(action => {
-            try {
-                navigator.mediaSession.setActionHandler(action, null);
-            } catch (_) {}
-        });
-
-        navigator.mediaSession.playbackState = "none";
-        navigator.mediaSession.metadata = null;
-    }
-
-    if (state.oscillator) {
-        try {
-            state.oscillator.stop();
-            state.oscillator.disconnect();
-        } catch (_) {}
-
-        state.oscillator = null;
-    }
-
-    if (state.audioContext) {
-        state.audioContext.close().catch(() => {});
-        state.audioContext = null;
-    }
-
-    state.mediaActive = false;
-
-    $("mediaStatus").textContent = "Media Session dihentikan.";
-
-    log("MEDIA SESSION STOPPED");
-
-    updateStatus();
-}
-
-function startBackgroundTest() {
-    if (state.backgroundMonitor) {
-        log("BACKGROUND MONITOR ALREADY ACTIVE");
-        return;
-    }
-
-    state.backgroundMonitor = setInterval(() => {
-        log("BACKGROUND MONITOR SAMPLE", {
-            visibility: document.visibilityState,
-            focus: document.hasFocus(),
-            active: navigator.userActivation?.isActive ?? null,
-            hasBeenActive:
-                navigator.userActivation?.hasBeenActive ?? null,
-            mediaState:
-                navigator.mediaSession?.playbackState || "none"
-        });
-    }, 5000);
-
-    $("backgroundStatus").textContent =
-        "Background monitor aktif. Interval 5 detik.";
-
-    log("BACKGROUND MONITOR STARTED");
-}
-
-function stopBackgroundTest() {
-    if (state.backgroundMonitor) {
-        clearInterval(state.backgroundMonitor);
-        state.backgroundMonitor = null;
-    }
-
-    $("backgroundStatus").textContent =
-        "Background monitor dihentikan.";
-
-    log("BACKGROUND MONITOR STOPPED");
-}
-
-document.addEventListener("visibilitychange", () => {
-    log("VISIBILITY CHANGE", {
-        visibility: document.visibilityState,
-        focus: document.hasFocus(),
-        active: navigator.userActivation?.isActive ?? null,
-        hasBeenActive:
-            navigator.userActivation?.hasBeenActive ?? null
-    });
-
-    updateStatus();
-});
-
-window.addEventListener("focus", () => {
-    log("WINDOW FOCUS");
-});
-
-window.addEventListener("blur", () => {
-    log("WINDOW BLUR");
-});
-
-window.addEventListener("pageshow", event => {
-    log("PAGE SHOW", {
-        persisted: event.persisted
-    });
-});
-
-window.addEventListener("pagehide", event => {
-    log("PAGE HIDE", {
-        persisted: event.persisted
-    });
-
-    stopBackgroundTest();
-    stopMediaSession();
-});
-
-function clearLogs() {
-    state.logs = [];
-    $("logs").textContent = "[LOG] Cleared.";
-}
-
-function exportLogs() {
-    const blob = new Blob(
-        [JSON.stringify(state.logs, null, 2)],
-        { type: "application/json" }
-    );
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "media-navigation-test.json";
-    link.click();
-
-    URL.revokeObjectURL(url);
-
-    log("LOG EXPORT REQUESTED");
-}
-
-$("mediaSupport").textContent =
-    "mediaSession" in navigator ? "Supported" : "Unsupported";
-
-updateStatus();
-
-setInterval(updateStatus, 1000);
-
-log("TEST HARNESS READY", {
-    userAgent: navigator.userAgent,
-    platform: navigator.platform,
-    mediaSession: "mediaSession" in navigator,
-    visibility: document.visibilityState
-});
-</script>
 </body>
 </html>
