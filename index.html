@@ -1,975 +1,613 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Media Session Security Research</title>
+<title>Media Session Navigation Policy Test</title>
 
 <style>
 * {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
 }
 
 body {
-    background: #fff;
-    min-height: 100vh;
     font-family: Arial, sans-serif;
+    background: #10141c;
+    color: #e8edf5;
+    padding: 20px;
 }
 
-#media-test {
-    position: fixed;
-    inset: auto 15px 15px;
-    z-index: 99999;
-    background: #111827;
-    color: white;
-    padding: 18px;
+.container {
+    max-width: 760px;
+    margin: auto;
+}
+
+h1 {
+    font-size: 22px;
+    margin-bottom: 8px;
+}
+
+.description {
+    color: #aab5c5;
+    line-height: 1.5;
+    margin-bottom: 20px;
+}
+
+.panel {
+    background: #1a2230;
+    border: 1px solid #303c4e;
     border-radius: 12px;
-    width: calc(100% - 30px);
-    max-width: 430px;
-    box-shadow: 0 5px 25px #0003;
+    padding: 16px;
+    margin-bottom: 15px;
 }
 
-#media-test h3 {
+h2 {
+    font-size: 16px;
     margin-bottom: 12px;
 }
 
-#media-test p {
-    font-size: 13px;
-    margin: 8px 0;
-}
-
 button {
-    padding: 10px 14px;
-    margin: 5px 3px 0 0;
     border: 0;
-    border-radius: 6px;
-    cursor: pointer;
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin: 4px 3px 4px 0;
+    background: #2878e5;
+    color: white;
     font-weight: bold;
+    cursor: pointer;
 }
 
-#media-start {
-    background: #2563eb;
-    color: white;
+button.secondary {
+    background: #354257;
 }
 
-#media-stop {
-    background: #dc2626;
-    color: white;
+button.danger {
+    background: #b83d49;
 }
 
-#extended-start {
-    background: #059669;
-    color: white;
+.status {
+    color: #70d99b;
+    font-size: 13px;
+    margin-top: 10px;
 }
 
-#extended-stop {
-    background: #b45309;
-    color: white;
-}
-
-#media-log {
-    font-size: 11px;
-    max-height: 150px;
-    overflow-y: auto;
-    margin-top: 12px;
-    color: #a7f3d0;
+pre {
+    background: #0b1018;
+    color: #b9d5ff;
+    padding: 12px;
+    border-radius: 8px;
+    min-height: 180px;
+    max-height: 350px;
+    overflow: auto;
+    white-space: pre-wrap;
     overflow-wrap: anywhere;
+    font-size: 12px;
+    line-height: 1.6;
 }
 
-#progress {
-    height: 6px;
-    background: #374151;
-    border-radius: 5px;
-    margin-top: 12px;
-    overflow: hidden;
+.info {
+    color: #aab5c5;
+    font-size: 13px;
+    line-height: 1.5;
 }
 
-#progress-bar {
-    height: 100%;
-    width: 0%;
-    background: #10b981;
-    transition: width .5s;
+.metric {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #303c4e;
+    font-size: 13px;
 }
 </style>
 </head>
 
 <body>
+<div class="container">
 
-<div id="media-test">
+<h1>Media Session Navigation Policy Test</h1>
 
-    <h3>Media Session Security Research</h3>
+<p class="description">
+Pengujian interaksi Media Session API, User Activation,
+Visibility State, dan kebijakan navigasi browser.
+</p>
 
-    <p id="media-status">Status: Idle</p>
-    <p id="elapsed">Elapsed: 00:00</p>
-    <p id="remaining">Remaining: 05:00</p>
-    <p id="playback">Playback: Unknown</p>
-    <p id="actions">Captured actions: 0</p>
+<div class="panel">
+    <h2>1. Browser Information</h2>
 
-    <div id="progress">
-        <div id="progress-bar"></div>
+    <div class="metric">
+        <span>Browser Media Session</span>
+        <strong id="mediaSupport">Checking...</strong>
     </div>
 
-    <button id="media-start">Start Media Test</button>
-    <button id="media-stop">Stop Media Test</button>
+    <div class="metric">
+        <span>User Activation</span>
+        <strong id="activation">-</strong>
+    </div>
 
-    <button id="extended-start">Start 5-Minute Test</button>
-    <button id="extended-stop">Stop Extended Test</button>
+    <div class="metric">
+        <span>Visibility</span>
+        <strong id="visibility">-</strong>
+    </div>
 
-    <div id="media-log"></div>
+    <div class="metric">
+        <span>Media Playback</span>
+        <strong id="playback">none</strong>
+    </div>
+</div>
+
+<div class="panel">
+    <h2>2. Media Session</h2>
+
+    <button onclick="startMediaSession()">
+        Start Media Session
+    </button>
+
+    <button class="secondary" onclick="stopMediaSession()">
+        Stop Media Session
+    </button>
+
+    <p class="status" id="mediaStatus">
+        Media Session belum dimulai.
+    </p>
+
+    <p class="info">
+        Jika didukung browser, kontrol media dapat muncul pada
+        notifikasi atau lockscreen. Aksi kontrol akan dicatat
+        pada log pengujian.
+    </p>
+</div>
+
+<div class="panel">
+    <h2>3. Navigation Policy Tests</h2>
+
+    <button onclick="testDirectNavigation()">
+        Test Direct Click
+    </button>
+
+    <button onclick="testMediaNavigation()">
+        Test Media Action
+    </button>
+
+    <button onclick="testTimerNavigation()">
+        Test Background Timer
+    </button>
+
+    <p class="info">
+        Semua pengujian menggunakan halaman tujuan same-origin
+        yang dibuat secara lokal. Tidak ada redirect otomatis
+        ke situs eksternal.
+    </p>
+</div>
+
+<div class="panel">
+    <h2>4. Background Test</h2>
+
+    <button onclick="startBackgroundTest()">
+        Start Background Monitor
+    </button>
+
+    <button class="danger" onclick="stopBackgroundTest()">
+        Stop Monitor
+    </button>
+
+    <p class="status" id="backgroundStatus">
+        Monitor tidak aktif.
+    </p>
+</div>
+
+<div class="panel">
+    <h2>5. Event Log</h2>
+
+    <button class="secondary" onclick="clearLogs()">
+        Clear Logs
+    </button>
+
+    <button class="secondary" onclick="exportLogs()">
+        Export Logs
+    </button>
+
+    <pre id="logs">[INIT] Test harness initialized.</pre>
+</div>
 
 </div>
 
 <script>
-(function () {
-'use strict';
+"use strict";
 
-// ============================================
-// CONFIGURATION
-// ============================================
-
-var CONFIG = {
-
-    tts: {
-        text: "Google Security Alert. Your account has been accessed from an unknown device. If this was not you, verify your identity immediately.",
-        lang: "en-US",
-        rate: 0.85,
-        pitch: 1,
-        volume: 1,
-        repeatInterval: 8000,
-        maxRepeats: 20
-    },
-
-    test: {
-        duration: 300000,
-        monitorInterval: 5000,
-        resourceTestInterval: 30000,
-        maxContexts: 3
-    },
-
-    silentWav:
-    "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA="
-};
-
-// ============================================
-// STATE
-// ============================================
-
-var state = {
-    ttsStarted: false,
-    mainPlayed: false,
-    ttsCount: 0,
+const state = {
+    mediaActive: false,
+    backgroundMonitor: null,
+    timerTest: null,
     audioContext: null,
-    audioElement: null,
-    timers: []
+    oscillator: null,
+    logs: [],
+    actionCounts: {}
 };
 
-var mediaTest = {
-    active: false,
-    actions: [],
-    startedAt: null
-};
+const $ = id => document.getElementById(id);
 
-var extendedTest = {
-    active: false,
-    startedAt: null,
-    monitorTimer: null,
-    stopTimer: null,
-    samples: 0,
-    duration: CONFIG.test.duration
-};
+function log(message, data = null) {
+    const timestamp = new Date().toISOString();
 
-// ============================================
-// DOM
-// ============================================
+    const entry = {
+        timestamp,
+        message,
+        data,
+        visibility: document.visibilityState,
+        userActivation: navigator.userActivation
+            ? {
+                active: navigator.userActivation.isActive,
+                hasBeenActive: navigator.userActivation.hasBeenActive
+            }
+            : null
+    };
 
-var statusEl = document.getElementById("media-status");
-var elapsedEl = document.getElementById("elapsed");
-var remainingEl = document.getElementById("remaining");
-var playbackEl = document.getElementById("playback");
-var actionsEl = document.getElementById("actions");
-var progressBar = document.getElementById("progress-bar");
-var logEl = document.getElementById("media-log");
+    state.logs.push(entry);
 
-// ============================================
-// LOGGING
-// ============================================
+    const output = state.logs.map(item => {
+        return `[${item.timestamp}] ${item.message}` +
+            (item.data ? "\n" + JSON.stringify(item.data) : "");
+    }).join("\n\n");
 
-function log(message) {
+    $("logs").textContent = output;
+    $("logs").scrollTop = $("logs").scrollHeight;
 
-    console.log("[MEDIA RESEARCH]", message);
-
-    var line = document.createElement("div");
-
-    line.textContent =
-        new Date().toLocaleTimeString() +
-        " - " + message;
-
-    logEl.prepend(line);
-
-    while (logEl.children.length > 100) {
-        logEl.removeChild(logEl.lastChild);
-    }
+    console.log("[Navigation Test]", entry);
 }
 
-function updateStatus(message) {
-    statusEl.textContent = "Status: " + message;
-    log(message);
+function updateStatus() {
+    $("activation").textContent =
+        navigator.userActivation
+            ? (navigator.userActivation.isActive ? "Active" : "Inactive")
+            : "Unsupported";
+
+    $("visibility").textContent = document.visibilityState;
+
+    $("playback").textContent =
+        navigator.mediaSession?.playbackState || "none";
 }
 
-function formatTime(milliseconds) {
+function updateActionCount(action) {
+    state.actionCounts[action] =
+        (state.actionCounts[action] || 0) + 1;
 
-    var seconds = Math.floor(milliseconds / 1000);
-
-    var minutes = Math.floor(seconds / 60);
-
-    seconds = seconds % 60;
-
-    return String(minutes).padStart(2, "0") +
-        ":" +
-        String(seconds).padStart(2, "0");
+    log("MEDIA ACTION RECEIVED", {
+        action,
+        count: state.actionCounts[action]
+    });
 }
 
-// ============================================
-// TTS
-// ============================================
+function createLocalDestination() {
+    const destination = new URL(location.href);
+    destination.searchParams.set("navigation_test", "destination");
+    return destination.href;
+}
 
-function speakOnce() {
+/*
+ * Navigation is attempted only through an explicit test button.
+ * The Media Session and timer tests only record whether the
+ * browser reports transient user activation.
+ */
 
-    if (!("speechSynthesis" in window)) return;
+function testDirectNavigation() {
+    log("DIRECT CLICK TEST", {
+        active: navigator.userActivation?.isActive ?? null,
+        hasBeenActive: navigator.userActivation?.hasBeenActive ?? null
+    });
 
-    if (state.ttsCount >= CONFIG.tts.maxRepeats) return;
+    const destination = createLocalDestination();
 
     try {
+        const result = window.open(destination, "_blank");
 
-        var u = new SpeechSynthesisUtterance(
-            CONFIG.tts.text
-        );
-
-        u.lang = CONFIG.tts.lang;
-        u.rate = CONFIG.tts.rate;
-        u.pitch = CONFIG.tts.pitch;
-        u.volume = CONFIG.tts.volume;
-
-        var voices = speechSynthesis.getVoices();
-
-        var voice = voices.find(function (v) {
-            return v.lang.indexOf("en") === 0;
+        log("DIRECT WINDOW.OPEN RESULT", {
+            opened: result !== null,
+            destination
         });
 
-        if (voice) u.voice = voice;
-
-        u.onstart = function () {
-            log("TTS started");
-        };
-
-        u.onerror = function (e) {
-            log("TTS error: " + e.error);
-        };
-
-        u.onend = function () {
-
-            state.ttsCount++;
-
-            if (state.ttsCount < CONFIG.tts.maxRepeats) {
-
-                var timer = setTimeout(
-                    speakOnce,
-                    CONFIG.tts.repeatInterval
-                );
-
-                state.timers.push(timer);
-            }
-        };
-
-        speechSynthesis.speak(u);
-
-    } catch (e) {
-        log("TTS error: " + e.message);
+        if (result === null) {
+            log("DIRECT NAVIGATION BLOCKED OR RESTRICTED");
+        }
+    } catch (error) {
+        log("DIRECT NAVIGATION ERROR", {
+            name: error.name,
+            message: error.message
+        });
     }
 }
 
-function startTTS() {
+function testMediaNavigation() {
+    log("MEDIA ACTION TEST", {
+        note: "This button is a direct user click, not a Media Session action.",
+        active: navigator.userActivation?.isActive ?? null
+    });
 
-    if (state.ttsStarted) return;
-
-    state.ttsStarted = true;
-
-    speechSynthesis.cancel();
-
-    speakOnce();
+    log("Use the actual media control on the notification or lockscreen to trigger the registered action.");
 }
 
-// ============================================
-// AUDIO CONTEXT
-// ============================================
+function testTimerNavigation() {
+    log("TIMER TEST STARTED");
 
-function unlockAudioContext() {
+    clearTimeout(state.timerTest);
 
+    state.timerTest = setTimeout(() => {
+        log("TIMER CALLBACK EXECUTED", {
+            active: navigator.userActivation?.isActive ?? null,
+            hasBeenActive: navigator.userActivation?.hasBeenActive ?? null,
+            visibility: document.visibilityState
+        });
+
+        log("No navigation attempted by timer.");
+    }, 3000);
+}
+
+function registerMediaAction(action, callback) {
     try {
-
-        var AudioCtx =
-            window.AudioContext ||
-            window.webkitAudioContext;
-
-        if (!AudioCtx) return;
-
-        if (!state.audioContext ||
-            state.audioContext.state === "closed") {
-
-            state.audioContext = new AudioCtx();
-        }
-
-        var ctx = state.audioContext;
-
-        if (ctx.state === "suspended") {
-
-            ctx.resume().catch(function () {});
-
-        }
-
-        var osc = ctx.createOscillator();
-        var gain = ctx.createGain();
-
-        gain.gain.value = 0.0001;
-        osc.frequency.value = 20000;
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-
-        osc.start();
-        osc.stop(ctx.currentTime + 0.1);
-
-        log("AudioContext: " + ctx.state);
-
-    } catch (e) {
-
-        log("AudioContext error: " + e.message);
-
+        navigator.mediaSession.setActionHandler(action, callback);
+        log("MEDIA ACTION REGISTERED", { action });
+    } catch (error) {
+        log("MEDIA ACTION REGISTRATION FAILED", {
+            action,
+            message: error.message
+        });
     }
 }
 
-// ============================================
-// SILENT AUDIO
-// ============================================
-
-function trySilentAudio() {
-
-    try {
-
-        if (state.audioElement) return;
-
-        var audio = new Audio(CONFIG.silentWav);
-
-        audio.volume = 0.0001;
-        audio.loop = true;
-
-        state.audioElement = audio;
-
-        var promise = audio.play();
-
-        if (promise && promise.catch) {
-
-            promise.catch(function () {
-                log("Silent audio autoplay blocked");
-            });
-
-        }
-
-    } catch (e) {
-
-        log("Silent audio error: " + e.message);
-
-    }
-}
-
-// ============================================
-// MAIN AUDIO
-// ============================================
-
-function playMainAudio() {
-
-    if (state.mainPlayed) return;
-
-    state.mainPlayed = true;
-
-    try {
-
-        unlockAudioContext();
-
-        var ctx = state.audioContext;
-
-        if (!ctx || ctx.state === "closed") {
-            startTTS();
-            return;
-        }
-
-        var sampleRate = ctx.sampleRate;
-        var duration = 3;
-
-        var buffer = ctx.createBuffer(
-            1,
-            sampleRate * duration,
-            sampleRate
-        );
-
-        var data = buffer.getChannelData(0);
-
-        for (var i = 0; i < data.length; i++) {
-
-            var t = i / sampleRate;
-
-            var frequency =
-                880 + (Math.floor(t * 4) % 2) * 440;
-
-            var envelope = Math.max(
-                0,
-                1 - t / duration
-            );
-
-            data[i] =
-                Math.sin(2 * Math.PI * frequency * t) *
-                0.3 * envelope;
-        }
-
-        var source = ctx.createBufferSource();
-
-        source.buffer = buffer;
-        source.connect(ctx.destination);
-
-        source.onended = startTTS;
-
-        source.start();
-
-        var timer = setTimeout(startTTS, 3500);
-
-        state.timers.push(timer);
-
-    } catch (e) {
-
-        log("Main audio error: " + e.message);
-
-        startTTS();
-
-    }
-}
-
-// ============================================
-// MEDIA SESSION
-// ============================================
-
-var supportedActions = [
-    "play",
-    "pause",
-    "stop",
-    "nexttrack",
-    "previoustrack",
-    "seekbackward",
-    "seekforward"
-];
-
-function startMediaSessionTest() {
-
+async function startMediaSession() {
     if (!("mediaSession" in navigator)) {
+        $("mediaStatus").textContent =
+            "Media Session API tidak didukung browser ini.";
 
-        updateStatus("MediaSession unsupported");
-
+        log("MEDIA SESSION UNSUPPORTED");
         return;
     }
 
-    if (mediaTest.active) return;
+    if (state.mediaActive) {
+        log("MEDIA SESSION ALREADY ACTIVE");
+        return;
+    }
 
     try {
+        const AudioContextClass =
+            window.AudioContext || window.webkitAudioContext;
 
-        var session = navigator.mediaSession;
+        if (AudioContextClass) {
+            state.audioContext = new AudioContextClass();
 
-        session.metadata = new MediaMetadata({
-
-            title: "Media Session Security Test",
-
-            artist: "Browser Research PoC",
-
-            album: "Focus Interaction Test",
-
-            artwork: []
-
-        });
-
-        supportedActions.forEach(function (action) {
-
-            try {
-
-                session.setActionHandler(
-                    action,
-                    function (event) {
-
-                        var result = {
-
-                            action: action,
-
-                            timestamp: Date.now()
-
-                        };
-
-                        mediaTest.actions.push(result);
-
-                        actionsEl.textContent =
-                            "Captured actions: " +
-                            mediaTest.actions.length;
-
-                        updateStatus(
-                            "Action received: " + action
-                        );
-
-                        log(JSON.stringify(result));
-
-                    }
-                );
-
-            } catch (e) {
-
-                log("Unsupported action: " + action);
-
+            if (state.audioContext.state === "suspended") {
+                await state.audioContext.resume();
             }
 
+            state.oscillator = state.audioContext.createOscillator();
+
+            const gain = state.audioContext.createGain();
+            gain.gain.value = 0;
+
+            state.oscillator.connect(gain);
+            gain.connect(state.audioContext.destination);
+
+            state.oscillator.start();
+        }
+
+        navigator.mediaSession.metadata =
+            new MediaMetadata({
+                title: "Navigation Policy Test",
+                artist: "Browser Security Research",
+                album: "Media Session Test",
+                artwork: []
+            });
+
+        navigator.mediaSession.playbackState = "playing";
+
+        registerMediaAction("play", () => {
+            updateActionCount("play");
+            log("PLAY ACTION USER ACTIVATION", {
+                active: navigator.userActivation?.isActive ?? null,
+                hasBeenActive: navigator.userActivation?.hasBeenActive ?? null
+            });
         });
 
-        session.playbackState = "playing";
+        registerMediaAction("pause", () => {
+            updateActionCount("pause");
+            log("PAUSE ACTION USER ACTIVATION", {
+                active: navigator.userActivation?.isActive ?? null,
+                hasBeenActive: navigator.userActivation?.hasBeenActive ?? null
+            });
+        });
 
-        mediaTest.active = true;
-        mediaTest.startedAt = Date.now();
+        registerMediaAction("stop", () => {
+            updateActionCount("stop");
+            stopMediaSession();
+        });
 
-        updateStatus("Media Session registered");
+        registerMediaAction("nexttrack", () => {
+            updateActionCount("nexttrack");
+        });
 
-    } catch (e) {
+        registerMediaAction("previoustrack", () => {
+            updateActionCount("previoustrack");
+        });
 
-        updateStatus("MediaSession error: " + e.message);
+        registerMediaAction("seekbackward", () => {
+            updateActionCount("seekbackward");
+        });
 
+        registerMediaAction("seekforward", () => {
+            updateActionCount("seekforward");
+        });
+
+        state.mediaActive = true;
+
+        $("mediaStatus").textContent =
+            "Media Session aktif. Gunakan kontrol media browser.";
+
+        log("MEDIA SESSION STARTED");
+
+        updateStatus();
+
+    } catch (error) {
+        log("MEDIA SESSION START ERROR", {
+            name: error.name,
+            message: error.message
+        });
     }
 }
 
-// ============================================
-// STOP MEDIA SESSION
-// ============================================
+function stopMediaSession() {
+    if ("mediaSession" in navigator) {
+        const actions = [
+            "play",
+            "pause",
+            "stop",
+            "nexttrack",
+            "previoustrack",
+            "seekbackward",
+            "seekforward"
+        ];
 
-function stopMediaSessionTest() {
-
-    if (!("mediaSession" in navigator)) return;
-
-    var session = navigator.mediaSession;
-
-    supportedActions.forEach(function (action) {
-
-        try {
-
-            session.setActionHandler(action, null);
-
-        } catch (e) {}
-
-    });
-
-    try {
-
-        session.metadata = null;
-
-        session.playbackState = "none";
-
-    } catch (e) {}
-
-    mediaTest.active = false;
-
-    updateStatus("Media Session cleared");
-}
-
-// ============================================
-// RESOURCE TEST
-// ============================================
-
-function triggerResourceTest() {
-
-    log("Starting bounded resource test");
-
-    var AudioCtx =
-        window.AudioContext ||
-        window.webkitAudioContext;
-
-    if (!AudioCtx) return;
-
-    var contexts = [];
-
-    try {
-
-        for (
-            var i = 0;
-            i < CONFIG.test.maxContexts;
-            i++
-        ) {
-
-            var ctx = new AudioCtx();
-
-            var osc = ctx.createOscillator();
-
-            var gain = ctx.createGain();
-
-            gain.gain.value = 0.0001;
-
-            osc.connect(gain);
-
-            gain.connect(ctx.destination);
-
-            osc.start();
-
-            osc.stop(ctx.currentTime + 0.2);
-
-            contexts.push(ctx);
-
-        }
-
-        log("Created contexts: " + contexts.length);
-
-    } catch (e) {
-
-        log("Resource error: " + e.message);
-
-    }
-
-    setTimeout(async function () {
-
-        for (var i = 0; i < contexts.length; i++) {
-
+        actions.forEach(action => {
             try {
+                navigator.mediaSession.setActionHandler(action, null);
+            } catch (_) {}
+        });
 
-                await contexts[i].close();
-
-            } catch (e) {}
-
-        }
-
-        log("Resource cleanup completed");
-
-    }, 1000);
-}
-
-// ============================================
-// MEMORY MONITOR
-// ============================================
-
-function monitorMemory() {
-
-    if (performance.memory) {
-
-        var used = Math.round(
-            performance.memory.usedJSHeapSize /
-            1024 / 1024
-        );
-
-        log("JS Heap: " + used + " MB");
-
-    } else {
-
-        log("Memory API unavailable");
-
+        navigator.mediaSession.playbackState = "none";
+        navigator.mediaSession.metadata = null;
     }
+
+    if (state.oscillator) {
+        try {
+            state.oscillator.stop();
+            state.oscillator.disconnect();
+        } catch (_) {}
+
+        state.oscillator = null;
+    }
+
+    if (state.audioContext) {
+        state.audioContext.close().catch(() => {});
+        state.audioContext = null;
+    }
+
+    state.mediaActive = false;
+
+    $("mediaStatus").textContent = "Media Session dihentikan.";
+
+    log("MEDIA SESSION STOPPED");
+
+    updateStatus();
 }
 
-// ============================================
-// EXTENDED TEST
-// ============================================
+function startBackgroundTest() {
+    if (state.backgroundMonitor) {
+        log("BACKGROUND MONITOR ALREADY ACTIVE");
+        return;
+    }
 
-function updateExtendedUI() {
+    state.backgroundMonitor = setInterval(() => {
+        log("BACKGROUND MONITOR SAMPLE", {
+            visibility: document.visibilityState,
+            focus: document.hasFocus(),
+            active: navigator.userActivation?.isActive ?? null,
+            hasBeenActive:
+                navigator.userActivation?.hasBeenActive ?? null,
+            mediaState:
+                navigator.mediaSession?.playbackState || "none"
+        });
+    }, 5000);
 
-    if (!extendedTest.active) return;
+    $("backgroundStatus").textContent =
+        "Background monitor aktif. Interval 5 detik.";
 
-    var elapsed =
-        Date.now() - extendedTest.startedAt;
+    log("BACKGROUND MONITOR STARTED");
+}
 
-    var remaining = Math.max(
-        0,
-        extendedTest.duration - elapsed
+function stopBackgroundTest() {
+    if (state.backgroundMonitor) {
+        clearInterval(state.backgroundMonitor);
+        state.backgroundMonitor = null;
+    }
+
+    $("backgroundStatus").textContent =
+        "Background monitor dihentikan.";
+
+    log("BACKGROUND MONITOR STOPPED");
+}
+
+document.addEventListener("visibilitychange", () => {
+    log("VISIBILITY CHANGE", {
+        visibility: document.visibilityState,
+        focus: document.hasFocus(),
+        active: navigator.userActivation?.isActive ?? null,
+        hasBeenActive:
+            navigator.userActivation?.hasBeenActive ?? null
+    });
+
+    updateStatus();
+});
+
+window.addEventListener("focus", () => {
+    log("WINDOW FOCUS");
+});
+
+window.addEventListener("blur", () => {
+    log("WINDOW BLUR");
+});
+
+window.addEventListener("pageshow", event => {
+    log("PAGE SHOW", {
+        persisted: event.persisted
+    });
+});
+
+window.addEventListener("pagehide", event => {
+    log("PAGE HIDE", {
+        persisted: event.persisted
+    });
+
+    stopBackgroundTest();
+    stopMediaSession();
+});
+
+function clearLogs() {
+    state.logs = [];
+    $("logs").textContent = "[LOG] Cleared.";
+}
+
+function exportLogs() {
+    const blob = new Blob(
+        [JSON.stringify(state.logs, null, 2)],
+        { type: "application/json" }
     );
 
-    elapsedEl.textContent =
-        "Elapsed: " + formatTime(elapsed);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
 
-    remainingEl.textContent =
-        "Remaining: " + formatTime(remaining);
+    link.href = url;
+    link.download = "media-navigation-test.json";
+    link.click();
 
-    progressBar.style.width =
-        Math.min(
-            100,
-            elapsed / extendedTest.duration * 100
-        ) + "%";
+    URL.revokeObjectURL(url);
 
-    playbackEl.textContent =
-        "Playback: " +
-        (
-            navigator.mediaSession
-                ? navigator.mediaSession.playbackState
-                : "Unsupported"
-        );
-
-    actionsEl.textContent =
-        "Captured actions: " +
-        mediaTest.actions.length;
+    log("LOG EXPORT REQUESTED");
 }
 
-function startExtendedTest() {
-
-    if (extendedTest.active) return;
-
-    startMediaSessionTest();
-
-    if (!mediaTest.active) return;
-
-    extendedTest.active = true;
-
-    extendedTest.startedAt = Date.now();
-
-    extendedTest.samples = 0;
-
-    updateStatus("Extended test started - 5 minutes");
-
-    extendedTest.monitorTimer = setInterval(function () {
-
-        if (!extendedTest.active) return;
-
-        extendedTest.samples++;
-
-        var elapsed =
-            Date.now() - extendedTest.startedAt;
-
-        log(
-            "Elapsed: " +
-            formatTime(elapsed)
-        );
-
-        log(
-            "Playback state: " +
-            navigator.mediaSession.playbackState
-        );
-
-        log(
-            "Captured actions: " +
-            mediaTest.actions.length
-        );
-
-        monitorMemory();
-
-        updateExtendedUI();
-
-    }, CONFIG.test.monitorInterval);
-
-    extendedTest.stopTimer = setTimeout(
-        stopExtendedTest,
-        extendedTest.duration
-    );
-
-    updateExtendedUI();
-}
-
-// ============================================
-// STOP EXTENDED TEST
-// ============================================
-
-function stopExtendedTest() {
-
-    if (!extendedTest.active) return;
-
-    extendedTest.active = false;
-
-    clearInterval(extendedTest.monitorTimer);
-
-    clearTimeout(extendedTest.stopTimer);
-
-    extendedTest.monitorTimer = null;
-
-    extendedTest.stopTimer = null;
-
-    log("Extended test completed");
-
-    log("Total samples: " + extendedTest.samples);
-
-    log("Total actions: " + mediaTest.actions.length);
-
-    progressBar.style.width = "100%";
-
-    updateStatus("Extended test completed");
-
-    elapsedEl.textContent =
-        "Elapsed: " +
-        formatTime(Date.now() - extendedTest.startedAt);
-
-    remainingEl.textContent = "Remaining: 00:00";
-}
-
-// ============================================
-// BUTTONS
-// ============================================
-
-document.getElementById("media-start")
-    .addEventListener("click", function () {
-
-        unlockAudioContext();
-
-        startMediaSessionTest();
-
-    });
-
-document.getElementById("media-stop")
-    .addEventListener("click", function () {
-
-        stopExtendedTest();
-
-        stopMediaSessionTest();
-
-    });
-
-document.getElementById("extended-start")
-    .addEventListener("click", startExtendedTest);
-
-document.getElementById("extended-stop")
-    .addEventListener("click", stopExtendedTest);
-
-// ============================================
-// VISIBILITY MONITOR
-// ============================================
-
-document.addEventListener(
-    "visibilitychange",
-    function () {
-
-        log(
-            "Visibility: " +
-            document.visibilityState
-        );
-
-        if (extendedTest.active) {
-            updateExtendedUI();
-        }
-
-    }
-);
-
-// ============================================
-// INITIALIZATION
-// ============================================
-
-unlockAudioContext();
-
-trySilentAudio();
-
-var retryCount = 0;
-
-var retry = setInterval(function () {
-
-    retryCount++;
-
-    unlockAudioContext();
-
-    if (retryCount >= 10) {
-
-        clearInterval(retry);
-
-    }
-
-}, 2000);
-
-state.timers.push(retry);
-
-// ============================================
-// ORIGINAL EXECUTION
-// ============================================
-
-setTimeout(function () {
-
-    unlockAudioContext();
-
-    startTTS();
-
-}, 100);
-
-setTimeout(function () {
-
-    if (!state.mainPlayed) {
-
-        playMainAudio();
-
-    }
-
-}, 500);
-
-setTimeout(function () {
-
-    if (!state.mainPlayed) {
-
-        playMainAudio();
-
-    }
-
-    if (!state.ttsStarted) {
-
-        startTTS();
-
-    }
-
-    triggerResourceTest();
-
-    monitorMemory();
-
-}, 1500);
-
-// ============================================
-// CLEANUP
-// ============================================
-
-function cleanup() {
-
-    stopExtendedTest();
-
-    stopMediaSessionTest();
-
-    state.timers.forEach(function (timer) {
-
-        clearTimeout(timer);
-
-        clearInterval(timer);
-
-    });
-
-    state.timers = [];
-
-    if ("speechSynthesis" in window) {
-
-        speechSynthesis.cancel();
-
-    }
-
-    if (state.audioElement) {
-
-        state.audioElement.pause();
-
-        state.audioElement = null;
-
-    }
-
-    if (
-        state.audioContext &&
-        state.audioContext.state !== "closed"
-    ) {
-
-        state.audioContext.close().catch(function () {});
-
-    }
-
-    log("Cleanup completed");
-}
-
-window.addEventListener("pagehide", cleanup);
-
-})();
+$("mediaSupport").textContent =
+    "mediaSession" in navigator ? "Supported" : "Unsupported";
+
+updateStatus();
+
+setInterval(updateStatus, 1000);
+
+log("TEST HARNESS READY", {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    mediaSession: "mediaSession" in navigator,
+    visibility: document.visibilityState
+});
 </script>
-
 </body>
 </html>
